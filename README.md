@@ -38,7 +38,7 @@ The API is exposed as:
 ```js
 game.abouttime    // Preferred
 game.Gametime     // Deprecated, kept for backwards compatibility
-
+```
 Key Methods
 | Method                                      | Description                                   |
 | ------------------------------------------- | --------------------------------------------- |
@@ -71,24 +71,28 @@ Example:
 These examples work with or without Simple Calendar.
 
 Schedule a Macro to Run in 5 Minutes
+```js
 game.abouttime.doIn({ minutes: 5 }, () => {
   ui.notifications.info("Five minutes have passed!");
 });
-
+```
 Schedule a Reminder at a Specific Game Time
+```js
 game.abouttime.reminderAt(
   { hour: 12, minute: 0, second: 0 },
   "It is high noon!"
 );
-
+```
 Repeat Every Round (6 seconds)
+```js
 game.abouttime.doEvery({ seconds: 6 }, () => {
   console.log("New combat round started!");
 });
-
+```
 Trigger a Custom Hook in 30 Seconds
+```js
 game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
-
+```
 ## 📜 Legacy Macro Globals
 For old macros, these globals are still defined:
 
@@ -120,22 +124,27 @@ MIT — see LICENSE file.
 **1. Reminder in 1 minute**
 ```js
 game.abouttime.reminderIn({ minutes: 1 }, "One minute has passed!");
-
+```
 2. Repeat every 10 seconds
+```js
 game.abouttime.doEvery({ seconds: 10 }, () => {
   ui.notifications.info("10 seconds passed!");
 });
-
-3. Run a macro at 6:00 AM game time
+```
+4. Run a macro at 6:00 AM game time
+```js
 game.abouttime.doAt({ hour: 6, minute: 0 }, () => {
   ChatMessage.create({ content: "Good morning!" });
 });
-
-4. Print the queue to chat
+```
+5. Print the queue to chat
+```js
 game.abouttime.chatQueue({ showArgs: true, showUid: true, showDate: true, gmOnly: false });
-
-5. Cancel an event
+```
+6. Cancel an event
+```js
 let uid = game.abouttime.doIn({ seconds: 30 }, () => {
   console.log("This will be cancelled!");
 });
 game.abouttime.gclearTimeout(uid);
+```
