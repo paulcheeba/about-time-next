@@ -1,0 +1,41 @@
+{
+  "I18N.LANGUAGE": "Español",
+  "I18N.MAINTAINERS": "@Viriato139ac#0342",
+  
+  "about-time.notMaster": "Actualmente no tiene el control del tiempo - operación abortada",
+  "about-time.GTM.name": "Multiplicador de tiempo de juego",
+  "about-time.GTM.hint": "El tiempo de juego avanza estos segundos por cada segundo de tiempo real",
+  "about-time.RTU.name": "Intervalo de actualización",
+  "about-time.RTU.hint": "Cada cuanto se actualiza el tiempo de juego. Por ejemplo, si se establece a '30', el tiempo de juego se actualizará cada 30 segundos de tiempo real. Si se establece a '0' el reloj no se actualizará con el tiempo real",
+  "about-time.SPR.name": "Segundos por asalto",
+  "about-time.SPR.hint": "Número de segundos que dura un asalto de combate",
+  "about-time.MCT.name": "Tiempo de espera antes de asumir el control del tiempo",
+  "about-time.MCT.hint": "Cuantos segundos se debe esperar después de que un cliente con permisos de GM se una a la partida para comprobar si existe otra cuenta de GM con el control del tiempo",
+  "about-time.CAL.name": "Calendario activo",
+  "about-time.CAL.hint": "Elige qué calendario usar en el juego",
+  
+  "about-time.Date": "Fecha",
+  "about-time.Year": "A",
+  "about-time.Month": "M",
+  "about-time.Day": "D",
+  "about-time.Hour": "H",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Detalles del calendario",
+  "about-time.current": "Fecha y hora actual",
+  "about-time.monthDetails": "Detalle del mes",
+  "about-time.weekDays": "Días de la semana",
+  "about-time.yearNames": "Nombres de los años",
+
+  "about-time.display.advance1min": "Avanzar 1 minuto",
+  "about-time.display.advance10min": "Advanzar 10 minutos",
+  "about-time.display.advance1h": "Avanzar 1 hora",
+  "about-time.display.advance8h": "Avanzar 8 horas",
+  "about-time.display.advance7am": "Avanzar hasta las 7am",
+  "about-time.display.advance7pm": "Avanzar hasta las 7pm",
+  "about-time.display.advanceMidDay": "Avanzar hasta el mediodía",
+  "about-time.display.advanceMidnight": "Avanzar hasta la medianoche",
+
+  "about-time.countDown.startStop": "Iniciar/parar psuedoreloj"
+}

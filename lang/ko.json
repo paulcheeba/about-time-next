@@ -1,0 +1,42 @@
+
+{
+  "I18N.LANGUAGE": "한국어",
+  "I18N.MAINTAINERS": "KLO",
+
+  "about-time.notMaster": "마스터 시간 관리자가 아님 - 작동 중단",
+  "about-time.GTM.name": "게임 시간 업데이트 배율",
+  "about-time.GTM.hint": "실제 시간의 매 초마다 설정된 배율만큼의 게임 시계 초 단위가 변경된다.",
+  "about-time.RTU.name": "실제 시간 간격",
+  "about-time.RTU.hint": "게임 시계가 업데이트 되는 빈도, 즉 30초마다 실시간으로 업데이트 된다. 만약 0이라면 실제 시간의 변화는 게임 시계에 업데이트 되지 않는다.",
+  "about-time.SPR.name": "초/라운드",
+  "about-time.SPR.hint": "라운드 당 흐르는 게임 시간.",
+  "about-time.MCT.name": "마스터 시계를 맡기 전의 타임 아웃",
+  "about-time.MCT.hint": "GM 클라이언트가 참여했을 때 다른 GM 계정이 이미 마스터 시간 관리자일 경우 확인하기까지 걸리는 시간",
+  "about-time.CAL.name": "달력 활성화",
+  "about-time.CAL.hint": "게임 내에서 사용할 달력 선택",
+
+  "about-time.Date": "날짜",
+  "about-time.Year": "년",
+  "about-time.Month": "월",
+  "about-time.Day": "일",
+  "about-time.Hour": "시",
+  "about-time.Minute": "분",
+  "about-time.Second": "초",
+
+  "about-time.details": "달력 세부사항",
+  "about-time.current": "현재 날짜 & 시간",
+  "about-time.monthDetails": "월 상세",
+  "about-time.weekDays": "주간 일자",
+  "about-time.yearNames": "역법 이름",
+
+  "about-time.display.advance1min": "1분 진행",
+  "about-time.display.advance10min": "10분 진행",
+  "about-time.display.advance1h": "1시간 진행",
+  "about-time.display.advance8h": "8시간 진행",
+  "about-time.display.advance7am": "오전 7시로 진행",
+  "about-time.display.advance7pm": "오후 7시로 진행",
+  "about-time.display.advanceMidDay": "정오로 진행",
+  "about-time.display.advanceMidnight": "자정으로 진행",
+
+  "about-time.countDown.startStop": "의사 시계 시작/정지."
+}

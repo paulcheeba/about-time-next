@@ -1,0 +1,38 @@
+{
+  "I18N.LANGUAGE": "Italiano",
+  "I18N.MAINTAINERS": "Simone",
+
+  "about-time.notMaster": "Nessun master timekeeper - Operazione annullata",
+  "about-time.GTM.name": "Moltiplicatore del tempo di gioco",
+  "about-time.GTM.hint": "'moltiplicatore' dei secondi di gioco per ogni secondo di tempo reale",
+  "about-time.RTU.name": "Intervallo in tempo reale",
+  "about-time.RTU.hint": "Con quale frequenza si aggiorna l'orologio di gioco. Ad esempio impostando 30 l'orologio di gioco si aggiornerà ogni 30 secondi di tempo reale. Impostando 0 l'orologio di gioco non si aggiornerà con l'avanzamento di tempo reale",
+  "about-time.SPR.name": "Secondi di gioco per round",
+  "about-time.SPR.hint": "Quanto dura ogni round di combattimento",
+  "about-time.MCT.name": "Timeout prima di impostare il master clock",
+  "about-time.MCT.hint": "Quando un client GM si unisce, quanto tempo attendere per controllare se un altro account GM è già impostato come \"master timekeeper\"",
+  "about-time.CAL.name": "Calendario attivo",
+  "about-time.CAL.hint": "Scegli quale calendario utilizzare nel gioco",
+
+  "about-time.Date": "Data",
+  "about-time.Year": "A",
+  "about-time.Month": "M",
+  "about-time.Day": "G",
+  "about-time.Hour": "O",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Dettagli Calendario",
+  "about-time.current": "Data e Orario Corrente",
+  "about-time.monthDetails": "Dettaglio Mese",
+  "about-time.weekDays": "Giorni della Settimana",
+
+  "about-time.display.advance1min": "Avanza di 1 minuto",
+  "about-time.display.advance10min": "Avanza di 10 minuti",
+  "about-time.display.advance1h": "Avanza di 1 ora",
+  "about-time.display.advance8h": "Avanza di 8 ore",
+  "about-time.display.advance7am": "Avanza alle 7am del giorno successivo ",
+  "about-time.display.advanceMidnight": "Avanza a mezzanotte",
+
+  "about-time.countDown.startStop": "Avvia/ferma psuedoclock."
+}

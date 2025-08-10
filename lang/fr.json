@@ -1,0 +1,38 @@
+{
+  "I18N.LANGUAGE": "Français",
+  "I18N.MAINTAINERS": "",
+
+  "about-time.notMaster": "Non maître du temps - opération annulée",
+  "about-time.GTM.name": "Facteur de temps dans le jeu",
+  "about-time.GTM.hint": "Facteur multiplicateur appliqué à l'horloge du jeu pour chaque seconde réelle.",
+  "about-time.RTU.name": "Intervalle temps réel",
+  "about-time.RTU.hint": "Nombre de secondes entre chaque mise à jour de l'horloge du jeu. 0 pour mettre à jour à chaque changement du temps réel.",
+  "about-time.SPR.name": "Durée d'un round",
+  "about-time.SPR.hint": "Durée en secondes d'un round dans l'univers du jeu",
+  "about-time.MCT.name": "Délais max. avant de devenir maître du temps",
+  "about-time.MCT.hint": "Délais d'attente maximum pour voir si un autre compte gamemaster est déjà maître du temps quand un gamemaster se connecte.",
+  "about-time.CAL.name": "Calendrier en usage",
+  "about-time.CAL.hint": "Choisissez quel calendrier utiliser pour ce monde",
+  
+  "about-time.Date": "Date",
+  "about-time.Year": "Y",
+  "about-time.Month": "M",
+  "about-time.Day": "D",
+  "about-time.Hour": "H",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Calendar Details",
+  "about-time.current": "Current Date & Time",
+  "about-time.monthDetails": "Month Details",
+  "about-time.weekDays": "Week Days",
+
+  "about-time.display.advance1min": "Advance 1 minute",
+  "about-time.display.advance10min": "Advance 10 minutes",
+  "about-time.display.advance1h": "Advance 1 hour",
+  "about-time.display.advance8h": "Advance 8 hours",
+  "about-time.display.advance7am": "Advance to 7am the next day",
+  "about-time.display.advanceMidnight": "Advance to midnight",
+
+  "about-time.countDown.startStop": "Start/Stop psuedoclock."
+}

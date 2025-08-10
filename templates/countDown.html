@@ -1,0 +1,29 @@
+<form>
+  <div id="cabout-time-calendar">
+    <h3 id="about-time-calendar-hdr" class="about-time-calendar-hdr">
+      <span id="about-time-calendar-date">{{now.date}} {{now.time}}</span>
+    </h3>
+    <div class="about-time-calendar-container">
+      {{#if running}}
+      <div class="about-time-clock-running">
+        {{else}}
+        <div class="about-time-clock-stopped">
+          {{/if}}
+          <span id="about-time-calendar-time" title="{{ localize " about-time.countDown.startStop" }}">
+            <h1>{{timeRemaining}}</h1>
+          </span>
+        </div>
+        {{#if isGM}}
+        <div class="about-time-calendar-btn-container">
+          <i id="about-time-calendar-btn-min" class="fas fa-play about-time-fa-play" title="{{ localize "
+            about-time.display.advance1min" }}"></i>
+          <i id="about-time-calendar-btn-tenMin" class="fas fa-step-forward about-time-fa-step-forward"
+            title="{{ localize " about-time.display.advance10min" }}"></i>
+          <i id="about-time-calendar-btn-long" class="fas fa-fast-forward about-time-fa-fast-forward"
+            title="{{ localize " about-time.display.advance1h" }}"></i>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </div>
+</form>
