@@ -1,7 +1,7 @@
 # About Time (v13.0.1)
-[![Latest Release](https://img.shields.io/github/v/release/YOUR-USERNAME/YOUR-REPO?sort=semver&label=Latest%20Release)](https://github.com/YOUR-USERNAME/YOUR-REPO/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/paulcheeba/about-time-v13?sort=semver&label=Latest%20Release)](https://github.com/paulcheeba/about-time-v13/releases/latest)
 [![Foundry Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-USERNAME%2FYOUR-REPO%2Fmain%2Fmodule.json&label=Foundry%20Version&query=$.compatibility.verified&color=4A90E2)](https://foundryvtt.com)
-[![Install in Foundry](https://img.shields.io/badge/Install%20Module-Foundry%20VTT-brightgreen)](https://raw.githubusercontent.com/YOUR-USERNAME/YOUR-REPO/main/module.json)
+[![Install in Foundry](https://img.shields.io/badge/Install%20Module-Foundry%20VTT-brightgreen)](https://raw.githubusercontent.com/paulcheeba/about-time-v13/main/module.json)
 
 **About Time** is a timekeeping and event scheduling utility for Foundry VTT.  
 It works with **Simple Calendar** (if installed) or falls back to Foundry’s core time system.  
