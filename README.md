@@ -3,13 +3,6 @@ ChatGPT helped me bring about-time to fvtt v13.
 
 The following is copied from tposney's gitlab readme:
 
-![](https://img.shields.io/badge/Foundry-v10-informational)
-![](https://img.shields.io/badge/Foundry-v11-informational)
-![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Fabout-time&colorB=4aa94a)
-
-Discord <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney) 
 ## What does about-time do?
 You can trigger events to occur at specified times. 
 
@@ -198,5 +191,4 @@ RealTimeCountdown creates a real time (not game time) countdown timer. Game time
 ## Usage
 When the module is enabld a psuedo clock is started on the GM's client. Each other client recieves time updates from the GM's client  whnever the GM changes the clock.
 
-Why should I care?  
-
+Buy TPosney a kofi! [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney) 
