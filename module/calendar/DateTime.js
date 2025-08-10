@@ -1,94 +1,67 @@
-// calendar/DateTime.js (v13-ready)
+import { MODULE_ID } from "../settings.js";
 
-import { ElapsedTime } from "../ElapsedTime.js";
+const warn = (...args) => console.warn(`${MODULE_ID} |`, ...args);
 
-let warn = (...args) => {
-  if (ElapsedTime.debug) console.warn("about-time | ", ...args);
-};
-let log = (...args) => {
-  console.log("about-time | ", ...args);
-};
+function isSCActive() {
+  const useSC = game.settings?.get?.(MODULE_ID, "use-simple-calendar") ?? true;
+  if (!useSC) return false;
+  const sc = game.modules.get("foundryvtt-simple-calendar") ?? game.modules.get("simple-calendar");
+  return !!(sc && sc.active && globalThis.SimpleCalendar?.api);
+}
 
-// Keep the shim so older About Time macros using years/months/... still work.
-// Newer SC API uses singular keys: year, month, day, hour, minute, second.
 let compatShim = true;
 
-/** Simple Calendar clock status (guarded). */
 export function clockStatus() {
-  const api = globalThis.SimpleCalendar?.api;
-  if (!api) return { started: false, paused: true };
-  return api.clockStatus();
+  if (!isSCActive()) return { started: false, paused: true };
+  return globalThis.SimpleCalendar.api.clockStatus();
 }
 
-/** Convert seconds to an interval, then adapt to About Time's legacy shape if compatShim. */
 export function secondsToInterval(seconds) {
-  const api = globalThis.SimpleCalendar?.api;
-  if (!api) return { years: 0, months: 0, days: 0, hours: 0, minutes: 0, seconds };
-  // SC returns {year, month, day, hour, minute, second}
-  const interval = api.secondsToInterval(seconds);
-  return intervalSCtoAT(interval);
+  if (!isSCActive()) {
+    const s = Math.max(0, Number(seconds) || 0);
+    const year = 0, month = 0, day = 0;
+    const hour = Math.floor((s / 3600) % 24);
+    const minute = Math.floor((s / 60) % 60);
+    const second = Math.floor(s % 60);
+    return intervalSCtoAT({ year, month, day, hour, minute, second });
+  }
+  const iv = globalThis.SimpleCalendar.api.secondsToInterval(seconds);
+  return intervalSCtoAT(iv);
 }
 
-/** Foundry world time in seconds (authoritative). */
-export function currentWorldTime() {
-  return game.time.worldTime;
-}
+export function currentWorldTime() { return game.time.worldTime; }
 
-/** SC “now” timestamp (guarded). Falls back to Foundry world time. */
 export function timestamp() {
-  const api = globalThis.SimpleCalendar?.api;
-  return api?.timestamp() ?? currentWorldTime();
+  return isSCActive()
+    ? (globalThis.SimpleCalendar.api.timestamp?.() ?? currentWorldTime())
+    : currentWorldTime();
 }
 
-/** Convert an SC/AT-like date object to a timestamp via SC, with shimming. */
 export function dateToTimestamp(date) {
-  const api = globalThis.SimpleCalendar?.api;
-  if (!api) {
+  if (!isSCActive()) {
     warn("Simple Calendar API not available; dateToTimestamp falling back to worldTime.");
     return currentWorldTime();
   }
   const scDate = intervalATtoSC(date);
-  return api.dateToTimestamp(scDate);
+  return globalThis.SimpleCalendar.api.dateToTimestamp(scDate);
 }
 
-/**
- * Convert an About Time interval (years/months/... or year/month/...) to
- * Simple Calendar interval shape {year, month, day, hour, minute, second}.
- */
 export function intervalATtoSC(interval) {
   const newInterval = {};
-  // If user passed plural keys, nudge them and map to singular.
-  if (
-    interval?.years !== undefined ||
-    interval?.months !== undefined ||
-    interval?.days !== undefined ||
-    interval?.hours !== undefined ||
-    interval?.minutes !== undefined ||
-    interval?.seconds !== undefined
-  ) {
-    warn("About Time | DT Mod notation has changed: prefer .year/.month/.day/.hour/.minute/.second");
-    warn("About Time | DT Mod is deprecated — prefer SimpleCalendar.api helpers.");
+  if (interval?.years !== undefined || interval?.months !== undefined || interval?.days !== undefined || interval?.hours !== undefined || interval?.minutes !== undefined || interval?.seconds !== undefined) {
+    warn("DT Mod notation changed: prefer .year/.month/.day/.hour/.minute/.second");
   }
-
   newInterval.year   = interval?.year   ?? interval?.years   ?? 0;
   newInterval.month  = interval?.month  ?? interval?.months  ?? 0;
   newInterval.day    = interval?.day    ?? interval?.days    ?? 0;
   newInterval.hour   = interval?.hour   ?? interval?.hours   ?? 0;
   newInterval.minute = interval?.minute ?? interval?.minutes ?? 0;
-  // SC uses singular 'second'
   newInterval.second = interval?.second ?? interval?.seconds ?? 0;
-
   return newInterval;
 }
 
-/**
- * Convert a Simple Calendar interval {year, month, day, hour, minute, second}
- * to the legacy About Time interval {years, months, days, hours, minutes, seconds}
- * when compatShim is true.
- */
 export function intervalSCtoAT(interval) {
   if (!compatShim) return { ...interval };
-
   return {
     years:   interval?.year   ?? interval?.years   ?? 0,
     months:  interval?.month  ?? interval?.months  ?? 0,
@@ -99,7 +72,4 @@ export function intervalSCtoAT(interval) {
   };
 }
 
-/** Pad with leading zeros (utility). */
-export function padNumber(n, digits = 2) {
-  return `${n}`.padStart(digits, "0");
-}
+export function padNumber(n, digits = 2) { return `${n}`.padStart(digits, "0"); }
