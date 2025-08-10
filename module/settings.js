@@ -1,11 +1,8 @@
-// settings.js (v13-ready)
-
 import { ElapsedTime } from "./ElapsedTime.js";
 
-const MODULE_ID = "about-time-v13";
+export const MODULE_ID = "about-time-v13";
 
 export const registerSettings = function () {
-  // Persistent queue store (world scope, hidden from config UI)
   game.settings.register(MODULE_ID, "store", {
     name: "Elapsed Time event queue",
     hint: "Internal storage for About Time. Do not edit.",
@@ -15,7 +12,6 @@ export const registerSettings = function () {
     default: {}
   });
 
-  // Debug toggle (client scope, visible)
   game.settings.register(MODULE_ID, "debug", {
     name: "Debug output",
     hint: "Enable verbose logging for About Time.",
@@ -23,11 +19,18 @@ export const registerSettings = function () {
     config: true,
     type: Boolean,
     default: false,
-    // Bind to ensure correct 'this' (not strictly needed here, but safe)
     onChange: (...args) => ElapsedTime._fetchParams(...args)
   });
 
-  // Calendar-weather compatibility value (kept for backward compatibility)
+  game.settings.register(MODULE_ID, "use-simple-calendar", {
+    name: "Use Simple Calendar (if installed)",
+    hint: "Disable to ignore Simple Calendar and always use Foundry core time/formatting.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   game.settings.register(MODULE_ID, "election-timeout", {
     name: "For calendar-weather",
     hint: "Internal timing for master timekeeper election. Do not edit.",
