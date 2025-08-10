@@ -1,0 +1,80 @@
+name: Release About Time
+
+on:
+  push:
+    tags:
+      - "v*.*.*"        # triggers when you push tags like v13.0.0, v13.0.1, etc.
+  workflow_dispatch:     # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write        # needed to create releases and upload assets
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # OPTIONAL build step
+      # If you ever add a build (TypeScript/bundler), uncomment and customize:
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: "20"
+      # - name: Install deps
+      #   run: npm ci
+      # - name: Build
+      #   run: npm run build
+
+      - name: Read version from module.json
+        id: ver
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+          VERSION=$(jq -r '.version' module.json)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches module.json version
+        run: |
+          TAG="${GITHUB_REF_NAME}"            # e.g. v13.0.1
+          VERSION="${{ steps.ver.outputs.version }}"  # e.g. 13.0.1
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "Tag ($TAG) does not match module.json version (v$VERSION)."
+            echo "Bump module.json 'version' and re-tag."
+            exit 1
+          fi
+
+      - name: Create zip
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          ZIP="about-time-v${VERSION}.zip"
+
+          # Fail if required files are missing
+          test -f module.json
+          test -f about-time.js
+          test -d module
+          test -d templates
+          test -d lang
+
+          # Create the zip so its ROOT contains module.json (not nested folders)
+          zip -r "$ZIP" \
+            module.json about-time.js \
+            lang templates module \
+            2>/dev/null || true
+
+          echo "zipname=$ZIP" >> "$GITHUB_OUTPUT"
+        id: zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}                  # v13.0.1
+          name: About Time ${{ github.ref_name }}           # Release title
+          draft: false
+          prerelease: false
+          files: ${{ steps.zip.outputs.zipname }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
