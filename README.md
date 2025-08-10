@@ -55,7 +55,7 @@ Key Methods
 | `gclearTimeout(uid)`                        | Cancel a scheduled event.                     |
 | `DTNow()`                                   | Get current world time (seconds).             |
 
-🗣 /at Chat Command
+## 🗣 /at Chat Command
 Available in chat:
 
 /at queue — Show current scheduled events
@@ -67,7 +67,7 @@ Available in chat:
 Example:
 /at in 10 Time for a coffee break!
 
-⏱ Examples
+## ⏱ Examples
 These examples work with or without Simple Calendar.
 
 Schedule a Macro to Run in 5 Minutes
@@ -89,7 +89,7 @@ game.abouttime.doEvery({ seconds: 6 }, () => {
 Trigger a Custom Hook in 30 Seconds
 game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
-📜 Legacy Macro Globals
+## 📜 Legacy Macro Globals
 For old macros, these globals are still defined:
 
 DMf → DTMod.create
@@ -102,14 +102,14 @@ DTNow → Get current world time (seconds)
 
 DTf → Soft alias to DMf (deprecated)
 
-🧪 Testing Without Simple Calendar
+## 🧪 Testing Without Simple Calendar
 If Simple Calendar is not installed or disabled:
 
 Times in output appear as t+<seconds>
 
 All scheduling functions still work the same
 
-📝 License
+## 📝 License
 MIT — see LICENSE file.
 
 
