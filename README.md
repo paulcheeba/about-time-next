@@ -17,7 +17,7 @@ This fork is updated for Foundry VTT **v13** and has:
 1. Download and install via Foundry’s module browser  
    **OR** add the manifest URL:  
 ```
-https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
+https://github.com/paulcheeba/about-time-v13/blob/main/module.json
 ```
 2. Enable the module in your world.
 3. (Optional) Install [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar) for advanced date formatting.
