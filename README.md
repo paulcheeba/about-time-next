@@ -54,7 +54,7 @@ Key Methods
 | `notifyIn(interval, eventName, ...args)`    | Trigger a Foundry hook after an interval.     |
 | `notifyEvery(interval, eventName, ...args)` | Trigger a Foundry hook repeatedly.            |
 | `chatQueue(options)`                        | Print the event queue to chat.                |
-| `gclearTimeout(uid)`                        | Cancel a scheduled event.                     |
+| `clearTimeout(uid)`                         | Cancel a scheduled event.                     |
 | `DTNow()`                                   | Get current world time (seconds).             |
 
 ## 🗣 /at Chat Command
@@ -66,11 +66,11 @@ Available in chat:
 - `/at in <duration> <message>` — schedule one-time reminder  
 - `/at every <duration> <message>` — schedule repeating reminder  
 
-**Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds.  
+**Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds. (plain number = seconds) 
 Examples:
 - /at in 10m Check the stew
 - /at every 1h Random Encounter
-- /at stop abc123(uid)
+- /at stop abc123
 - /at clear
 - /at in 10 Time for a coffee break!
 
@@ -132,23 +132,23 @@ MIT — see LICENSE file.
 ```js
 game.abouttime.reminderIn({ minutes: 1 }, "One minute has passed!");
 ```
-2. Repeat every 10 seconds
+**2. Repeat every 10 seconds**
 ```js
 game.abouttime.doEvery({ seconds: 10 }, () => {
   ui.notifications.info("10 seconds passed!");
 });
 ```
-4. Run a macro at 6:00 AM game time
+**3. Run a macro at 6:00 AM game time**
 ```js
 game.abouttime.doAt({ hour: 6, minute: 0 }, () => {
   ChatMessage.create({ content: "Good morning!" });
 });
 ```
-5. Print the queue to chat
+**4. Print the queue to chat**
 ```js
 game.abouttime.chatQueue({ showArgs: true, showUid: true, showDate: true, gmOnly: false });
 ```
-6. Cancel an event
+**5. Cancel an event**
 ```js
 let uid = game.abouttime.doIn({ seconds: 30 }, () => {
   console.log("This will be cancelled!");
