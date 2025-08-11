@@ -1,12 +1,3 @@
-/**
- * FastPriorityQueue.js : a fast heap-based priority queue in JavaScript.
- * (c) the authors — Apache-2.0
- *
- * About Time tweaks for robustness:
- *  - Quentry uid generation is now safer (randomUUID / foundry.utils.randomID / fallback).
- *  - createFromJson() now heapifies to restore ordering after load.
- *  - Kept API surface identical to your original to avoid breakage.
- */
 'use strict';
 
 const defaultcomparator = function (a, b) {
@@ -16,20 +7,16 @@ const defaultcomparator = function (a, b) {
 
 export class Quentry {
   constructor(time, recurring, increment, handler, uid, originator, ...args) {
-    // Prefer a stable, unique uid if not provided
     const uidGen =
-      // modern browsers
       (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function" && globalThis.crypto.randomUUID()) ||
-      // Foundry helper (present in v9+)
       (globalThis.foundry && globalThis.foundry.utils && typeof globalThis.foundry.utils.randomID === "function" && globalThis.foundry.utils.randomID()) ||
-      // fallback
       `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     this._time = time;
     this._recurring = recurring;
     this._increment = increment;
     this._handler = handler;
-    this._uid = uid === null ? uidGen : uid; // maintain original semantics (null → generate; undefined → keep undefined)
+    this._uid = uid === null ? uidGen : uid;
     this._originator = originator;
     this._args = args;
   }
@@ -78,10 +65,7 @@ export class Quentry {
 }
 
 export class FastPriorityQueue {
-  // the provided comparator function should take a, b and return *true* when a < b
   constructor(comparator = defaultcomparator) {
-    // copy the priority queue into another, and return it. Queue items are shallow-copied.
-    // Runs in `O(n)` time.
     this.clone = function () {
       var fpq = new FastPriorityQueue(this.compare);
       fpq.size = this.size;
@@ -91,8 +75,6 @@ export class FastPriorityQueue {
       return fpq;
     };
 
-    // Add an element into the queue
-    // runs in O(log n) time
     this.add = function (myval) {
       var i = this.size;
       this.array[this.size] = myval;
@@ -111,7 +93,6 @@ export class FastPriorityQueue {
       this.array[i] = myval;
     };
 
-    // replace the content of the heap by provided array and "heapify it"
     this.heapify = function (arr) {
       this.array = arr;
       this.size = arr.length;
@@ -120,7 +101,6 @@ export class FastPriorityQueue {
       }
     };
 
-    // for internal use
     this._percolateUp = function (i, force) {
       var myval = this.array[i];
       var p;
@@ -128,7 +108,6 @@ export class FastPriorityQueue {
       while (i > 0) {
         p = (i - 1) >> 1;
         ap = this.array[p];
-        // force will skip the compare
         if (!force && !this.compare(myval, ap)) {
           break;
         }
@@ -138,7 +117,6 @@ export class FastPriorityQueue {
       this.array[i] = myval;
     };
 
-    // for internal use
     this._percolateDown = function (i) {
       var size = this.size;
       var hsize = this.size >>> 1;
@@ -165,22 +143,15 @@ export class FastPriorityQueue {
       this.array[i] = ai;
     };
 
-    // internal
-    // _removeAt(index) will remove the item at the given index from the queue,
-    // retaining balance. returns the removed item, or undefined if nothing is removed.
     this._removeAt = function (index) {
       if (index > this.size - 1 || index < 0) return undefined;
       this._percolateUp(index, true);
       return this.poll();
     };
 
-    // remove(myval) will remove an item matching the provided value from the
-    // queue, checked for equality by using the queue's comparator.
-    // return true if removed, false otherwise.
     this.remove = function (myval) {
       for (var i = 0; i < this.size; i++) {
         if (!this.compare(this.array[i], myval) && !this.compare(myval, this.array[i])) {
-          // items match, comparator returns false both ways, remove item
           this._removeAt(i);
           return true;
         }
@@ -188,8 +159,6 @@ export class FastPriorityQueue {
       return false;
     };
 
-    // Remove by UID (About Time convenience)
-    // Returns the removed entry (truthy) or undefined (falsy) — matches existing usage.
     this.removeId = function (id) {
       for (var i = 0; i < this.size; i++) {
         if (this.array[i]._uid === id) {
@@ -199,7 +168,6 @@ export class FastPriorityQueue {
       return undefined;
     };
 
-    // removes and returns items for which the callback returns true.
     this._batchRemove = function (callback, limit) {
       var retArr = new Array(limit ? limit : this.size);
       var count = 0;
@@ -209,7 +177,6 @@ export class FastPriorityQueue {
           if (callback(this.array[i])) {
             retArr[count] = this._removeAt(i);
             count++;
-            // move up a level in the heap if we remove an item
             i = i >> 1;
           } else {
             i++;
@@ -293,9 +260,7 @@ export class FastPriorityQueue {
       return smallest;
     };
 
-    this.toString = () => {
-      return this.array.toString();
-    };
+    this.toString = () => this.array.toString();
 
     if (!(this instanceof FastPriorityQueue)) return new FastPriorityQueue(comparator);
     this.array = [];
@@ -307,8 +272,6 @@ export class FastPriorityQueue {
   static createFromJson(data) {
     const fpq = new FastPriorityQueue();
     if (!data) return fpq;
-
-    // Recreate entries and then heapify so ordering is correct.
     const arr = Array.isArray(data.array) ? data.array.map(qe => Quentry.createFromJSON(qe)) : [];
     fpq.heapify(arr);
     return fpq;
