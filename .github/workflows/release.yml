@@ -1,19 +1,15 @@
-# .github/workflows/release.yml
-name: Release About Time v13
+name: Release About Time
 
 on:
-  # 1) Manual trigger for one-click releases
+  push:
+    tags:
+      - "v*.*.*"             # e.g., v13.0.4
   workflow_dispatch:
     inputs:
-      force:
-        description: "Force re-release (skip existing tag checks)"
+      tag:
+        description: "Tag to release (e.g. v13.0.4). Leave blank to auto-detect."
         required: false
-        default: "false"
-  # 2) Auto-release when module.json version is bumped on main
-  push:
-    branches: [ "main" ]
-    paths:
-      - "module.json"
+        default: ""
 
 permissions:
   contents: write
@@ -22,8 +18,7 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     env:
-      GIT_USER_NAME: "github-actions[bot]"
-      GIT_USER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -31,121 +26,77 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure jq & zip are available
+      - name: Ensure jq & zip & gh
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y jq zip
 
-      - name: Read manifest values
-        id: manifest
+      - name: Determine TAG and VERSION
+        id: detect
         run: |
           set -euo pipefail
-          VERSION=$(jq -r '.version' module.json)
-          ID=$(jq -r '.id' module.json)
-          TITLE=$(jq -r '.title' module.json)
+          REF_NAME="${GITHUB_REF_NAME:-}"            # e.g., v13.0.4 or 13.0.4 or main
+          INPUT_TAG="${{ github.event.inputs.tag || '' }}"
+          VERSION_JSON=$(jq -r '.version' module.json)
+          # Prefer: pushed tag → input tag → branch (if looks like 13.0.4 and no tag exists) → v<module.json.version>
+          if [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TAG="$REF_NAME"
+          elif [[ "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TAG="$INPUT_TAG"
+          else
+            # If current ref is a version-like branch (e.g., 13.0.4) AND tag doesn't exist, we'll create it later
+            if [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              TAG="v${REF_NAME}"
+            else
+              TAG="v${VERSION_JSON}"
+            fi
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "id=$ID" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "ref_name=$REF_NAME" >> "$GITHUB_OUTPUT"
+          echo "Using TAG=$TAG VERSION=$VERSION REF=$REF_NAME"
 
-      - name: Basic schema checks
+      - name: Create tag if missing (from version-like branch)
         run: |
           set -euo pipefail
-          jq -e '
-            (.id | strings and length>0 and test("^[a-z0-9-]+$"))
-            and (.title | strings and length>0)
-            and (.version | strings and test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
-            and (.compatibility.minimum | strings)
-            and (.compatibility.verified | strings)
-            and (.compatibility.maximum | strings)
-            and (.esmodules | type=="array" and length>=1 and index("about-time.js") != null and index("vars.js") != null)
-            and (.languages | type=="array" and length>=1)
-            and (.socket | type=="boolean")
-            and (.url | strings and length>0)
-            and (.manifest | strings and length>0)
-            and (.download | strings and length>0)
-          ' module.json >/dev/null
-
-      - name: Validate module id
-        run: |
-          set -euo pipefail
-          ID="${{ steps.manifest.outputs.id }}"
-          if [ "$ID" != "about-time-v13" ]; then
-            echo "module.json id must be 'about-time-v13' but is '$ID'"
-            exit 1
+          TAG="${{ steps.detect.outputs.tag }}"
+          REF="${{ steps.detect.outputs.ref_name }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists."
+          else
+            if [[ "$REF" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Creating tag $TAG from branch $REF"
+              git tag -a "$TAG" -m "Release $TAG"
+              git push origin "$TAG"
+            else
+              echo "No version-like branch; not creating a new tag."
+            fi
           fi
 
-      - name: Prepare expected tag & download URL
-        id: calc
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.manifest.outputs.version }}"
-          TAG="v${VERSION}"
-          REPO="${GITHUB_REPOSITORY}"
-          EXPECT_DL="https://github.com/${REPO}/releases/download/${TAG}/about-time-v${VERSION}.zip"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "expect_dl=$EXPECT_DL" >> "$GITHUB_OUTPUT"
-
-      - name: Patch module.json download field if needed
+      - name: Patch module.json (download only)
         id: patch
         run: |
           set -euo pipefail
-          EXPECT_DL="${{ steps.calc.outputs.expect_dl }}"
+          REPO="${GITHUB_REPOSITORY}"
+          TAG="${{ steps.detect.outputs.tag }}"
+          VERSION="${{ steps.detect.outputs.version }}"
+          ZIPNAME="about-time-v${VERSION}.zip"
+          EXPECT_DL="https://github.com/${REPO}/releases/download/${TAG}/${ZIPNAME}"
           CUR_DL=$(jq -r '.download' module.json)
           if [ "$CUR_DL" != "$EXPECT_DL" ]; then
-            echo "Patching module.json download to $EXPECT_DL"
+            echo "Updating download URL -> $EXPECT_DL"
             tmp=$(mktemp)
             jq --arg dl "$EXPECT_DL" '.download = $dl' module.json > "$tmp"
             mv "$tmp" module.json
-            echo "patched=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No patch needed."
-            echo "patched=false" >> "$GITHUB_OUTPUT"
+            echo "Download URL already correct."
           fi
+          echo "zipname=$ZIPNAME" >> "$GITHUB_OUTPUT"
 
-      - name: Commit patched module.json (if changed)
-        if: steps.patch.outputs.patched == 'true'
+      - name: Basic checks
         run: |
           set -euo pipefail
-          git config user.name  "${GIT_USER_NAME}"
-          git config user.email "${GIT_USER_EMAIL}"
-          git add module.json
-          git commit -m "chore(release): set download URL for ${{ steps.calc.outputs.tag }}"
-          git push
-
-      - name: Create tag if missing
-        id: tag
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.calc.outputs.tag }}"
-          FORCE="${{ github.event.inputs.force || 'false' }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1 && [ "$FORCE" != "true" ]; then
-            echo "Tag $TAG already exists; continuing to build/release."
-            echo "created=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git config user.name  "${GIT_USER_NAME}"
-          git config user.email "${GIT_USER_EMAIL}"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-          echo "created=true" >> "$GITHUB_OUTPUT"
-
-      - name: Verify esmodules exist
-        run: |
-          set -euo pipefail
-          jq -r '.esmodules[]' module.json > esmodules.txt
-          while IFS= read -r f; do
-            echo "Checking esmodule: $f"
-            test -f "$f"
-          done < esmodules.txt
-
-      - name: Create zip
-        id: zip
-        run: |
-          set -euo pipefail
-          VERSION="${{ steps.manifest.outputs.version }}"
-          ZIP="about-time-v${VERSION}.zip"
-
-          # required roots
           test -f module.json
           test -f about-time.js
           test -f vars.js
@@ -153,31 +104,58 @@ jobs:
           test -d templates
           test -d lang
 
-          # optional docs
+      - name: Build ZIP
+        id: zip
+        run: |
+          set -euo pipefail
+          ZIP="${{ steps.patch.outputs.zipname }}"
           DOCS=()
           [ -f README.md ] && DOCS+=("README.md")
           [ -f LICENSE ] && DOCS+=("LICENSE")
           [ -f LICENSE.md ] && DOCS+=("LICENSE.md")
+          zip -r "$ZIP" module.json about-time.js vars.js module templates lang "${DOCS[@]}" >/dev/null
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
-          zip -r "$ZIP" \
-            module.json about-time.js vars.js \
-            module templates lang "${DOCS[@]}" \
-            >/dev/null
-          echo "zipname=$ZIP" >> "$GITHUB_OUTPUT"
+      - name: Check if release exists
+        id: rel
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.detect.outputs.tag }}"
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"
+          if gh api -H "Accept: application/vnd.github+json" "$API" >/tmp/release.json 2>/dev/null; then
+            echo "exists=true"  >> "$GITHUB_OUTPUT"
+            echo "rel_id=$(jq -r '.id' /tmp/release.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: about-time-dist
-          path: ${{ steps.zip.outputs.zipname }}
+      - name: Delete same-named assets if release exists
+        if: steps.rel.outputs.exists == 'true'
+        run: |
+          set -euo pipefail
+          REL_ID="${{ steps.rel.outputs.rel_id }}"
+          ZIP="${{ steps.zip.outputs.zip }}"
+          gh api -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets" >/tmp/assets.json
+          for NAME in "$ZIP" "module.json"; do
+            ASSET_ID=$(jq -r --arg NAME "$NAME" '.[] | select(.name==$NAME) | .id' /tmp/assets.json || true)
+            if [ -n "$ASSET_ID" ] && [ "$ASSET_ID" != "null" ]; then
+              echo "Deleting existing asset $ASSET_ID ($NAME)"
+              gh api -X DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}"
+            else
+              echo "No existing asset named $NAME to delete."
+            fi
+          done
 
-      - name: Create GitHub Release
+      - name: Create or Update Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.calc.outputs.tag }}
-          name: About Time ${{ steps.calc.outputs.tag }}
+          tag_name: ${{ steps.detect.outputs.tag }}
+          name: ${{ steps.detect.outputs.tag }}          # You will edit the title & notes manually
           draft: false
           prerelease: false
-          files: ${{ steps.zip.outputs.zipname }}
+          files: |
+            ${{ steps.zip.outputs.zip }}
+            module.json
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
