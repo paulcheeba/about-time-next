@@ -60,14 +60,19 @@ Key Methods
 ## 🗣 /at Chat Command
 Available in chat:
 
-/at queue — Show current scheduled events
+- `/at queue` or `/at list` — show the queue  
+- `/at clear` — clear the entire queue  
+- `/at stop <uid>` — cancel a specific event by its UID  
+- `/at in <duration> <message>` — schedule one-time reminder  
+- `/at every <duration> <message>` — schedule repeating reminder  
 
-/at in <seconds> <message> — Schedule a one-time reminder
-
-/at every <seconds> <message> — Schedule a repeating reminder
-
-Example:
-/at in 10 Time for a coffee break!
+**Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds.  
+Examples:
+- /at in 10m Check the stew
+- /at every 1h Random Encounter
+- /at stop abc123(uid)
+- /at clear
+- /at in 10 Time for a coffee break!
 
 ## ⏱ Examples
 These examples work with or without Simple Calendar.
