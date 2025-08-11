@@ -120,7 +120,10 @@ export class ElapsedTime {
     let timeout;
     if (typeof when !== "number") {
       when = intervalATtoSC(when);
-      timeout = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      //timeout = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      timeout = scAdd ? scAdd(currentWorldTime(), when)
+        : currentWorldTime() + intervalToSeconds(when);
     } else timeout = when;
     if (ElapsedTime.debug) ElapsedTime.log("gsetTimeout", timeout, handler, ...args);
     return ElapsedTime._addEVent(timeout, false, null, handler, ...args);
@@ -134,15 +137,30 @@ export class ElapsedTime {
   static gsetTimeoutIn(when, handler, ...args) {
     const timeoutSeconds = (typeof when === "number")
       ? when + currentWorldTime()
-      : globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), intervalATtoSC(when));
+      //: globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), intervalATtoSC(when));
+      : (() => {
+      const iv = intervalATtoSC(when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      return scAdd ? scAdd(currentWorldTime(), iv)
+           : currentWorldTime() + intervalToSeconds(iv);
+      })();
     return ElapsedTime._addEVent(timeoutSeconds, false, null, handler, ...args);
   }
 
   static gsetInterval(when, handler, ...args) {
     const futureTime = (typeof when === "number")
       ? currentWorldTime() + when
-      : globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
-    return ElapsedTime._addEVent(futureTime, true, when, handler, ...args);
+      //: globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      : (() => {
+      const iv = intervalATtoSC(when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      return scAdd ? scAdd(currentWorldTime(), iv)
+          : currentWorldTime() + intervalToSeconds(iv);
+      })();
+    //return ElapsedTime._addEVent(futureTime, true, when, handler, ...args);
+    // store normalized increment (SC-style) so reschedule is reliable
+  const inc = (typeof when === "number") ? { second: when } : intervalATtoSC(when);
+  return ElapsedTime._addEVent(futureTime, true, inc, handler, ...args);
   }
 
   static gclearTimeout(uid) { return ElapsedTime._eventQueue.removeId(uid); }
