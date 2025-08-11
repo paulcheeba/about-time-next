@@ -229,6 +229,7 @@ export class ElapsedTime {
     _isGM = game.user.isGM;
     ElapsedTime._lastSaveTime = Date.now();
     ElapsedTime._fetchParams();
+    Hooks.on(`${MODULE_ID}.debug-changed`, () => ElapsedTime._fetchParams());
     ElapsedTime._load();
     Hooks.on("updateWorldTime", ElapsedTime.pseudoClockUpdate);
   }
