@@ -1,3 +1,15 @@
+function intervalToSeconds(iv = {}) {
+  // safe ints; fallback for SC-off mode
+  const day = Number(iv.day ?? iv.days ?? 0);
+  const hour = Number(iv.hour ?? iv.hours ?? 0);
+  const minute = Number(iv.minute ?? iv.minutes ?? 0);
+  const second = Number(iv.second ?? iv.seconds ?? 0);
+
+  // use DTCalc.spd if available; else 24h
+  const spd = (globalThis.game?.abouttime?.DTC?.spd) ? game.abouttime.DTC.spd : 24 * 60 * 60;
+  return (day * spd) + (hour * 3600) + (minute * 60) + second;
+}
+
 import { FastPriorityQueue, Quentry } from "./FastPirorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
 import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT } from "./calendar/DateTime.js";
