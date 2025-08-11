@@ -212,9 +212,18 @@ export class ElapsedTime {
           await qe._handler(...qe._args);
         }
         if (qe._recurring) {
-          const seconds = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
+          /*const seconds = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
           if (seconds > qe._time) {
-            qe._time = seconds;
+            qe._time = seconds;*/
+        const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+        const next = scAdd
+          ? scAdd(qe._time, qe._increment)                  // SC path
+          : (() => {                                        // fallback seconds math
+            if (typeof qe._increment === "number") return qe._time + qe._increment;
+            return qe._time + intervalToSeconds(qe._increment);
+          })();
+        if (next > qe._time) {
+          qe._time = next;
             q.add(qe);
           } else {
             console.error(`${MODULE_ID} | Recurring event reschedule rejected`, qe);
