@@ -124,7 +124,7 @@ Hooks.on('chatMessage', (log, message, chatData) => {
   }
   // /at every 10 Ping!
   if (parts[1] === 'every' && !isNaN(Number(parts[2]))) {
-    const secs = Number(parts[2]));
+    const secs = Number(parts[2]);
     const text = parts.slice(3).join(' ') || `Repeating every ${secs}s`;
     game.abouttime.reminderEvery({ seconds: secs }, text);
     ui.notifications?.info?.(`[About Time] repeating every ${secs}s: ${text}`);
