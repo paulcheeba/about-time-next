@@ -85,6 +85,6 @@
   "bugs": "https://github.com/paulcheeba/about-time-v13/issues",
   "allowBugReporter": true,
   "url": "https://github.com/paulcheeba/about-time-v13",
-  "manifest": "https://github.com/paulcheeba/about-time-v13/blob/main/module.json",
-  "download": "https://github.com/paulcheeba/about-time-v13/releases/download/v13.0.3/about-time-v13.0.3.zip"
+  "manifest": "https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json",
+  "download": "https://github.com/paulcheeba/about-time-v13/releases/latest/download/about-time-v13.0.3.zip"
 }
