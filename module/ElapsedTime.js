@@ -1,3 +1,15 @@
+function intervalToSeconds(iv = {}) {
+  // safe ints; fallback for SC-off mode
+  const day = Number(iv.day ?? iv.days ?? 0);
+  const hour = Number(iv.hour ?? iv.hours ?? 0);
+  const minute = Number(iv.minute ?? iv.minutes ?? 0);
+  const second = Number(iv.second ?? iv.seconds ?? 0);
+
+  // use DTCalc.spd if available; else 24h
+  const spd = (globalThis.game?.abouttime?.DTC?.spd) ? game.abouttime.DTC.spd : 24 * 60 * 60;
+  return (day * spd) + (hour * 3600) + (minute * 60) + second;
+}
+
 import { FastPriorityQueue, Quentry } from "./FastPirorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
 import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT } from "./calendar/DateTime.js";
@@ -108,7 +120,10 @@ export class ElapsedTime {
     let timeout;
     if (typeof when !== "number") {
       when = intervalATtoSC(when);
-      timeout = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      //timeout = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      timeout = scAdd ? scAdd(currentWorldTime(), when)
+        : currentWorldTime() + intervalToSeconds(when);
     } else timeout = when;
     if (ElapsedTime.debug) ElapsedTime.log("gsetTimeout", timeout, handler, ...args);
     return ElapsedTime._addEVent(timeout, false, null, handler, ...args);
@@ -122,15 +137,30 @@ export class ElapsedTime {
   static gsetTimeoutIn(when, handler, ...args) {
     const timeoutSeconds = (typeof when === "number")
       ? when + currentWorldTime()
-      : globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), intervalATtoSC(when));
+      //: globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), intervalATtoSC(when));
+      : (() => {
+      const iv = intervalATtoSC(when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      return scAdd ? scAdd(currentWorldTime(), iv)
+           : currentWorldTime() + intervalToSeconds(iv);
+      })();
     return ElapsedTime._addEVent(timeoutSeconds, false, null, handler, ...args);
   }
 
   static gsetInterval(when, handler, ...args) {
     const futureTime = (typeof when === "number")
       ? currentWorldTime() + when
-      : globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
-    return ElapsedTime._addEVent(futureTime, true, when, handler, ...args);
+      //: globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(currentWorldTime(), when);
+      : (() => {
+      const iv = intervalATtoSC(when);
+      const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+      return scAdd ? scAdd(currentWorldTime(), iv)
+          : currentWorldTime() + intervalToSeconds(iv);
+      })();
+    //return ElapsedTime._addEVent(futureTime, true, when, handler, ...args);
+    // store normalized increment (SC-style) so reschedule is reliable
+  const inc = (typeof when === "number") ? { second: when } : intervalATtoSC(when);
+  return ElapsedTime._addEVent(futureTime, true, inc, handler, ...args);
   }
 
   static gclearTimeout(uid) { return ElapsedTime._eventQueue.removeId(uid); }
@@ -182,9 +212,18 @@ export class ElapsedTime {
           await qe._handler(...qe._args);
         }
         if (qe._recurring) {
-          const seconds = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
+          /*const seconds = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
           if (seconds > qe._time) {
-            qe._time = seconds;
+            qe._time = seconds;*/
+        const scAdd = globalThis.SimpleCalendar?.api?.timestampPlusInterval;
+        const next = scAdd
+          ? scAdd(qe._time, qe._increment)                  // SC path
+          : (() => {                                        // fallback seconds math
+            if (typeof qe._increment === "number") return qe._time + qe._increment;
+            return qe._time + intervalToSeconds(qe._increment);
+          })();
+        if (next > qe._time) {
+          qe._time = next;
             q.add(qe);
           } else {
             console.error(`${MODULE_ID} | Recurring event reschedule rejected`, qe);
