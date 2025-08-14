@@ -1,5 +1,5 @@
 // module/ATToolbar.js
-// About-Time v13.0.4 — Toolbar tool to open the Event Manager (DialogV2)
+// About-Time v13.0.5 — Toolbar tool to open the Event Manager (DialogV2)
 // NOTE: v13 getSceneControlButtons passes controls: Record<string, SceneControl>,
 // and SceneControl.tools is Record<string, SceneControlTool>.
 // We support that shape, and gracefully fallback if another module still provides arrays.
