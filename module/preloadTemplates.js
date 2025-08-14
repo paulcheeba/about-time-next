@@ -1,23 +1,10 @@
-import { MODULE_ID } from "./settings.js";
-
-function isSCActive() {
-  const useSC = game.settings?.get?.(MODULE_ID, "use-simple-calendar") ?? true;
-  if (!useSC) return false;
-  const sc = game.modules.get("foundryvtt-simple-calendar") ?? game.modules.get("simple-calendar");
-  return !!(sc && sc.active && globalThis.SimpleCalendar?.api);
-}
+// About Time v13.0.5 — preload templates (kept minimal)
+const MODULE_ID = "about-time-v13";
 
 export const preloadTemplates = async function () {
-  const rawPaths = [
-    `modules/${MODULE_ID}/templates/countDown.html`,
+  const raw = [
+    `modules/${MODULE_ID}/templates/countDown.html`
   ];
-  if (isSCActive()) {
-    rawPaths.push(
-      `modules/${MODULE_ID}/templates/simpleCalendarDisplay.html`,
-      `modules/${MODULE_ID}/templates/simpleClockDisplay.html`,
-      `modules/${MODULE_ID}/templates/calendarEditor.html`
-    );
-  }
-  const templatePaths = rawPaths.map(p => foundry?.utils?.getRoute ? foundry.utils.getRoute(p) : p);
-  return loadTemplates(templatePaths);
+  const paths = raw.map(p => foundry?.utils?.getRoute ? foundry.utils.getRoute(p) : p);
+  return loadTemplates(paths);
 };
