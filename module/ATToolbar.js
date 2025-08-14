@@ -1,39 +1,94 @@
 // module/ATToolbar.js
 // About-Time v13.0.4 — Toolbar tool to open the Event Manager (DialogV2)
-// WHY: GM-only entry via Scene Controls (Journal/Notes). Reuses the macro UI/logic.
+// NOTE: v13 getSceneControlButtons passes controls: Record<string, SceneControl>,
+// and SceneControl.tools is Record<string, SceneControlTool>.
+// We support that shape, and gracefully fallback if another module still provides arrays.
 
 const MOD = "about-time-v13";
 
-/* ---------------- Scene Controls: add tool under Journal/Notes (WHY: quick GM access) ---------------- */
-Hooks.on("getSceneControlButtons", (controls) => {
-  const isGM = game.user?.isGM;
-  // find journal tool; fallback to notes if present in your system
-  const journalCtl = controls.find(c => c.name === "journal") || controls.find(c => c.name === "notes");
-  if (!journalCtl) return;
-  journalCtl.tools.push({
+/** Normalize control bag to an object record keyed by control name. */
+function normalizeControls(controlsArg) {
+  // v13 shape: Record<string, SceneControl>
+  if (controlsArg && !Array.isArray(controlsArg)) return controlsArg;
+
+  // Some older modules may still pass arrays: convert to record
+  if (Array.isArray(controlsArg)) {
+    const rec = {};
+    for (const c of controlsArg) if (c?.name) rec[c.name] = c;
+    return rec;
+  }
+
+  // Last resort: try ui.controls.controls (varies; best-effort)
+  const maybe = ui?.controls?.controls;
+  if (Array.isArray(maybe)) {
+    const rec = {};
+    for (const c of maybe) if (c?.name) rec[c.name] = c;
+    return rec;
+  }
+  return {};
+}
+
+/** Ensure tools is a Record<string, SceneControlTool>; convert array → record if needed. */
+function normalizeTools(control) {
+  if (!control) return;
+  if (!control.tools) control.tools = {};
+  // If some system provided an array, convert to record one time.
+  if (Array.isArray(control.tools)) {
+    const rec = {};
+    for (const t of control.tools) if (t?.name) rec[t.name] = t;
+    control.tools = rec;
+  }
+}
+
+/** Insert tool only once. */
+function addToolRecord(control, tool) {
+  normalizeTools(control);
+  if (!control || !tool?.name) return;
+  if (!control.tools[tool.name]) control.tools[tool.name] = tool;
+}
+
+/* ---------------- Scene Controls: add tool under Journal/Notes ---------------- */
+Hooks.on("getSceneControlButtons", (controlsArg) => {
+  if (!game.user?.isGM) return; // GM-only
+
+  const controls = normalizeControls(controlsArg);
+  // Prefer "journal" but support "notes" if that’s what the system uses
+  const ctl = controls["journal"] ?? controls["notes"];
+  if (!ctl) return;
+
+  addToolRecord(ctl, {
     name: "about-time-manager",
     title: "About Time Event Manager",
     icon: "fas fa-clock",
     button: true,
-    visible: !!isGM,
-    onClick: () => { if (isGM) openATEventManager(); } // WHY: avoid exposing UI to players
+    visible: true,
+    // v13 tool schema uses onChange for toggle tools; for a button we use onClick
+    onClick: () => openATEventManager(),
+    order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999
   });
 });
 
 /* ---------------- Event Manager (DialogV2) ---------------- */
 function openATEventManager() {
   if (!game.user.isGM) {
-    ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] This tool is GM-only.` });
-    return;
-  }
-  const AT = game.abouttime ?? game.Gametime;
-  const D2 = foundry?.applications?.api?.DialogV2;
-  if (!D2) {
-    ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] DialogV2 API not found (FVTT v13+ required).` });
+    ChatMessage.create({
+      whisper: ChatMessage.getWhisperRecipients("GM"),
+      content: `[${MOD}] This tool is GM-only.`
+    });
     return;
   }
 
-  /* ---------- helpers (WHY: GM-only comms, parsing, formatting, status) ---------- */
+  const AT = game.abouttime ?? game.Gametime;
+  const D2 = foundry?.applications?.api?.DialogV2;
+  if (!D2) {
+    ChatMessage.create({
+      whisper: ChatMessage.getWhisperRecipients("GM"),
+      content: `[${MOD}] DialogV2 API not found (FVTT v13+ required).`
+    });
+    return;
+  }
+
+  // ---------- helpers ----------
   const gmWhisper = (html) => ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: html });
   const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
@@ -103,7 +158,6 @@ function openATEventManager() {
     return `<textarea class="status-ta" readonly>${esc(lines.join("\n"))}</textarea>`;
   }
 
-  /* ---------- content (WHY: embedded forms + footer buttons; matches macro UI) ---------- */
   function contentTemplate(msg = "Ready.") {
     return `
     <style>
@@ -120,66 +174,32 @@ function openATEventManager() {
       #tam-at input[type="text"] { width:100%; }
       #tam-at .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
       #tam-at .muted { opacity:.8; font-size:.9em; }
-
-      .status-ta {
-        width:100%; height:140px; resize:vertical;
-        background:#00000022; border:1px solid #9994; border-radius:6px; padding:6px;
-        color: var(--color-text-light-1);
-        font-family: var(--font-primary);
-      }
+      .status-ta { width:100%; height:140px; resize:vertical; background:#00000022; border:1px solid #9994; border-radius:6px; padding:6px; color: var(--color-text-light-1); font-family: var(--font-primary); }
     </style>
 
     <div id="tam-at">
-      <div class="row" style="justify-content:center;">
-        <div class="muted">Choose an option below, then close the window when finished.</div>
-      </div>
-
-      <div class="section">
-        <div><strong>Event Status Board</strong></div>
-        ${renderStatus()}
-      </div>
+      <div class="row" style="justify-content:center;"><div class="muted">Choose an option below, then close the window when finished.</div></div>
+      <div class="section"><div><strong>Event Status Board</strong></div>${renderStatus()}</div>
 
       <div class="section">
         <div><strong>Create Custom Reminder</strong></div>
-        <div class="row">
-          <label for="eventName">Event Name</label>
-          <input name="eventName" id="eventName" type="text" placeholder="optional key to store UID" />
-        </div>
-        <div class="row">
-          <label for="duration">Duration</label>
-          <input name="duration" id="duration" type="text" placeholder="e.g. 1h30m, 45s, 2d 4h" />
-        </div>
+        <div class="row"><label for="eventName">Event Name</label><input name="eventName" id="eventName" type="text" placeholder="optional key to store UID" /></div>
+        <div class="row"><label for="duration">Duration</label><input name="duration" id="duration" type="text" placeholder="e.g. 1h30m, 45s, 2d 4h" /></div>
         <div class="row muted"><span>Duration accepts mixed units: <code>1h30m</code>, <code>45m10s</code>, <code>1d</code>, <code>10s</code></span></div>
-        <div class="row">
-          <label for="message">Message</label>
-          <input name="message" id="message" type="text" placeholder="What should appear in chat?" />
-        </div>
-        <div class="row">
-          <label for="repeat">Repeating?</label>
-          <input name="repeat" id="repeat" type="checkbox" />
-          <span class="muted">(Repeat at the given interval)</span>
-        </div>
-        <div class="row">
-          <label for="runMacro">Run Macro?</label>
-          <input name="runMacro" id="runMacro" type="checkbox" />
-          <input name="macroName" id="macroName" type="text" placeholder="Enter macro name to run on event" />
-        </div>
+        <div class="row"><label for="message">Message</label><input name="message" id="message" type="text" placeholder="What should appear in chat?" /></div>
+        <div class="row"><label for="repeat">Repeating?</label><input name="repeat" id="repeat" type="checkbox" /><span class="muted">(Repeat at the given interval)</span></div>
+        <div class="row"><label for="runMacro">Run Macro?</label><input name="runMacro" id="runMacro" type="checkbox" /><input name="macroName" id="macroName" type="text" placeholder="Enter macro name to run on event" /></div>
       </div>
 
       <div class="section">
         <div><strong>Stop Event Reminder</strong></div>
-        <div class="row">
-          <label for="stopKey">Event Name/UID</label>
-          <input name="stopKey" id="stopKey" type="text" placeholder="Paste a Name or UID from the status board" />
-        </div>
+        <div class="row"><label for="stopKey">Event Name/UID</label><input name="stopKey" id="stopKey" type="text" placeholder="Paste a Name or UID from the status board" /></div>
         <div class="muted">(“Stop by Name” matches the Event Name you entered when creating.)</div>
       </div>
-
       <div class="muted">${esc(msg)}</div>
     </div>`;
   }
 
-  /* ---------- actions (WHY: footer callbacks; always refresh after) ---------- */
   function refresh(dlg, msg) { dlg.content = contentTemplate(msg); dlg.render({ force: true }); }
 
   async function actCreate(_ev, btn, dlg) {
@@ -199,7 +219,7 @@ function openATEventManager() {
     const handler = async (metaArg) => {
       try {
         if (useMacro && macroNm) {
-          const macro = game.macros.get(macroNm) || (game.macros.getName ? game.macros.getName(macroNm) : null);
+          const macro = game.macros.get(macroNm) || game.macros.getName?.(macroNm);
           if (macro) {
             if (isNewerVersion(game.version, "11.0")) {
               await macro.execute({ args: [metaArg] });
@@ -251,9 +271,9 @@ function openATEventManager() {
       const flags = game.user.getFlag(MOD) || {};
       for (const k of Object.keys(flags)) if (removed.some(r => r._uid === flags[k])) await game.user.unsetFlag(MOD, k);
       AT._save?.(true);
-      gmWhisper(`<p>[${MOD}] Stopped ${removed.length} event(s) named <strong>${esc(key)}</strong>.</p>`);
+      gmWhisper(`<p>[${MOD}] Stopped ${removed.length} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     } else {
-      gmWhisper(`<p>[${MOD}] No events found named <strong>${esc(key)}</strong>.</p>`);
+      gmWhisper(`<p>[${MOD}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     }
     return refresh(dlg, "Name processed.");
   }
@@ -265,9 +285,9 @@ function openATEventManager() {
     if (removed) {
       const flags = game.user.getFlag(MOD) || {};
       for (const k of Object.keys(flags)) if (flags[k] === uid) await game.user.unsetFlag(MOD, k);
-      gmWhisper(`<p>[${MOD}] Stopped event <code>${esc(uid)}</code>.</p>`);
+      gmWhisper(`<p>[${MOD}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     } else {
-      gmWhisper(`<p>[${MOD}] No event found for UID <code>${esc(uid)}</code>.</p>`);
+      gmWhisper(`<p>[${MOD}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     }
     return refresh(dlg, "UID processed.");
   }
@@ -291,11 +311,8 @@ function openATEventManager() {
     return refresh(dlg, "All events purged; reminder set.");
   }
 
-  /* ---------- DialogV2 ---------- */
   new D2({
     window: { title: "About Time — Event Manager (GM)" },
-    form: { closeOnSubmit: false },
-    modal: false,
     content: contentTemplate("Ready."),
     buttons: [
       { action: "create",    label: "Create Event",           default: true, callback: actCreate },
@@ -304,8 +321,8 @@ function openATEventManager() {
       { action: "list",      label: "Send Queue to Chat",                       callback: actList },
       { action: "flush",     label: "Stop all Events",                          callback: actFlush },
       { action: "flush-rem", label: "Stop all + 1h reminder",                   callback: actFlushRem },
-      { action: "close",     label: "Close" } // no callback
+      { action: "close",     label: "Close" }
     ],
-    submit: () => {}
+    submit: async () => {}
   }).render({ force: true });
 }
