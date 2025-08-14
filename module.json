@@ -22,7 +22,8 @@
   "scripts": [],
   "esmodules": [
     "about-time.js",
-    "vars.js"
+    "vars.js",
+    "module/ATToolbar.js"
   ],
   "styles": [],
   "packs": [],
