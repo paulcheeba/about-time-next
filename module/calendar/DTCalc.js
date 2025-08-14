@@ -1,37 +1,32 @@
-import { MODULE_ID } from "../settings.js";
+// About Time v13.0.5 — DTCalc
 
-const warn = (...args) => console.warn(`${MODULE_ID} |`, ...args);
+import { ElapsedTime } from "../ElapsedTime.js";
+
+const warn = (...a) => ElapsedTime.debug && console.warn("about-time |", ...a);
 
 export class DTCalc {
-  static numLeapYears(year) { console.error(`${MODULE_ID} | numLeapYears not supported.`); return -1; }
-  static setFirstDay(day)   { console.error(`${MODULE_ID} | setFirstDay not supported — use your calendar UI.`); }
-
+  static numLeapYears() { console.error("about-time | numLeapYears not supported."); return -1; }
+  static setFirstDay()  { console.error("about-time | setFirstDay not supported."); }
   static padNumber(n, digits = 2) { return `${n}`.padStart(digits, "0"); }
   static padYear(n, digits = 2) { return `${n}`.padStart(digits, " "); }
-
-  static isLeapYear(year) { console.error(`${MODULE_ID} | isLeapYear not supported.`); return undefined; }
-  static daysInYear(year) { warn("daysInYear is deprecated — use calendar API."); return undefined; }
+  static isLeapYear() { console.error("about-time | isLeapYear not supported."); return undefined; }
+  static daysInYear() { warn("about-time | daysInYear deprecated."); return undefined; }
 
   static get spd() {
-    const useSC = game.settings?.get?.(MODULE_ID, "use-simple-calendar") ?? true;
-    const sc = game.modules.get("foundryvtt-simple-calendar") ?? game.modules.get("simple-calendar");
-    const api = (useSC && sc?.active) ? globalThis.SimpleCalendar?.api : null;
-    return api?.timestampPlusInterval?.(0, { day: 1 }) ?? 24 * 60 * 60;
+    const api = globalThis.SimpleCalendar?.api;
+    if (!api) return 86400;
+    return api.timestampPlusInterval(0, { day: 1 });
   }
 
   static timeToSeconds({ days = 0, hours = 0, minutes = 0, seconds = 0 } = {}) {
-    console.error(`${MODULE_ID} | timeToSeconds is deprecated.`);
-    const useSC = game.settings?.get?.(MODULE_ID, "use-simple-calendar") ?? true;
-    const sc = game.modules.get("foundryvtt-simple-calendar") ?? game.modules.get("simple-calendar");
-    const api = (useSC && sc?.active) ? globalThis.SimpleCalendar?.api : null;
-
+    console.error("about-time | timeToSeconds deprecated.");
+    const api = globalThis.SimpleCalendar?.api;
     if (api) {
       const now = game.time.worldTime;
-      const interval = { day: days, hour: hours, minute: minutes, second: seconds };
-      const future = api.timestampPlusInterval(now, interval);
-      return (future ?? now) - now;
+      const later = api.timestampPlusInterval(now, { day: days, hour: hours, minute: minutes, second: seconds });
+      return (later ?? now) - now;
     }
-    return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+    return days*86400 + hours*3600 + minutes*60 + seconds;
   }
 }
-DTCalc.sum = (...args) => args.reduce((acc, v) => acc + v, 0);
+DTCalc.sum = (...args) => args.reduce((a, v) => a + v, 0);
