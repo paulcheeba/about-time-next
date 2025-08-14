@@ -1,24 +1,54 @@
 name: Release About Time
 
 on:
-  push:
-    tags:
-      - "v*.*.*"             # e.g., v13.0.4
+  # Manual release runs only (your preference)
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to release (e.g. v13.0.4). Leave blank to auto-detect."
+      draft:
+        description: "Create release as draft?"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      prerelease:
+        description: "Mark as prerelease?"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      custom_tag:
+        description: "Override tag (e.g. v13.0.5). Leave blank to derive from branch."
         required: false
         default: ""
+        type: string
+      release_name:
+        description: "Release title override. Blank → auto name (About Time <tag>[.<n>])."
+        required: false
+        default: ""
+        type: string
+      commit_back:
+        description: "Commit rewritten module.json back to the branch?"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+  # PRs to main: run checks only + preview comment (no release)
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-release:
+  checks:
+    name: Checks (manifest, paths, lint)
     runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -26,136 +56,328 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure jq & zip & gh
+      - name: Ensure tooling
         run: |
-          sudo apt-get update -y
+          sudo apt-get update
           sudo apt-get install -y jq zip
 
-      - name: Determine TAG and VERSION
-        id: detect
+      - name: Read module.json
+        id: mod
         run: |
-          set -euo pipefail
-          REF_NAME="${GITHUB_REF_NAME:-}"            # e.g., v13.0.4 or 13.0.4 or main
-          INPUT_TAG="${{ github.event.inputs.tag || '' }}"
-          VERSION_JSON=$(jq -r '.version' module.json)
-          # Prefer: pushed tag → input tag → branch (if looks like 13.0.4 and no tag exists) → v<module.json.version>
-          if [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            TAG="$REF_NAME"
-          elif [[ "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            TAG="$INPUT_TAG"
-          else
-            # If current ref is a version-like branch (e.g., 13.0.4) AND tag doesn't exist, we'll create it later
-            if [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              TAG="v${REF_NAME}"
-            else
-              TAG="v${VERSION_JSON}"
-            fi
-          fi
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "ref_name=$REF_NAME" >> "$GITHUB_OUTPUT"
-          echo "Using TAG=$TAG VERSION=$VERSION REF=$REF_NAME"
-
-      - name: Create tag if missing (from version-like branch)
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.detect.outputs.tag }}"
-          REF="${{ steps.detect.outputs.ref_name }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists."
-          else
-            if [[ "$REF" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Creating tag $TAG from branch $REF"
-              git tag -a "$TAG" -m "Release $TAG"
-              git push origin "$TAG"
-            else
-              echo "No version-like branch; not creating a new tag."
-            fi
-          fi
-
-      - name: Patch module.json (download only)
-        id: patch
-        run: |
-          set -euo pipefail
-          REPO="${GITHUB_REPOSITORY}"
-          TAG="${{ steps.detect.outputs.tag }}"
-          VERSION="${{ steps.detect.outputs.version }}"
-          ZIPNAME="about-time-v${VERSION}.zip"
-          EXPECT_DL="https://github.com/${REPO}/releases/download/${TAG}/${ZIPNAME}"
-          CUR_DL=$(jq -r '.download' module.json)
-          if [ "$CUR_DL" != "$EXPECT_DL" ]; then
-            echo "Updating download URL -> $EXPECT_DL"
-            tmp=$(mktemp)
-            jq --arg dl "$EXPECT_DL" '.download = $dl' module.json > "$tmp"
-            mv "$tmp" module.json
-          else
-            echo "Download URL already correct."
-          fi
-          echo "zipname=$ZIPNAME" >> "$GITHUB_OUTPUT"
-
-      - name: Basic checks
-        run: |
-          set -euo pipefail
           test -f module.json
-          test -f about-time.js
-          test -f vars.js
-          test -d module
-          test -d templates
-          test -d lang
+          echo "version=$(jq -r '.version' module.json)" >> "$GITHUB_OUTPUT"
+          echo "id=$(jq -r '.id' module.json)" >> "$GITHUB_OUTPUT"
+          echo "module.json:"
+          cat module.json | jq .
 
-      - name: Build ZIP
-        id: zip
+      - name: Check module id stability
         run: |
-          set -euo pipefail
-          ZIP="${{ steps.patch.outputs.zipname }}"
-          DOCS=()
-          [ -f README.md ] && DOCS+=("README.md")
-          [ -f LICENSE ] && DOCS+=("LICENSE")
-          [ -f LICENSE.md ] && DOCS+=("LICENSE.md")
-          zip -r "$ZIP" module.json about-time.js vars.js module templates lang "${DOCS[@]}" >/dev/null
-          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
-
-      - name: Check if release exists
-        id: rel
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.detect.outputs.tag }}"
-          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"
-          if gh api -H "Accept: application/vnd.github+json" "$API" >/tmp/release.json 2>/dev/null; then
-            echo "exists=true"  >> "$GITHUB_OUTPUT"
-            echo "rel_id=$(jq -r '.id' /tmp/release.json)" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+          EXPECTED="about-time-v13"
+          if [ "${{ steps.mod.outputs.id }}" != "$EXPECTED" ]; then
+            echo "error: module.json id is '${{ steps.mod.outputs.id }}' but expected '$EXPECTED'."
+            exit 1
           fi
 
-      - name: Delete same-named assets if release exists
-        if: steps.rel.outputs.exists == 'true'
+      - name: Validate minimal schema and paths exist
         run: |
-          set -euo pipefail
-          REL_ID="${{ steps.rel.outputs.rel_id }}"
-          ZIP="${{ steps.zip.outputs.zip }}"
-          gh api -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets" >/tmp/assets.json
-          for NAME in "$ZIP" "module.json"; do
-            ASSET_ID=$(jq -r --arg NAME "$NAME" '.[] | select(.name==$NAME) | .id' /tmp/assets.json || true)
-            if [ -n "$ASSET_ID" ] && [ "$ASSET_ID" != "null" ]; then
-              echo "Deleting existing asset $ASSET_ID ($NAME)"
-              gh api -X DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/releases/assets/${ASSET_ID}"
-            else
-              echo "No existing asset named $NAME to delete."
+          # required fields sanity
+          for key in id title version compatibility url manifest download; do
+            jq -e --arg k "$key" 'has($k)' module.json >/dev/null || { echo "module.json missing key: $key"; exit 1; }
+          done
+
+          # esmodules must exist
+          ES=$(jq -r '.esmodules[]?' module.json)
+          for f in $ES; do
+            if [ ! -f "$f" ]; then
+              echo "Missing esmodule file: $f"
+              exit 1
             fi
           done
 
-      - name: Create or Update Release and upload assets
+          # lang files exist
+          for L in $(jq -r '.languages[].path' module.json); do
+            if [ ! -f "$L" ]; then
+              echo "Missing language file: $L"
+              exit 1
+            fi
+          done
+
+          # templates dir is optional
+          if [ -d templates ]; then
+            echo "templates/ present."
+          else
+            echo "note: templates/ not found (ok if unused)."
+          fi
+
+      - name: Lint JSON (quick)
+        run: |
+          jq . module.json >/dev/null
+          for f in $(git ls-files '*.json' ':!package-lock.json' ':!node_modules/**'); do
+            jq . "$f" >/dev/null || { echo "Invalid JSON: $f"; exit 1; }
+          done
+
+      - name: Basic JS presence check
+        run: |
+          test -f about-time.js
+          test -f vars.js
+
+      - name: Language pack sanity (en.json parses)
+        run: |
+          test -f lang/en.json
+          jq . lang/en.json >/dev/null
+
+      - name: Optional ESLint (skip if no config)
+        run: |
+          if compgen -G ".eslintrc*"
+          then
+            if ! command -v node >/dev/null 2>&1; then
+              sudo apt-get install -y nodejs npm
+            fi
+            npx --yes eslint . || true
+          else
+            echo "No ESLint config found; skipping."
+          fi
+
+  release:
+    name: Build + Release
+    needs: checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq zip
+
+      - name: Decide tag from branch or input
+        id: tag
+        run: |
+          REF="${GITHUB_REF_NAME}"                  # branch name (e.g., v13.0.5)
+          CUSTOM="${{ github.event.inputs.custom_tag }}"
+          TAG=""
+
+          if [ -n "$CUSTOM" ]; then
+            TAG="$CUSTOM"
+          else
+            # Expect branch name like v13.0.5
+            if [[ "$REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              TAG="$REF"
+            else
+              echo "Branch name '$REF' does not look like vMAJOR.MINOR.PATCH; set custom_tag input."
+              exit 1
+            fi
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Sync module.json version and URLs to tag/branch (workspace)
+        id: sync
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+
+          # Rewrite version
+          TMP1=$(mktemp)
+          jq --arg v "$VERSION" '.version = $v' module.json > "$TMP1"
+
+          # Keep url/manifest fixed to 'releases/latest/download'
+          LATEST_MANIFEST="https://github.com/${{ github.repository }}/releases/latest/download/module.json"
+          TMP2=$(mktemp)
+          jq --arg m "$LATEST_MANIFEST" '.manifest = $m' "$TMP1" > "$TMP2"
+
+          # Set download to latest path with correct zip name
+          ZIP_NAME="about-time-v${VERSION}.zip"
+          LATEST_DL="https://github.com/${{ github.repository }}/releases/latest/download/${ZIP_NAME}"
+          TMP3=$(mktemp)
+          jq --arg d "$LATEST_DL" '.download = $d' "$TMP2" > "$TMP3"
+
+          mv "$TMP3" module.json
+          rm -f "$TMP1" "$TMP2" || true
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "dl=$LATEST_DL" >> "$GITHUB_OUTPUT"
+
+      - name: Optionally commit rewritten module.json back to branch
+        if: ${{ github.event.inputs.commit_back == 'true' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add module.json
+          git commit -m "chore(release): sync version/URLs for ${{ steps.tag.outputs.tag }}"
+          git push
+
+      - name: Enforce tag == module.json.version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${{ steps.sync.outputs.version }}"
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "Tag ($TAG) does not match module.json version (v$VERSION)."
+            exit 1
+          fi
+
+      - name: Auto-create tag if missing (at branch HEAD)
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists."
+          else
+            echo "Creating tag $TAG at HEAD..."
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Build zip artifact (exclude dev files)
+        id: zip
+        run: |
+          ZIP="${{ steps.sync.outputs.zip }}"
+
+          # Ensure required roots
+          test -f module.json
+          test -f about-time.js
+          test -f vars.js
+          test -d module || mkdir -p module
+          [ -d templates ] || echo "note: templates/ not present"
+          [ -d lang ] || echo "note: lang/ not present"
+
+          # Create zip with allowlist and excludes
+          zip -r "$ZIP" \
+            module.json about-time.js vars.js \
+            module \
+            lang \
+            templates \
+            -x ".git/*" \
+               ".github/*" \
+               "node_modules/*" \
+               "**/*.map" \
+               "**/.DS_Store" \
+               "**/Thumbs.db" \
+               "tests/*" \
+               "scripts/*" \
+               "maps/*" \
+            >/dev/null
+
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Generate minimal changelog (since last tag)
+        id: changelog
+        run: |
+          git fetch --tags --force
+          THIS="${{ steps.tag.outputs.tag }}"
+          LAST="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
+
+          if [ -n "$LAST" ] && [ "$LAST" != "$THIS" ]; then
+            echo "## Changes since $LAST" > CHANGELOG.txt
+            git log --pretty=format:'- %s (%h)' ${LAST}..HEAD >> CHANGELOG.txt
+          else
+            echo "## Changes" > CHANGELOG.txt
+            git log -n 50 --pretty=format:'- %s (%h)' >> CHANGELOG.txt
+          fi
+
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Determine release title (append .1/.2 on re-run)
+        id: title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = "${{ steps.tag.outputs.tag }}";
+            const inputName = `${{ toJSON(github.event.inputs.release_name) }}`.trim();
+            if (inputName) {
+              core.setOutput("name", inputName);
+              return;
+            }
+
+            // Look up an existing release for this tag
+            let existing = null;
+            try {
+              const rel = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag
+              });
+              existing = rel.data;
+            } catch (e) {
+              // not found → first time
+            }
+
+            // Base name
+            let base = `About Time ${tag}`;
+            if (!existing) {
+              core.setOutput("name", base);
+              return;
+            }
+
+            // If re-running on same tag, append .N to the title (title only)
+            const currentName = existing.name || base;
+            const m = currentName.match(/^(.*?)(?:\.(\d+))?$/);
+            if (!m) {
+              core.setOutput("name", base + ".1");
+              return;
+            }
+            const stem = m[1];
+            const n = m[2] ? (parseInt(m[2], 10) + 1) : 1;
+            core.setOutput("name", `${stem}.${n}`);
+
+      - name: Create / Update GitHub Release (zip + module.json)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.detect.outputs.tag }}
-          name: ${{ steps.detect.outputs.tag }}          # You will edit the title & notes manually
-          draft: false
-          prerelease: false
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.title.outputs.name }}
+          draft: ${{ github.event.inputs.draft == 'true' }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           files: |
             ${{ steps.zip.outputs.zip }}
             module.json
+          body: ${{ steps.changelog.outputs.body }}
           fail_on_unmatched_files: true
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pr-preview:
+    name: PR Release Preview
+    runs-on: ubuntu-latest
+    needs: checks
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate preview changelog (since last tag)
+        id: preview
+        run: |
+          git fetch --tags --force
+          LAST=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST" ]; then
+            BODY="## Preview Release (module.json: $(jq -r '.version' module.json))\n\nChanges since ${LAST}:\n"
+            BODY+=$(git log --pretty=format:'- %s (%h)' ${LAST}..HEAD)
+          else
+            BODY="## Preview Release (module.json: $(jq -r '.version' module.json))\n\nRecent commits:\n"
+            BODY+=$(git log -n 30 --pretty=format:'- %s (%h)')
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `${{ toJSON(steps.preview.outputs.body) }}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
