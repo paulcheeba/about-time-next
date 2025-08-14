@@ -1,3 +1,5 @@
+// About Time v13.0.5 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
+
 'use strict';
 
 const defaultcomparator = function (a, b) {
@@ -23,11 +25,8 @@ export class Quentry {
 
   exportToJson() {
     let handler;
-    if (typeof this._handler === "function") {
-      handler = { type: "function", val: this._handler.toString() };
-    } else {
-      handler = { type: "string", val: this._handler };
-    }
+    if (typeof this._handler === "function") handler = { type: "function", val: this._handler.toString() };
+    else handler = { type: "string", val: this._handler };
     return {
       time: this._time,
       recurring: this._recurring,
@@ -69,9 +68,7 @@ export class FastPriorityQueue {
     this.clone = function () {
       var fpq = new FastPriorityQueue(this.compare);
       fpq.size = this.size;
-      for (var i = 0; i < this.size; i++) {
-        fpq.array.push(this.array[i]);
-      }
+      for (var i = 0; i < this.size; i++) fpq.array.push(this.array[i]);
       return fpq;
     };
 
@@ -79,14 +76,11 @@ export class FastPriorityQueue {
       var i = this.size;
       this.array[this.size] = myval;
       this.size += 1;
-      var p;
-      var ap;
+      var p, ap;
       while (i > 0) {
         p = (i - 1) >> 1;
         ap = this.array[p];
-        if (!this.compare(myval, ap)) {
-          break;
-        }
+        if (!this.compare(myval, ap)) break;
         this.array[i] = ap;
         i = p;
       }
@@ -96,21 +90,16 @@ export class FastPriorityQueue {
     this.heapify = function (arr) {
       this.array = arr;
       this.size = arr.length;
-      for (let i = (this.size >> 1); i >= 0; i--) {
-        this._percolateDown(i);
-      }
+      for (let i = (this.size >> 1); i >= 0; i--) this._percolateDown(i);
     };
 
     this._percolateUp = function (i, force) {
       var myval = this.array[i];
-      var p;
-      var ap;
+      var p, ap;
       while (i > 0) {
         p = (i - 1) >> 1;
         ap = this.array[p];
-        if (!force && !this.compare(myval, ap)) {
-          break;
-        }
+        if (!force && !this.compare(myval, ap)) break;
         this.array[i] = ap;
         i = p;
       }
@@ -121,9 +110,7 @@ export class FastPriorityQueue {
       var size = this.size;
       var hsize = this.size >>> 1;
       var ai = this.array[i];
-      var l;
-      var r;
-      var bestc;
+      var l, r, bestc;
       while (i < hsize) {
         l = (i << 1) + 1;
         r = l + 1;
@@ -134,9 +121,7 @@ export class FastPriorityQueue {
             bestc = this.array[r];
           }
         }
-        if (!this.compare(bestc, ai)) {
-          break;
-        }
+        if (!this.compare(bestc, ai)) break;
         this.array[i] = bestc;
         i = l;
       }
@@ -161,9 +146,7 @@ export class FastPriorityQueue {
 
     this.removeId = function (id) {
       for (var i = 0; i < this.size; i++) {
-        if (this.array[i]._uid === id) {
-          return this._removeAt(i);
-        }
+        if (this.array[i]._uid === id) return this._removeAt(i);
       }
       return undefined;
     };
@@ -178,9 +161,7 @@ export class FastPriorityQueue {
             retArr[count] = this._removeAt(i);
             count++;
             i = i >> 1;
-          } else {
-            i++;
-          }
+          } else i++;
         }
       }
       retArr.length = count;
@@ -192,14 +173,9 @@ export class FastPriorityQueue {
       return arr.length > 0 ? arr[0] : undefined;
     };
 
-    this.removeMany = function (callback, limit) {
-      return this._batchRemove(callback, limit);
-    };
+    this.removeMany = function (callback, limit) { return this._batchRemove(callback, limit); };
 
-    this.peek = () => {
-      if (this.size === 0) return undefined;
-      return this.array[0];
-    };
+    this.peek = () => { if (this.size === 0) return undefined; return this.array[0]; };
 
     this.poll = function () {
       if (this.size == 0) return undefined;
@@ -207,9 +183,7 @@ export class FastPriorityQueue {
       if (this.size > 1) {
         this.array[0] = this.array[--this.size];
         this._percolateDown(0);
-      } else {
-        this.size -= 1;
-      }
+      } else this.size -= 1;
       return ans;
     };
 
@@ -221,30 +195,21 @@ export class FastPriorityQueue {
       return ans;
     };
 
-    this.trim = function () {
-      this.array = this.array.slice(0, this.size);
-    };
-
-    this.isEmpty = function () {
-      return this.size === 0;
-    };
+    this.trim = function () { this.array = this.array.slice(0, this.size); };
+    this.isEmpty = function () { return this.size === 0; };
 
     this.forEach = function (callback) {
       if (this.isEmpty() || typeof callback != 'function') return;
       var i = 0;
       var fpq = this.clone();
-      while (!fpq.isEmpty()) {
-        callback(fpq.poll(), i++);
-      }
+      while (!fpq.isEmpty()) callback(fpq.poll(), i++);
     };
 
     this.kSmallest = function (k) {
       if (this.size == 0) return [];
       var comparator = this.compare;
       var arr = this.array;
-      var fpq = new FastPriorityQueue(function (a, b) {
-        return comparator(arr[a], arr[b]);
-      });
+      var fpq = new FastPriorityQueue(function (a, b) { return comparator(arr[a], arr[b]); });
       k = Math.min(this.size, k);
       var smallest = new Array(k);
       var j = 0;
