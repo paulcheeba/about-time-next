@@ -1,10 +1,9 @@
-// module/settings.js
-// Standalone settings module: no imports (prevents circular deps)
+// About Time v13.0.5 — settings
 
-export const MODULE_ID = "about-time-v13";
+const MODULE_ID = "about-time-v13";
+export { MODULE_ID }; // safe to export (not imported by cyclic deps that import ElapsedTime/PseudoClock)
 
 export const registerSettings = function () {
-  // Persistent queue store
   game.settings.register(MODULE_ID, "store", {
     name: "Elapsed Time event queue",
     hint: "Internal storage for About Time. Do not edit.",
@@ -14,35 +13,22 @@ export const registerSettings = function () {
     default: {}
   });
 
-  // Debug toggle
   game.settings.register(MODULE_ID, "debug", {
     name: "Debug output",
     hint: "Enable verbose logging for About Time.",
     scope: "client",
     config: true,
     type: Boolean,
-    default: false,
-    // Avoid importing ElapsedTime here; broadcast a hook instead.
-    onChange: (val) => Hooks.callAll(`${MODULE_ID}.debug-changed`, val)
+    default: false
   });
 
-  // Soft integration with Simple Calendar
+  // SC optional toggle
   game.settings.register(MODULE_ID, "use-simple-calendar", {
     name: "Use Simple Calendar (if installed)",
-    hint: "Disable to ignore Simple Calendar and always use Foundry core time/formatting.",
+    hint: "When on and SC is available, About Time will use SC date/format helpers.",
     scope: "world",
     config: true,
     type: Boolean,
     default: true
-  });
-
-  // Back-compat timing value
-  game.settings.register(MODULE_ID, "election-timeout", {
-    name: "For calendar-weather",
-    hint: "Internal timing for master timekeeper election. Do not edit.",
-    scope: "world",
-    config: false,
-    type: Number,
-    default: 5
   });
 };
