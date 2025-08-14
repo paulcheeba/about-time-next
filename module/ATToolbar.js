@@ -1,24 +1,15 @@
-// module/ATToolbar.js
-// About-Time v13.0.5 — Toolbar tool to open the Event Manager (DialogV2)
-// NOTE: v13 getSceneControlButtons passes controls: Record<string, SceneControl>,
-// and SceneControl.tools is Record<string, SceneControlTool>.
-// We support that shape, and gracefully fallback if another module still provides arrays.
+// About Time v13.0.5 — Toolbar tool (Journal/Notes subtool) + DialogV2 Event Manager
 
 const MOD = "about-time-v13";
 
-/** Normalize control bag to an object record keyed by control name. */
+/** Normalize controls (v13 provides Record<string, SceneControl>) */
 function normalizeControls(controlsArg) {
-  // v13 shape: Record<string, SceneControl>
   if (controlsArg && !Array.isArray(controlsArg)) return controlsArg;
-
-  // Some older modules may still pass arrays: convert to record
   if (Array.isArray(controlsArg)) {
     const rec = {};
     for (const c of controlsArg) if (c?.name) rec[c.name] = c;
     return rec;
   }
-
-  // Last resort: try ui.controls.controls (varies; best-effort)
   const maybe = ui?.controls?.controls;
   if (Array.isArray(maybe)) {
     const rec = {};
@@ -27,32 +18,25 @@ function normalizeControls(controlsArg) {
   }
   return {};
 }
-
-/** Ensure tools is a Record<string, SceneControlTool>; convert array → record if needed. */
 function normalizeTools(control) {
   if (!control) return;
   if (!control.tools) control.tools = {};
-  // If some system provided an array, convert to record one time.
   if (Array.isArray(control.tools)) {
     const rec = {};
     for (const t of control.tools) if (t?.name) rec[t.name] = t;
     control.tools = rec;
   }
 }
-
-/** Insert tool only once. */
 function addToolRecord(control, tool) {
   normalizeTools(control);
   if (!control || !tool?.name) return;
   if (!control.tools[tool.name]) control.tools[tool.name] = tool;
 }
 
-/* ---------------- Scene Controls: add tool under Journal/Notes ---------------- */
+/* ---------- Hook: inject subtool under Journal/Notes ---------- */
 Hooks.on("getSceneControlButtons", (controlsArg) => {
-  if (!game.user?.isGM) return; // GM-only
-
+  if (!game.user?.isGM) return;
   const controls = normalizeControls(controlsArg);
-  // Prefer "journal" but support "notes" if that’s what the system uses
   const ctl = controls["journal"] ?? controls["notes"];
   if (!ctl) return;
 
@@ -60,51 +44,35 @@ Hooks.on("getSceneControlButtons", (controlsArg) => {
     name: "about-time-manager",
     title: "About Time Event Manager",
     icon: "fas fa-clock",
+    order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999,
     button: true,
     visible: true,
-    // v13 tool schema uses onChange for toggle tools; for a button we use onClick
-    onClick: () => openATEventManager(),
-    order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999
+    onClick: () => openATEventManager()
   });
 });
 
-/* ---------------- Event Manager (DialogV2) ---------------- */
+/* ---------- DialogV2 Event Manager ---------- */
 function openATEventManager() {
-  if (!game.user.isGM) {
-    ChatMessage.create({
-      whisper: ChatMessage.getWhisperRecipients("GM"),
-      content: `[${MOD}] This tool is GM-only.`
-    });
-    return;
-  }
-
   const AT = game.abouttime ?? game.Gametime;
   const D2 = foundry?.applications?.api?.DialogV2;
   if (!D2) {
-    ChatMessage.create({
-      whisper: ChatMessage.getWhisperRecipients("GM"),
-      content: `[${MOD}] DialogV2 API not found (FVTT v13+ required).`
-    });
+    ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] DialogV2 API not found.` });
     return;
   }
 
-  // ---------- helpers ----------
   const gmWhisper = (html) => ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: html });
   const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
   function parseMixedDuration(input) {
     if (!input || typeof input !== "string") return 0;
-    const cleaned = input.trim();
-    if (/^\d+$/.test(cleaned)) return Number(cleaned);
     const re = /(\d+)\s*(d|h|m|s)?/gi;
     let total = 0, m;
-    while ((m = re.exec(cleaned)) !== null) {
+    while ((m = re.exec(input)) !== null) {
       const v = Number(m[1]); const u = (m[2] || "s").toLowerCase();
       total += u === "d" ? v*86400 : u === "h" ? v*3600 : u === "m" ? v*60 : v;
     }
     return total;
   }
-
   function fmtDHMS(totalSeconds) {
     const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
     const d = Math.floor(s / 86400);
@@ -114,7 +82,6 @@ function openATEventManager() {
     const pad2 = (n) => String(n).padStart(2, "0");
     return `${String(d).padStart(2, "0")}:${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
   }
-
   function fmtTimestamp(ts) {
     const api = globalThis.SimpleCalendar?.api;
     if (api?.timestampToDate && api?.formatDateTime) {
@@ -124,7 +91,6 @@ function openATEventManager() {
     }
     return `t+${Math.round(ts)}s`;
   }
-
   function secondsFromIncrement(inc) {
     if (!inc) return 0;
     if (typeof inc === "number") return Math.max(0, inc);
@@ -134,7 +100,6 @@ function openATEventManager() {
     const second = Number(inc.second ?? inc.seconds ?? 0);
     return day*86400 + hour*3600 + minute*60 + second;
   }
-
   function describeEntry(e) {
     const now = game.time.worldTime;
     const nameFromArgs = e?._args?.[0]?.__atName ?? null;
@@ -144,17 +109,14 @@ function openATEventManager() {
     const remaining = fmtDHMS(Math.max(0, (e?._time ?? now) - now));
     const repeatSec = e?._recurring ? secondsFromIncrement(e._increment) : 0;
     const repeatTxt = repeatSec ? `, every ${fmtDHMS(repeatSec)}` : "";
-    return { uid: e?._uid ?? "?", eventName, start, duration: remaining, message: msgFromArgs ?? "", repeatTxt };
+    return `- ${eventName}, ${start},  ${remaining}${repeatTxt}, ${msgFromArgs}`;
   }
-
   function renderStatus() {
     const q = AT?.ElapsedTime?._eventQueue;
-    if (!q || !Array.isArray(q.array) || q.size === 0) return `<textarea class="status-ta" readonly>- (empty queue) -</textarea>`;
+    if (!q || !Array.isArray(q.array) || q.size === 0)
+      return `<textarea class="status-ta" readonly>- (empty queue) -</textarea>`;
     const lines = [];
-    for (let i = 0; i < q.size; i++) {
-      const d = describeEntry(q.array[i]);
-      lines.push(`- ${d.eventName}, ${d.start},  ${d.duration}${d.repeatTxt}, ${d.message}`);
-    }
+    for (let i = 0; i < q.size; i++) lines.push(describeEntry(q.array[i]));
     return `<textarea class="status-ta" readonly>${esc(lines.join("\n"))}</textarea>`;
   }
 
@@ -203,6 +165,7 @@ function openATEventManager() {
   function refresh(dlg, msg) { dlg.content = contentTemplate(msg); dlg.render({ force: true }); }
 
   async function actCreate(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     const f = btn.form.elements;
     const name     = f.eventName?.value?.toString()?.trim() || "";
     const durStr   = f.duration?.value?.toString() ?? "";
@@ -210,45 +173,30 @@ function openATEventManager() {
     const repeat   = !!f.repeat?.checked;
     const useMacro = !!f.runMacro?.checked;
     const macroNm  = f.macroName?.value?.toString()?.trim() || "";
-
-    const seconds = parseMixedDuration(durStr);
-    if (!seconds) { gmWhisper(`<p>[${MOD}] Enter a valid duration (e.g. <code>1h30m</code>, <code>45s</code>, <code>2d</code>).</p>`); return refresh(dlg, "Invalid duration."); }
+    const seconds  = parseMixedDuration(durStr);
+    if (!seconds) { gmWhisper(`<p>[${MOD}] Enter a valid duration.</p>`); return refresh(dlg, "Invalid duration."); }
 
     const meta = { __atName: name || (useMacro ? macroNm : "(unnamed)"), __atMsg: msg };
-
     const handler = async (metaArg) => {
       try {
         if (useMacro && macroNm) {
           const macro = game.macros.get(macroNm) || game.macros.getName?.(macroNm);
           if (macro) {
-            if (isNewerVersion(game.version, "11.0")) {
-              await macro.execute({ args: [metaArg] });
-            } else {
+            if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
+            else {
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
               await fn.call(this, { speaker: {}, actor: undefined, token: undefined, character: null, args: [metaArg] });
             }
-            await ChatMessage.create({
-              whisper: ChatMessage.getWhisperRecipients("GM"),
-              content: `The macro <strong>${foundry.utils.escapeHTML(macroNm)}</strong> has run on schedule.`
-            });
+            await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `The macro <strong>${foundry.utils.escapeHTML(macroNm)}</strong> has run on schedule.` });
           } else {
-            await ChatMessage.create({
-              whisper: ChatMessage.getWhisperRecipients("GM"),
-              content: `[${MOD}] Macro not found: <code>${foundry.utils.escapeHTML(macroNm)}</code>`
-            });
+            await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] Macro not found: <code>${foundry.utils.escapeHTML(macroNm)}</code>` });
           }
         } else {
-          await ChatMessage.create({
-            whisper: ChatMessage.getWhisperRecipients("GM"),
-            content: `<strong>${foundry.utils.escapeHTML(metaArg.__atName)}</strong>: ${foundry.utils.escapeHTML(metaArg.__atMsg || "(no message)")}`
-          });
+          await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `<strong>${foundry.utils.escapeHTML(metaArg.__atName)}</strong>: ${foundry.utils.escapeHTML(metaArg.__atMsg || "(no message)")}` });
         }
       } catch (err) {
-        await ChatMessage.create({
-          whisper: ChatMessage.getWhisperRecipients("GM"),
-          content: `[${MOD}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}`
-        });
+        await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}` });
       }
     };
 
@@ -261,6 +209,7 @@ function openATEventManager() {
   }
 
   async function actStopByName(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     const key = btn.form.elements.stopKey?.value?.toString()?.trim();
     if (!key) { gmWhisper(`<p>[${MOD}] Enter an Event Name to stop.</p>`); return refresh(dlg, "Name required."); }
     const q = AT?.ElapsedTime?._eventQueue;
@@ -279,6 +228,7 @@ function openATEventManager() {
   }
 
   async function actStopByUID(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     const uid = btn.form.elements.stopKey?.value?.toString()?.trim();
     if (!uid) { gmWhisper(`<p>[${MOD}] Enter a UID to stop.</p>`); return refresh(dlg, "UID required."); }
     const removed = AT.clearTimeout(uid);
@@ -293,18 +243,21 @@ function openATEventManager() {
   }
 
   async function actList(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     AT.chatQueue({ showArgs: false, showUid: true, showDate: true, gmOnly: true });
     gmWhisper(`<p>[${MOD}] Queue listed to GM chat.</p>`);
     return refresh(dlg, "Queue listed.");
   }
 
   async function actFlush(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     AT.flushQueue();
     gmWhisper(`<p>[${MOD}] All About-Time events purged.</p>`);
     return refresh(dlg, "All events purged.");
   }
 
   async function actFlushRem(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
     AT.flushQueue();
     AT.doEvery({ hour: 1 }, "1 Hour Reminder");
     gmWhisper(`<p>[${MOD}] All events purged. Hourly reminder queued.</p>`);
