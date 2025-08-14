@@ -1,18 +1,19 @@
+// About Time v13.0.5 — PseudoClock (master election & notifications)
+
 import { ElapsedTime } from "./ElapsedTime.js";
 import { Quentry } from "./FastPirorityQueue.js";
-import { MODULE_ID } from "./settings.js";
 
+const MODULE_ID = "about-time-v13";
 const _moduleSocket = `module.${MODULE_ID}`;
 const _eventTrigger = "about-time.eventTrigger";
 const _queryMaster = "about-time.queryMaster";
 const _masterResponse = "about-time.masterResponse";
 const _masterMutiny = "about-time.Arrrgh...Matey";
-const _runningClock = "about-time.clockRunningStatus";
 const _acquiredMaster = "about-time.pseudoclockMaster";
 export const _addEvent = "about-time.addEvent";
 
 let _userId = "";
-const log = (...args) => console.log(`${MODULE_ID} |`, ...args);
+const log = (...a) => console.log(`${MODULE_ID} |`, ...a);
 
 export class PseudoClockMessage {
   constructor({ action, userId, newTime = 0 }, ...args) {
@@ -26,21 +27,33 @@ export class PseudoClockMessage {
 }
 
 export class PseudoClock {
-  static _initialize(currentTime = 0, realTimeMult = 0, realTimeInterval, running = false) {}
+  static _initialize() {}
+
   static get isMaster() { return PseudoClock._isMaster; }
-  static warnNotMaster(operation) {
-    ui.notifications.error(`${game.user.name} ${operation} - ${game.i18n.localize("about-time.notMaster")}`);
-    console.warn(`${MODULE_ID} | Non master timekeeper attempting to ${operation}`);
+
+  static warnNotMaster(op) {
+    ui.notifications?.error?.(`${game.user.name} ${op} - ${game.i18n.localize("about-time.notMaster")}`);
+    console.warn(`${MODULE_ID} | Non master attempting to ${op}`);
   }
-  static warnNotGM(operation) {
-    ui.notifications.error(`${game.user.name} ${operation} - ${game.i18n.localize("about-time.notMaster")}`);
-    console.warn(`${MODULE_ID} | Non GM attempting to ${operation}`);
+  static warnNotGM(op) {
+    ui.notifications?.error?.(`${game.user.name} ${op} - ${game.i18n.localize("about-time.notMaster")}`);
+    console.warn(`${MODULE_ID} | Non GM attempting to ${op}`);
   }
+
   static _displayCurrentTime() { console.log(`Elapsed time ${game.time.worldTime}`); }
-  static advanceClock(timeIncrement) { console.error(`${MODULE_ID} | advance clock Not supported`); }
-  static setClock(newTime) { console.error(`${MODULE_ID} | set clock Not supported`); }
-  static demote() { PseudoClock._isMaster = false; Hooks.callAll(_acquiredMaster, false); }
-  static notifyMutiny() { const message = new PseudoClockMessage({ action: _masterMutiny, userId: _userId }); PseudoClock._notifyUsers(message); }
+  static advanceClock() { console.error(`${MODULE_ID} | advance clock Not supported`); }
+  static setClock() { console.error(`${MODULE_ID} | set clock Not supported`); }
+
+  static demote() {
+    PseudoClock._isMaster = false;
+    Hooks.callAll(_acquiredMaster, false);
+  }
+
+  static notifyMutiny() {
+    const message = new PseudoClockMessage({ action: _masterMutiny, userId: _userId });
+    PseudoClock._notifyUsers(message);
+  }
+
   static mutiny() {
     PseudoClock.notifyMutiny();
     const timeout = 10;
@@ -53,38 +66,44 @@ export class PseudoClock {
       PseudoClock._notifyUsers(message);
     }, timeout * 1000);
   }
-  static notifyRunning(status) { console.error(`${MODULE_ID} | notify running not supported`); }
+
+  static notifyRunning() { console.error(`${MODULE_ID} | notify running not supported`); }
+
   static isRunning() {
-    const status = globalThis.SimpleCalendar?.api?.clockStatus?.() ?? { started: false, paused: false };
-    return status.started && !status.paused;
+    const cs = globalThis.SimpleCalendar?.api?.clockStatus?.();
+    return !!(cs && cs.started && !cs.paused);
   }
+
   static _processAction(message) {
     if (message._userId === _userId) return;
+
     switch (message._action) {
       case _eventTrigger:
         Hooks.callAll(_eventTrigger, ...message._args);
         break;
+
       case _queryMaster:
         if (PseudoClock._isMaster) {
           log(game.user.name, "responding as master time keeper");
-          const message = new PseudoClockMessage({ action: _masterResponse, userId: _userId, newTime: game.time.worldTime });
-          PseudoClock._notifyUsers(message);
+          const m = new PseudoClockMessage({ action: _masterResponse, userId: _userId, newTime: game.time.worldTime });
+          PseudoClock._notifyUsers(m);
         }
         break;
+
       case _masterResponse:
         if (message._userId !== _userId) {
           clearTimeout(PseudoClock._queryTimeoutId);
-          const userName = game.users.get(message._userId)?.name;
-          log(userName, " as master timekeeper responded cancelling timeout");
+          log("Master response message ", message);
         }
         break;
+
       case _masterMutiny:
         if (message._userId !== _userId && PseudoClock._isMaster) {
           PseudoClock.demote();
-          const userName = game.users.get(message._userId)?.name;
-          log(userName, " took control as master timekeeper. Aaaahhhrrr");
+          log("Another GM took control as master timekeeper.");
         }
         break;
+
       case _addEvent:
         if (!PseudoClock.isMaster) return;
         ElapsedTime._eventQueue.add(Quentry.createFromJSON(message._args[0]));
@@ -92,22 +111,35 @@ export class PseudoClock {
         break;
     }
   }
+
   static async notifyEvent(eventName, ...args) {
     const message = new PseudoClockMessage({ action: _eventTrigger, userId: _userId, newTime: 0 }, eventName, ...args);
     Hooks.callAll(_eventTrigger, ...message._args);
     return PseudoClock._notifyUsers(message);
   }
-  static async _notifyUsers(message) { await game.socket.emit(_moduleSocket, message, () => {}); }
-  static _setupSocket() { game.socket.on(_moduleSocket, (data) => { PseudoClock._processAction(data); }); }
-  static _load() { PseudoClock._fetchParams(); }
+
+  static async _notifyUsers(message) {
+    await game.socket.emit(_moduleSocket, message, () => {});
+  }
+
+  static _setupSocket() {
+    game.socket.on(_moduleSocket, (data) => PseudoClock._processAction(data));
+  }
+
+  static _load() {}
+
   static init() {
     _userId = game.user.id;
-    Hooks.on("updateWorldTime", (newTime, dt) => { Hooks.callAll("pseudoclockSet", newTime); });
+    Hooks.on("updateWorldTime", (newTime, dt) => {
+      Hooks.callAll("pseudoclockSet", newTime);
+    });
+
     PseudoClock._isMaster = false;
     PseudoClock._setupSocket();
-    if (ElapsedTime.debug) log("pseudoclock sending query master message");
+
     const message = new PseudoClockMessage({ action: _queryMaster, userId: _userId });
     PseudoClock._notifyUsers(message);
+
     if (game.user.isGM) {
       const timeout = 5;
       PseudoClock._queryTimeoutId = setTimeout(() => {
@@ -116,7 +148,5 @@ export class PseudoClock {
         Hooks.callAll(_acquiredMaster, true);
       }, timeout * 1000);
     }
-    if (ElapsedTime.debug) log("election-timeout: timeout set id is ", PseudoClock._queryTimeoutId);
   }
-  static _fetchParams() {}
 }
