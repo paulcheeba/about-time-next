@@ -8,14 +8,15 @@
 Hooks.once("getSceneControlButtons", controls => {
   if (!game.user.isGM) return;
 
+  // v13-compatible toolbar patch
   const tokenControls = controls["token"];
-  if (!tokenControls?.tools) return;
+  if (!tokenControls || !Array.isArray(tokenControls.tools)) return;
 
   tokenControls.tools.push({
     name: "abouttime",
     title: "About Time Event Manager",
     icon: "far fa-clock",
-    visible: game.user.isGM,
+    visible: true,
     button: true,
     onClick: () => {
       if (!game.abouttime) {
@@ -26,7 +27,6 @@ Hooks.once("getSceneControlButtons", controls => {
     }
   });
 });
-
 
 // Optionally, set up `game.abouttime.renderDialog` binding fallback
 Hooks.once("ready", () => {
