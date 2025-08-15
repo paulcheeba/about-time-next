@@ -8,8 +8,7 @@
 Hooks.once("getSceneControlButtons", controls => {
   if (!game.user.isGM) return;
 
-  // Insert into the token layer
-  const tokenControls = controls.find(c => c.name === "token");
+  const tokenControls = controls["token"];
   if (!tokenControls?.tools) return;
 
   tokenControls.tools.push({
@@ -27,6 +26,7 @@ Hooks.once("getSceneControlButtons", controls => {
     }
   });
 });
+
 
 // Optionally, set up `game.abouttime.renderDialog` binding fallback
 Hooks.once("ready", () => {
