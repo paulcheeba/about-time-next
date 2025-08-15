@@ -1,4 +1,4 @@
-// About Time v13.0.6 — Toolbar tool (Journal/Notes subtool) + DialogV2 Event Manager
+// About Time v13.0.5 — Toolbar tool (Journal/Notes subtool) + DialogV2 Event Manager
 
 const MOD = "about-time-v13";
 
