@@ -1,345 +1,281 @@
-// module/ATToolbar.js
-// About Time — Toolbar & Event Manager dialog (v13.0.6-candidate)
-// Why: add a Notes/Journal sub-tool (clock) that opens a Dracula-styled manager with a table status board.
+// About Time v13.0.6 — Toolbar tool (Journal/Notes subtool) + DialogV2 Event Manager
 
-const MODULE_ID = "about-time-v13";
-const AT = () => (game.abouttime ?? game.Gametime); // legacy-safe
+const MOD = "about-time-v13";
 
-/* ----------------------- Toolbar hook (v13 API) ----------------------- */
-// Why: v13 passes a Record<string, SceneControl> not an array.
-Hooks.on("getSceneControlButtons", (controls) => {
-  try {
-    const notes = controls["notes"] ?? controls["journal"];
-    if (!notes) return;
-
-    // Ensure tools record exists.
-    notes.tools ||= {};
-
-    // Add our button only once.
-    if (!notes.tools["abouttime"]) {
-      notes.tools["abouttime"] = {
-        name: "abouttime",
-        title: "About Time — Event Manager",
-        icon: "fas fa-clock",
-        order: 95,
-        button: true,       // Why: not a toggle; fire-on-click
-        visible: game.user.isGM, // Why: GM-only tool
-        onChange: (_ev, _active) => openEventManager() // v13 button callback
-      };
-    }
-  } catch (err) {
-    console.error(`${MODULE_ID} | getSceneControlButtons failed`, err);
+/** Normalize controls (v13 provides Record<string, SceneControl>) */
+function normalizeControls(controlsArg) {
+  if (controlsArg && !Array.isArray(controlsArg)) return controlsArg;
+  if (Array.isArray(controlsArg)) {
+    const rec = {};
+    for (const c of controlsArg) if (c?.name) rec[c.name] = c;
+    return rec;
   }
+  const maybe = ui?.controls?.controls;
+  if (Array.isArray(maybe)) {
+    const rec = {};
+    for (const c of maybe) if (c?.name) rec[c.name] = c;
+    return rec;
+  }
+  return {};
+}
+function normalizeTools(control) {
+  if (!control) return;
+  if (!control.tools) control.tools = {};
+  if (Array.isArray(control.tools)) {
+    const rec = {};
+    for (const t of control.tools) if (t?.name) rec[t.name] = t;
+    control.tools = rec;
+  }
+}
+function addToolRecord(control, tool) {
+  normalizeTools(control);
+  if (!control || !tool?.name) return;
+  if (!control.tools[tool.name]) control.tools[tool.name] = tool;
+}
+
+/* ---------- Hook: inject subtool under Journal/Notes ---------- */
+Hooks.on("getSceneControlButtons", (controlsArg) => {
+  if (!game.user?.isGM) return;
+  const controls = normalizeControls(controlsArg);
+  const ctl = controls["journal"] ?? controls["notes"];
+  if (!ctl) return;
+
+  addToolRecord(ctl, {
+    name: "about-time-manager",
+    title: "About Time Event Manager",
+    icon: "fas fa-clock",
+    order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999,
+    button: true,
+    visible: true,
+    onClick: () => openATEventManager()
+  });
 });
 
-/* ----------------------- Dialog helpers ----------------------- */
-
-const hasV2 = !!foundry?.applications?.api?.DialogV2;
-const isSCActive = () => !!(game.modules.get("foundryvtt-simple-calendar")?.active && globalThis.SimpleCalendar?.api);
-
-// Why: players must not see AT messages.
-function gmWhisper(html) {
-  const gm = ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id);
-  return ChatMessage.create({ content: html, whisper: gm, type: CONST.CHAT_MESSAGE_TYPES.OTHER });
-}
-
-function parseDuration(input) {
-  if (!input) return 0;
-  const s = String(input).trim();
-  if (/^\d+$/.test(s)) return Number(s);
-  const re = /(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)/gi;
-  let total = 0, m;
-  while ((m = re.exec(s))) {
-    const val = Number(m[1]);
-    const unit = m[2].toLowerCase();
-    if (["d","day","days"].includes(unit)) total += val * 86400;
-    else if (["h","hr","hrs","hour","hours"].includes(unit)) total += val * 3600;
-    else if (["m","min","mins","minute","minutes"].includes(unit)) total += val * 60;
-    else total += val;
+/* ---------- DialogV2 Event Manager ---------- */
+function openATEventManager() {
+  const AT = game.abouttime ?? game.Gametime;
+  const D2 = foundry?.applications?.api?.DialogV2;
+  if (!D2) {
+    ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] DialogV2 API not found.` });
+    return;
   }
-  return total;
-}
 
-function formatDHMS(total) {
-  total = Math.max(0, Math.floor(Number(total) || 0));
-  const d = Math.floor(total / 86400);
-  const h = Math.floor((total % 86400) / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${String(d).padStart(2, "0")}:${pad(h)}:${pad(m)}:${pad(s)}`;
-}
+  const gmWhisper = (html) => ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: html });
+  const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
-function fmtTimeStarted(ts) {
-  if (isSCActive()) {
-    const dt = SimpleCalendar.api.timestampToDate(ts);
-    const pad = (n) => String(n).padStart(2, "0");
-    const M = (dt.month ?? 0) + 1;
-    const D = dt.day ?? 0;
-    return `${M}/${D} ${pad(dt.hour)}:${pad(dt.minute)}:${pad(dt.second)}`;
-  }
-  const date = new Date(ts * 1000);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getMonth()+1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
-// Snapshot -> rows for status board
-function readQueueRows() {
-  const api = AT();
-  const q = api?.ElapsedTime?._eventQueue;
-  if (!q || !Array.isArray(q.array)) return [];
-  const arr = q.array.slice(0, q.size);
-  return arr.map((qe, i) => {
-    const name = typeof qe._handler === "string" ? qe._handler : "[function]";
-    const uid = qe._uid ?? "";
-    const repeating = qe._recurring ? "Y" : "N";
-    const timeStarted = fmtTimeStarted(qe._time);
-
-    let secs = 0;
-    if (qe._recurring) {
-      if (isSCActive() && qe._increment) {
-        const zero = SimpleCalendar.api.timestampPlusInterval(0, qe._increment);
-        secs = Math.max(0, zero ?? 0);
-      } else {
-        const inc = qe._increment || {};
-        secs =
-          (inc.second ?? inc.seconds ?? 0) +
-          (inc.minute ?? 0) * 60 +
-          (inc.hour ?? 0) * 3600 +
-          (inc.day ?? 0) * 86400;
-      }
-    } else {
-      secs = Math.max(0, qe._time - game.time.worldTime);
+  function parseMixedDuration(input) {
+    if (!input || typeof input !== "string") return 0;
+    const re = /(\d+)\s*(d|h|m|s)?/gi;
+    let total = 0, m;
+    while ((m = re.exec(input)) !== null) {
+      const v = Number(m[1]); const u = (m[2] || "s").toLowerCase();
+      total += u === "d" ? v*86400 : u === "h" ? v*3600 : u === "m" ? v*60 : v;
     }
-    const duration = formatDHMS(secs);
-    const message = Array.isArray(qe._args) && qe._args.length ? String(qe._args.join(" ")) : "";
-
-    return { idx: i+1, name, uid, repeating, timeStarted, duration, message };
-  });
-}
-
-function statusTableHTML() {
-  const rows = readQueueRows();
-  if (!rows.length) return `<div class="at-empty">No events scheduled.</div>`;
-  return rows.map(r => `
-    <div class="at-row" data-uid="${foundry.utils.escapeHTML(r.uid)}">
-      <div class="at-col name"  title="${foundry.utils.escapeHTML(r.name)}">${r.idx}) ${foundry.utils.escapeHTML(r.name)}</div>
-      <div class="at-col uid">${foundry.utils.escapeHTML(r.uid)}</div>
-      <div class="at-col rep">${r.repeating}</div>
-      <div class="at-col start">${r.timeStarted}</div>
-      <div class="at-col dur">${r.duration}</div>
-      <div class="at-col msg">${foundry.utils.escapeHTML(r.message || "")}</div>
-    </div>
-  `).join("");
-}
-
-/* ----------------------- Dracula CSS + layout ----------------------- */
-const CSS = `
-<style>
-  .at-wrap { color:#f8f8f2; }
-  .at-wrap .window-content { background:#1e1f29 !important; }
-
-  .at-note { color:#9aa0b4; margin:.35rem 0 .75rem; }
-  .at-sect { margin-top:1.0rem; }
-
-  .at-box {
-    border:1px solid #3c4054; border-radius:6px; background:#232530; padding:.5rem .6rem;
+    return total;
   }
-  .at-hdr {
-    font-weight:700; margin-bottom:.5rem; color:#f8f8f2;
+  function fmtDHMS(totalSeconds) {
+    const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad2 = (n) => String(n).padStart(2, "0");
+    return `${String(d).padStart(2, "0")}:${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+  }
+  function fmtTimestamp(ts) {
+    const api = globalThis.SimpleCalendar?.api;
+    if (api?.timestampToDate && api?.formatDateTime) {
+      const d = api.timestampToDate(ts);
+      const f = api.formatDateTime(d);
+      return `${f.date} ${f.time}`;
+    }
+    return `t+${Math.round(ts)}s`;
+  }
+  function secondsFromIncrement(inc) {
+    if (!inc) return 0;
+    if (typeof inc === "number") return Math.max(0, inc);
+    const day = Number(inc.day ?? inc.days ?? 0);
+    const hour = Number(inc.hour ?? inc.hours ?? 0);
+    const minute = Number(inc.minute ?? inc.minutes ?? 0);
+    const second = Number(inc.second ?? inc.seconds ?? 0);
+    return day*86400 + hour*3600 + minute*60 + second;
+  }
+  function describeEntry(e) {
+    const now = game.time.worldTime;
+    const nameFromArgs = e?._args?.[0]?.__atName ?? null;
+    const msgFromArgs  = e?._args?.[0]?.__atMsg ?? (typeof e?._args?.[0] === "string" ? e._args[0] : "");
+    const eventName = nameFromArgs ?? (typeof e?._handler === "string" ? e._handler : "[fn]");
+    const start = fmtTimestamp(e?._time ?? now);
+    const remaining = fmtDHMS(Math.max(0, (e?._time ?? now) - now));
+    const repeatSec = e?._recurring ? secondsFromIncrement(e._increment) : 0;
+    const repeatTxt = repeatSec ? `, every ${fmtDHMS(repeatSec)}` : "";
+    return `- ${eventName}, ${start},  ${remaining}${repeatTxt}, ${msgFromArgs}`;
+  }
+  function renderStatus() {
+    const q = AT?.ElapsedTime?._eventQueue;
+    if (!q || !Array.isArray(q.array) || q.size === 0)
+      return `<textarea class="status-ta" readonly>- (empty queue) -</textarea>`;
+    const lines = [];
+    for (let i = 0; i < q.size; i++) lines.push(describeEntry(q.array[i]));
+    return `<textarea class="status-ta" readonly>${esc(lines.join("\n"))}</textarea>`;
   }
 
-  .at-grid-hdr, .at-row { display:grid; grid-template-columns: 1.3fr 1.2fr .6fr 1.1fr .9fr 2.0fr; gap:.6rem; }
-  .at-grid-hdr {
-    background:#2a2c37; padding:.45rem .6rem; border:1px solid #3c4054; border-radius:6px; font-weight:600;
-  }
-  .at-board {
-    height:200px; overflow:auto; margin-top:.4rem; border:1px solid #3c4054; border-radius:6px; background:#232530;
-  }
-  .at-row { padding:.35rem .6rem; border-bottom:1px solid #2f3347; align-items:start; }
-  .at-row:last-child { border-bottom:none; }
-  .at-col.msg { white-space: normal; word-break: break-word; }
-  .at-empty { color:#9aa0b4; padding:.4rem; }
+  function contentTemplate(msg = "Ready.") {
+    return `
+    <style>
+      .dialog-buttons { flex-direction: column; align-items: center; gap: 6px; }
+      .dialog-buttons button[data-action="create"]     { background-color:#bcf879; border:2px groove; }
+      .dialog-buttons button[data-action="stop-name"]  { background-color:#ff9752; border:2px groove; }
+      .dialog-buttons button[data-action="stop-uid"]   { background-color:#ff9752; border:2px groove; }
+      .dialog-buttons button[data-action="list"]       { border:2px groove; }
+      .dialog-buttons button[data-action="flush"]      { background-color:#ff5252; border:2px groove; }
+      .dialog-buttons button[data-action="flush-rem"]  { background-color:#ffc452; border:2px groove; }
 
-  .at-label { color:#f8f8f2; font-weight:600; margin-top:.6rem; margin-bottom:.25rem; display:block; }
-  .at-input {
-    width:100%; background:#2a2c37; color:#f8f8f2; border:1px solid #3c4054; border-radius:6px; padding:.5rem .65rem;
-  }
-  .at-hint { color:#9aa0b4; font-size:.85em; margin-top:.25rem; }
+      #tam-at .section { border:1px solid #9994; border-radius:6px; padding:8px; margin:8px 0; }
+      #tam-at label { min-width:140px; display:inline-block; }
+      #tam-at input[type="text"] { width:100%; }
+      #tam-at .row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+      #tam-at .muted { opacity:.8; font-size:.9em; }
+      .status-ta { width:100%; height:140px; resize:vertical; background:#00000022; border:1px solid #9994; border-radius:6px; padding:6px; color: var(--color-text-light-1); font-family: var(--font-primary); }
+    </style>
 
-  .at-check { display:flex; align-items:center; gap:.5rem; margin:.35rem 0; color:#f8f8f2; }
-  .at-check input[type="checkbox"] { transform: scale(1.1); }
+    <div id="tam-at">
+      <div class="row" style="justify-content:center;"><div class="muted">Choose an option below, then close the window when finished.</div></div>
+      <div class="section"><div><strong>Event Status Board</strong></div>${renderStatus()}</div>
 
-  .at-btns { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.9rem; }
-  .at-btn { background:#2a2c37; color:#f8f8f2; border:1px solid #3c4054; border-radius:8px; padding:.6rem 1rem; }
-  .at-btn.ok      { background:#50fa7b; border-color:#50fa7b; color:#1b1b1f; }
-  .at-btn.warn    { background:#ffb86c; border-color:#ffb86c; color:#1b1b1f; }
-  .at-btn.danger  { background:#ff5555; border-color:#ff5555; }
-</style>
-`;
-
-/* ----------------------- Dialog content ----------------------- */
-function buildContent(msg = "Ready.") {
-  return `
-  ${CSS}
-  <div class="at-wrap">
-    <div class="at-note">Choose an option below, then close the window when finished.</div>
-
-    <div class="at-box">
-      <div class="at-hdr">Event Status Board</div>
-      <div class="at-grid-hdr">
-        <div>Event Name</div><div>UID</div><div>Repeating?</div><div>Time Started</div><div>Duration</div><div>Message</div>
+      <div class="section">
+        <div><strong>Create Custom Reminder</strong></div>
+        <div class="row"><label for="eventName">Event Name</label><input name="eventName" id="eventName" type="text" placeholder="optional key to store UID" /></div>
+        <div class="row"><label for="duration">Duration</label><input name="duration" id="duration" type="text" placeholder="e.g. 1h30m, 45s, 2d 4h" /></div>
+        <div class="row muted"><span>Duration accepts mixed units: <code>1h30m</code>, <code>45m10s</code>, <code>1d</code>, <code>10s</code></span></div>
+        <div class="row"><label for="message">Message</label><input name="message" id="message" type="text" placeholder="What should appear in chat?" /></div>
+        <div class="row"><label for="repeat">Repeating?</label><input name="repeat" id="repeat" type="checkbox" /><span class="muted">(Repeat at the given interval)</span></div>
+        <div class="row"><label for="runMacro">Run Macro?</label><input name="runMacro" id="runMacro" type="checkbox" /><input name="macroName" id="macroName" type="text" placeholder="Enter macro name to run on event" /></div>
       </div>
-      <div class="at-board">${statusTableHTML()}</div>
-    </div>
 
-    <div class="at-sect">
-      <div class="at-hdr">Create Custom Reminder</div>
-      <label class="at-label" for="at-name">Event Name</label>
-      <input id="at-name" class="at-input" placeholder="optional key to store UID"/>
+      <div class="section">
+        <div><strong>Stop Event Reminder</strong></div>
+        <div class="row"><label for="stopKey">Event Name/UID</label><input name="stopKey" id="stopKey" type="text" placeholder="Paste a Name or UID from the status board" /></div>
+        <div class="muted">(“Stop by Name” matches the Event Name you entered when creating.)</div>
+      </div>
+      <div class="muted">${esc(msg)}</div>
+    </div>`;
+  }
 
-      <label class="at-label" for="at-duration">Duration</label>
-      <input id="at-duration" class="at-input" placeholder="e.g. 1h30m, 45s, 2d 4h"/>
-      <div class="at-hint">Duration accepts mixed units: <code>1h30m</code>, <code>45m10s</code>, <code>1d</code>, <code>10s</code></div>
+  function refresh(dlg, msg) { dlg.content = contentTemplate(msg); dlg.render({ force: true }); }
 
-      <label class="at-label" for="at-message">Message</label>
-      <input id="at-message" class="at-input" placeholder="What should appear in chat?"/>
+  async function actCreate(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    const f = btn.form.elements;
+    const name     = f.eventName?.value?.toString()?.trim() || "";
+    const durStr   = f.duration?.value?.toString() ?? "";
+    const msg      = f.message?.value?.toString() ?? "";
+    const repeat   = !!f.repeat?.checked;
+    const useMacro = !!f.runMacro?.checked;
+    const macroNm  = f.macroName?.value?.toString()?.trim() || "";
+    const seconds  = parseMixedDuration(durStr);
+    if (!seconds) { gmWhisper(`<p>[${MOD}] Enter a valid duration.</p>`); return refresh(dlg, "Invalid duration."); }
 
-      <div class="at-check"><input id="at-repeat" type="checkbox"/> <label for="at-repeat">Repeating? (Repeat at the given interval)</label></div>
-      <div class="at-check"><input id="at-runmacro" type="checkbox"/> <label for="at-runmacro">Run Macro?</label></div>
-      <input id="at-macroname" class="at-input" placeholder="Enter macro name to run on event"/>
-    </div>
-
-    <div class="at-sect">
-      <div class="at-hdr">Stop Event Reminder</div>
-      <label class="at-label" for="at-stop">Event Name/UID</label>
-      <input id="at-stop" class="at-input" placeholder="Paste a Name or UID from the status board"/>
-      <div class="at-hint">“Stop by Name” matches the Event Name you entered when creating.</div>
-    </div>
-
-    <div class="at-btns">
-      <button type="button" class="at-btn ok"      data-at="create">Create Event</button>
-      <button type="button" class="at-btn warn"    data-at="stop-name">Stop by Name</button>
-      <button type="button" class="at-btn warn"    data-at="stop-uid">Stop by UID</button>
-      <button type="button" class="at-btn"         data-at="queue">Send Queue to Chat</button>
-      <button type="button" class="at-btn danger"  data-at="stop-all">Stop all Events</button>
-      <button type="button" class="at-btn danger"  data-at="stop-all-rem">Stop all + 1h reminder</button>
-      <button type="button" class="at-btn"         data-at="close">Close</button>
-    </div>
-
-    <div class="at-hint" style="margin-top:.6rem;">${foundry.utils.escapeHTML(msg)}</div>
-  </div>`;
-}
-
-/* ----------------------- Actions (refresh after each) ----------------------- */
-async function handleClick(dialog, action) {
-  const api = AT();
-  const $el = dialog.element || $(dialog.form);
-
-  const name = $el.find("#at-name").val()?.toString().trim();
-  const durStr = $el.find("#at-duration").val()?.toString().trim();
-  const msg = $el.find("#at-message").val()?.toString().trim();
-  const repeating = !!$el.find("#at-repeat").prop("checked");
-  const runMacro = !!$el.find("#at-runmacro").prop("checked");
-  const macroName = $el.find("#at-macroname").val()?.toString().trim();
-  const stopVal = $el.find("#at-stop").val()?.toString().trim();
-
-  const rerender = (m) => dialog.render(true, { content: buildContent(m) });
-
-  switch (action) {
-    case "create": {
-      const seconds = parseDuration(durStr);
-      if (!seconds || seconds <= 0) {
-        await gmWhisper(`<p>[${MODULE_ID}] Please enter a valid duration.</p>`);
-        return rerender("Invalid duration.");
-      }
-      let uid;
-      if (runMacro && macroName) {
-        uid = repeating ? api.doEvery({ seconds }, macroName) : api.doIn({ seconds }, macroName);
-        await gmWhisper(`<p>[${MODULE_ID}] Scheduled macro <b>${foundry.utils.escapeHTML(macroName)}</b> ${repeating ? "every" : "in"} ${formatDHMS(seconds)}.</p>`);
-      } else {
-        uid = repeating ? api.reminderEvery({ seconds }, msg || "(no message)") : api.reminderIn({ seconds }, msg || "(no message)");
-        await gmWhisper(`<p>[${MODULE_ID}] Scheduled reminder ${repeating ? "every" : "in"} ${formatDHMS(seconds)}: ${foundry.utils.escapeHTML(msg || "(no message)")}.</p>`);
-      }
-      if (name) await game.user.setFlag(MODULE_ID, `uid:${name}`, uid);
-      return rerender("Event created.");
-    }
-    case "stop-name": {
-      if (!stopVal) { await gmWhisper(`<p>[${MODULE_ID}] Enter a Name to stop.</p>`); return rerender("Enter a Name."); }
-      const q = api.ElapsedTime?._eventQueue;
-      let count = 0;
-      if (q && Array.isArray(q.array)) {
-        for (let i = 0; i < q.size; i++) {
-          const qe = q.array[i];
-          const handlerName = typeof qe._handler === "string" ? qe._handler : "[function]";
-          if (handlerName === stopVal && qe._uid) {
-            (api.gclearTimeout?.(qe._uid) ?? api.clearTimeout?.(qe._uid));
-            count++;
+    const meta = { __atName: name || (useMacro ? macroNm : "(unnamed)"), __atMsg: msg };
+    const handler = async (metaArg) => {
+      try {
+        if (useMacro && macroNm) {
+          const macro = game.macros.get(macroNm) || game.macros.getName?.(macroNm);
+          if (macro) {
+            if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
+            else {
+              const body = `return (async () => { ${macro.command} })()`;
+              const fn = Function("{speaker, actor, token, character, item, args}={}", body);
+              await fn.call(this, { speaker: {}, actor: undefined, token: undefined, character: null, args: [metaArg] });
+            }
+            await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `The macro <strong>${foundry.utils.escapeHTML(macroNm)}</strong> has run on schedule.` });
+          } else {
+            await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] Macro not found: <code>${foundry.utils.escapeHTML(macroNm)}</code>` });
           }
+        } else {
+          await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `<strong>${foundry.utils.escapeHTML(metaArg.__atName)}</strong>: ${foundry.utils.escapeHTML(metaArg.__atMsg || "(no message)")}` });
         }
+      } catch (err) {
+        await ChatMessage.create({ whisper: ChatMessage.getWhisperRecipients("GM"), content: `[${MOD}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}` });
       }
-      await gmWhisper(`<p>[${MODULE_ID}] Stopped ${count} event(s) by name: <b>${foundry.utils.escapeHTML(stopVal)}</b>.</p>`);
-      return rerender("Stopped by name.");
-    }
-    case "stop-uid": {
-      if (!stopVal) { await gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`); return rerender("Enter a UID."); }
-      const ok = api.gclearTimeout?.(stopVal) ?? api.clearTimeout?.(stopVal);
-      await gmWhisper(`<p>[${MODULE_ID}] Stop by UID <code>${foundry.utils.escapeHTML(stopVal)}</code> ${ok ? "succeeded" : "failed"}.</p>`);
-      return rerender("Stopped by UID.");
-    }
-    case "queue": {
-      api.chatQueue?.({ showArgs: true, showUid: true, showDate: true, gmOnly: true });
-      return rerender("Queue sent to chat (GM).");
-    }
-    case "stop-all": {
-      api.flushQueue?.();
-      await gmWhisper(`<p>[${MODULE_ID}] All About-Time events purged.</p>`);
-      return rerender("All events purged.");
-    }
-    case "stop-all-rem": {
-      api.flushQueue?.();
-      api.reminderEvery?.({ hour: 1 }, "Reminder: Re-enable About-Time events");
-      await gmWhisper(`<p>[${MODULE_ID}] All events purged; hourly reminder set.</p>`);
-      return rerender("All events purged; reminder set.");
-    }
-    case "close": {
-      dialog.close();
-      return;
-    }
-  }
-}
+    };
 
-/* ----------------------- Open dialog ----------------------- */
-function openEventManager() {
-  try {
-    if (hasV2) {
-      const d = new foundry.applications.api.DialogV2({
-        content: buildContent(),
-        buttons: [], // Why: we render our own in-content buttons
-        modal: false,
-        submit: async (_res, dialog) => { /* unused */ }
-      });
-      d.render(true);
-      const root = d.element || $(d.form);
-      root.on("click", "[data-at]", async (ev) => {
-        const action = ev.currentTarget.dataset.at;
-        await handleClick(d, action);
-      });
-    } else {
-      const dlg = new Dialog({
-        title: "About Time — Event Manager (GM)",
-        content: buildContent(),
-        buttons: {}, // Why: we render our own in-content buttons
-        render: (html) => {
-          html.on("click", "[data-at]", async (ev) => {
-            const action = ev.currentTarget.dataset.at;
-            await handleClick(dlg, action);
-          });
-        }
-      }, { id: "about-time-event-manager" });
-      dlg.render(true);
-    }
-  } catch (err) {
-    console.error(`${MODULE_ID} | openEventManager failed`, err);
+    const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
+    if (name) await game.user.setFlag(MOD, name, uid);
+
+    gmWhisper(`<p>[${MOD}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event:
+      <code>${esc(uid)}</code> — ${fmtDHMS(seconds)} — “${esc(meta.__atName)}”</p>`);
+    return refresh(dlg, "Event created.");
   }
+
+  async function actStopByName(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    const key = btn.form.elements.stopKey?.value?.toString()?.trim();
+    if (!key) { gmWhisper(`<p>[${MOD}] Enter an Event Name to stop.</p>`); return refresh(dlg, "Name required."); }
+    const q = AT?.ElapsedTime?._eventQueue;
+    if (!q || !Array.isArray(q.array)) { gmWhisper(`<p>[${MOD}] Queue not available.</p>`); return refresh(dlg, "Queue missing."); }
+    const target = key.toLowerCase();
+    const removed = q.removeMany(e => (e?._args?.[0]?.__atName || "").toLowerCase() === target);
+    if (removed?.length) {
+      const flags = game.user.getFlag(MOD) || {};
+      for (const k of Object.keys(flags)) if (removed.some(r => r._uid === flags[k])) await game.user.unsetFlag(MOD, k);
+      AT._save?.(true);
+      gmWhisper(`<p>[${MOD}] Stopped ${removed.length} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+    } else {
+      gmWhisper(`<p>[${MOD}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+    }
+    return refresh(dlg, "Name processed.");
+  }
+
+  async function actStopByUID(_ev, btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    const uid = btn.form.elements.stopKey?.value?.toString()?.trim();
+    if (!uid) { gmWhisper(`<p>[${MOD}] Enter a UID to stop.</p>`); return refresh(dlg, "UID required."); }
+    const removed = AT.clearTimeout(uid);
+    if (removed) {
+      const flags = game.user.getFlag(MOD) || {};
+      for (const k of Object.keys(flags)) if (flags[k] === uid) await game.user.unsetFlag(MOD, k);
+      gmWhisper(`<p>[${MOD}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    } else {
+      gmWhisper(`<p>[${MOD}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    }
+    return refresh(dlg, "UID processed.");
+  }
+
+  async function actList(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    AT.chatQueue({ showArgs: false, showUid: true, showDate: true, gmOnly: true });
+    gmWhisper(`<p>[${MOD}] Queue listed to GM chat.</p>`);
+    return refresh(dlg, "Queue listed.");
+  }
+
+  async function actFlush(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    AT.flushQueue();
+    gmWhisper(`<p>[${MOD}] All About-Time events purged.</p>`);
+    return refresh(dlg, "All events purged.");
+  }
+
+  async function actFlushRem(_ev, _btn, dlg) {
+    const AT = game.abouttime ?? game.Gametime;
+    AT.flushQueue();
+    AT.doEvery({ hour: 1 }, "1 Hour Reminder");
+    gmWhisper(`<p>[${MOD}] All events purged. Hourly reminder queued.</p>`);
+    return refresh(dlg, "All events purged; reminder set.");
+  }
+
+  new D2({
+    window: { title: "About Time — Event Manager (GM)" },
+    content: contentTemplate("Ready."),
+    buttons: [
+      { action: "create",    label: "Create Event",           default: true, callback: actCreate },
+      { action: "stop-name", label: "Stop by Name",                            callback: actStopByName },
+      { action: "stop-uid",  label: "Stop by UID",                             callback: actStopByUID },
+      { action: "list",      label: "Send Queue to Chat",                       callback: actList },
+      { action: "flush",     label: "Stop all Events",                          callback: actFlush },
+      { action: "flush-rem", label: "Stop all + 1h reminder",                   callback: actFlushRem },
+      { action: "close",     label: "Close" }
+    ],
+    submit: async () => {}
+  }).render({ force: true });
 }
