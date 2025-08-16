@@ -114,10 +114,10 @@ function openATEventManager() {
   function renderStatus() {
     const q = AT?.ElapsedTime?._eventQueue;
     if (!q || !Array.isArray(q.array) || q.size === 0)
-      return `<textarea class="status-ta" readonly>- (empty queue) -</textarea>`;
+      return `<textarea class="status-ta" readonly="" style="height: 200px; width: 100%;">- (empty queue) -</textarea>`;
     const lines = [];
     for (let i = 0; i < q.size; i++) lines.push(describeEntry(q.array[i]));
-    return `<textarea class="status-ta" readonly>${esc(lines.join("\n"))}</textarea>`;
+    return `<textarea class="status-ta" readonly="" style="height: 200px; width: 100%;">${esc(lines.join("\n"))}</textarea>`;
   }
 
   function contentTemplate(msg = "Ready.") {
@@ -142,6 +142,7 @@ function openATEventManager() {
     <div id="tam-at">
       <div class="row" style="justify-content:center;"><div class="muted">Choose an option below, then close the window when finished.</div></div>
       <div class="section"><div><strong>Event Status Board</strong></div>${renderStatus()}</div>
+      <p>
 
       <div class="section">
         <div><strong>Create Custom Reminder</strong></div>
@@ -152,6 +153,7 @@ function openATEventManager() {
         <div class="row"><label for="repeat">Repeating?</label><input name="repeat" id="repeat" type="checkbox" /><span class="muted">(Repeat at the given interval)</span></div>
         <div class="row"><label for="runMacro">Run Macro?</label><input name="runMacro" id="runMacro" type="checkbox" /><input name="macroName" id="macroName" type="text" placeholder="Enter macro name to run on event" /></div>
       </div>
+      <p>
 
       <div class="section">
         <div><strong>Stop Event Reminder</strong></div>
