@@ -15,7 +15,6 @@
   ],
   "esmodules": [
     "about-time.js",
-    "vars.js",
     "module/ATToolbar.js"
   ],
   "styles": [],
