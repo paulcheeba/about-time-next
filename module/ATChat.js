@@ -1,16 +1,14 @@
-// ===== FILE: module/ATChat.js =====
-// v13.0.5.1 — Adds /at chat command for About Time (GM-only output)
+// module/ATChat.js
+// v13.0.5.1 — /at chat command (GM-only output)
 
 const MODULE_ID = "about-time-v13";
-const AT = () => (game.abouttime ?? game.Gametime); // legacy-safe
+const AT = () => (game.abouttime ?? game.Gametime);
 
-// GM-only whisper (players must not see AT admin output)
 function gmWhisper(html) {
   const gm = ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id);
   return ChatMessage.create({ content: html, whisper: gm, type: CONST.CHAT_MESSAGE_TYPES.OTHER });
 }
 
-// parse "1h30m", "2d 4h", "45m10s", or plain seconds
 function parseDuration(input) {
   if (!input) return 0;
   const s = String(input).trim();
@@ -18,8 +16,7 @@ function parseDuration(input) {
   const re = /(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)/gi;
   let total = 0, m;
   while ((m = re.exec(s))) {
-    const val = Number(m[1]);
-    const unit = m[2].toLowerCase();
+    const val = Number(m[1]); const unit = m[2].toLowerCase();
     if (["d","day","days"].includes(unit)) total += val * 86400;
     else if (["h","hr","hrs","hour","hours"].includes(unit)) total += val * 3600;
     else if (["m","min","mins","minute","minutes"].includes(unit)) total += val * 60;
@@ -38,7 +35,6 @@ function formatDHMS(total) {
   return `${String(d).padStart(2, "0")}:${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-// /at usage (shown to GM whisper)
 function usage() {
   return gmWhisper(`
     <p><b>/at</b> commands:</p>
@@ -53,28 +49,19 @@ function usage() {
   `);
 }
 
-// Register the chat command
-Hooks.on("chatMessage", (chatLog, message, chatData) => {
+Hooks.on("chatMessage", (chatLog, message) => {
   const raw = (message ?? "").trim();
-  if (!raw.startsWith("/at")) return; // not ours
+  if (!raw.startsWith("/at")) return;
 
-  // Prevent the normal chat submit
-  // (return false means "handled", don't post the user's literal message)
   const api = AT();
   if (!api) {
     ui.notifications?.warn?.("About Time API not found.");
     return false;
   }
 
-  // Tokenize: /at <subcmd> [args...]
   const parts = raw.split(/\s+/);
   const sub = (parts[1] ?? "").toLowerCase();
-
-  // No subcommand -> show usage
-  if (!sub) {
-    usage();
-    return false;
-  }
+  if (!sub) { usage(); return false; }
 
   const reply = (html) => gmWhisper(`<p>[${MODULE_ID}] ${html}</p>`);
 
@@ -85,13 +72,11 @@ Hooks.on("chatMessage", (chatLog, message, chatData) => {
         api.chatQueue?.({ showArgs: true, showUid: true, showDate: true, gmOnly: true });
         break;
       }
-
       case "clear": {
         api.flushQueue?.();
         reply("Queue cleared.");
         break;
       }
-
       case "stop": {
         const uid = parts[2];
         if (!uid) { reply("Usage: <code>/at stop &lt;uid&gt;</code>"); break; }
@@ -99,15 +84,12 @@ Hooks.on("chatMessage", (chatLog, message, chatData) => {
         reply(`Stop by UID <code>${foundry.utils.escapeHTML(uid)}</code> ${ok ? "succeeded" : "failed"}.`);
         break;
       }
-
       case "in":
       case "every": {
         const durStr = parts[2];
         if (!durStr) { reply(`Usage: <code>/at ${sub} &lt;duration&gt; &lt;message&gt;</code>`); break; }
-
         const seconds = parseDuration(durStr);
         if (!seconds || seconds <= 0) { reply("Invalid duration."); break; }
-
         const msg = parts.slice(3).join(" ").trim() || "(no message)";
         let uid;
         if (sub === "every") {
@@ -117,18 +99,14 @@ Hooks.on("chatMessage", (chatLog, message, chatData) => {
           uid = api.reminderIn?.({ seconds }, msg);
           reply(`In ${formatDHMS(seconds)}: ${foundry.utils.escapeHTML(msg)}`);
         }
-        // show UID for convenience
         if (uid) reply(`Event UID: <code>${uid}</code>`);
         break;
       }
-
-      default:
-        usage();
+      default: usage();
     }
   } catch (err) {
     console.error(`${MODULE_ID} | /at command failed`, err);
     reply("Command failed. See console for details.");
   }
-
   return false;
 });
