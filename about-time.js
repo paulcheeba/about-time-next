@@ -1,106 +1,102 @@
-// About Time v13.0.5 — main entry (v13+ safe, SC optional)
+// about-time.js
+// Entry point (v13.0.5.1). Keeps legacy shims and initializes clocks.
 
-import { registerSettings } from "./module/settings.js";
-import { ElapsedTime } from "./module/ElapsedTime.js";
-import { PseudoClock } from "./module/PseudoClock.js";
-import { DTMod } from "./module/calendar/DTMod.js";
-import { DTCalc } from "./module/calendar/DTCalc.js";
-import "./module/ATChat.js";
+import { registerSettings, MODULE_ID } from './module/settings.js';
+import { preloadTemplates } from './module/preloadTemplates.js';
+import { ElapsedTime } from './module/ElapsedTime.js';
+import { PseudoClock } from './module/PseudoClock.js';
+import { DTMod } from './module/calendar/DTMod.js';
+import { DTCalc } from './module/calendar/DTCalc.js';
 
-const MODULE_ID = "about-time-v13";
+// Side-effect imports (hooks)
+import './module/ATChat.js';           // /at chat command
+try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 
-// Helper for legacy DTNow()
-export function DTNow() {
-  return game.time.worldTime;
-}
+// Legacy helper, used by macros
+export function DTNow() { return game.time.worldTime; }
 
-Hooks.once("init", async () => {
+Hooks.once('init', () => {
   console.log(`${MODULE_ID} | Initializing`);
   registerSettings();
+  // Optionally preload (only real template path is loaded)
+  preloadTemplates().catch(() => {/* ignore */});
 });
 
 let operations;
-export let calendars = {}; // legacy stub
+export const calendars = {};
 
-Hooks.once("setup", () => {
+Hooks.once('setup', () => {
   operations = {
-    // state
     isMaster: () => PseudoClock.isMaster,
     isRunning: PseudoClock.isRunning,
-
-    // scheduling
     doAt: ElapsedTime.doAt,
     doIn: ElapsedTime.doIn,
     doEvery: ElapsedTime.doEvery,
     doAtEvery: ElapsedTime.doAtEvery,
-
-    // convenience
     reminderAt: ElapsedTime.reminderAt,
     reminderIn: ElapsedTime.reminderIn,
     reminderEvery: ElapsedTime.reminderEvery,
     reminderAtEvery: ElapsedTime.reminderAtEvery,
-
-    // hooks
     notifyAt: ElapsedTime.notifyAt,
     notifyIn: ElapsedTime.notifyIn,
     notifyEvery: ElapsedTime.notifyEvery,
     notifyAtEvery: ElapsedTime.notifyAtEvery,
-
-    // utils
     clearTimeout: ElapsedTime.gclearTimeout,
     getTimeString: ElapsedTime.currentTimeString,
     getTime: ElapsedTime.currentTimeString,
     queue: ElapsedTime.showQueue,
     chatQueue: ElapsedTime.chatQueue,
-
-    // classes
     ElapsedTime,
     DTM: DTMod,
     DTC: DTCalc,
     DMf: DTMod.create,
     calendars,
     DTNow,
-
-    // deprecated passthroughs (soft)
     _notifyEvent: PseudoClock.notifyEvent,
+    startRunning: () => globalThis.SimpleCalendar?.api?.startClock?.(),
+    stopRunning: () => globalThis.SimpleCalendar?.api?.stopClock?.(),
+    mutiny: PseudoClock.mutiny,
     advanceClock: ElapsedTime.advanceClock,
     advanceTime: ElapsedTime.advanceTime,
+    setClock: PseudoClock.setClock,
     setTime: ElapsedTime.setTime,
     setAbsolute: ElapsedTime.setAbsolute,
     setDateTime: ElapsedTime.setDateTime,
-
-    // persistence
+    flushQueue: ElapsedTime._flushQueue,
+    reset: ElapsedTime._initialize,
+    resetCombats: () => console.error(`${MODULE_ID} | not supported`),
+    status: ElapsedTime.status,
+    pc: PseudoClock,
+    showClock: () => globalThis.SimpleCalendar?.api?.showCalendar?.(null, true),
+    showCalendar: () => globalThis.SimpleCalendar?.api?.showCalendar?.(),
+    deleteUuid: async (uuid) => {
+      const thing = foundry?.utils?.fromUuidSync?.(uuid) ?? globalThis.fromUuidSync?.(uuid);
+      if (thing && typeof thing.delete === 'function') await thing.delete();
+    },
     _save: ElapsedTime._save,
     _load: ElapsedTime._load
   };
 
-  // Back-compat shims
-  // Preferred:
-  //   game.abouttime
-  // Deprecated but kept:
-  //   game.Gametime, window.Gametime, window.abouttime
-  // Add warning proxy for Gametime refs.
-  const warnProxy = {
-    get(t, p, r) {
-      console.warn(`${MODULE_ID} | game.Gametime.${String(p)} is deprecated. Use game.abouttime.${String(p)}.`);
-      return Reflect.get(t, p, r);
-    }
-  };
-
+  // Legacy/global shims
   // @ts-ignore
   game.abouttime = operations;
+  const warnProxy = {
+    get(target, prop, receiver) {
+      console.warn(`${MODULE_ID} | Gametime.${String(prop)} is deprecated. Use game.abouttime.${String(prop)}.`);
+      return Reflect.get(target, prop, receiver);
+    }
+  };
   // @ts-ignore
   game.Gametime = new Proxy(operations, warnProxy);
   // @ts-ignore
-  window.abouttime = operations;
+  globalThis.abouttime = operations;
   // @ts-ignore
-  window.Gametime = new Proxy(operations, warnProxy);
+  globalThis.Gametime = new Proxy(operations, warnProxy);
 });
 
-Hooks.once("ready", () => {
-  if (!game.user) return;
-  if (!game.modules.get("foundryvtt-simple-calendar")?.active && game.settings.get(MODULE_ID, "use-simple-calendar")) {
-    console.warn(`${MODULE_ID} | Simple Calendar setting is ON but module is not active.`);
+Hooks.once('ready', () => {
+  if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
+    console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
   }
   PseudoClock.init();
   ElapsedTime.init();
