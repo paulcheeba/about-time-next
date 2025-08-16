@@ -5,6 +5,7 @@ import { ElapsedTime } from "./module/ElapsedTime.js";
 import { PseudoClock } from "./module/PseudoClock.js";
 import { DTMod } from "./module/calendar/DTMod.js";
 import { DTCalc } from "./module/calendar/DTCalc.js";
+import "./module/ATChat.js";
 
 const MODULE_ID = "about-time-v13";
 
