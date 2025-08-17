@@ -1,7 +1,7 @@
-// About Time v13.0.5 — settings
+// module/settings.js
+// Settings (v13.0.5.1)
 
-const MODULE_ID = "about-time-v13";
-export { MODULE_ID }; // safe to export (not imported by cyclic deps that import ElapsedTime/PseudoClock)
+export const MODULE_ID = "about-time-v13";
 
 export const registerSettings = function () {
   game.settings.register(MODULE_ID, "store", {
@@ -22,13 +22,22 @@ export const registerSettings = function () {
     default: false
   });
 
-  // SC optional toggle
+  // Optional SC integration toggle (some code already checks this)
   game.settings.register(MODULE_ID, "use-simple-calendar", {
     name: "Use Simple Calendar (if installed)",
-    hint: "When on and SC is available, About Time will use SC date/format helpers.",
+    hint: "When enabled and SC is active, About Time uses SC intervals/formatting. Otherwise uses Foundry core time.",
     scope: "world",
     config: true,
     type: Boolean,
     default: true
+  });
+
+  game.settings.register(MODULE_ID, "election-timeout", {
+    name: "For calendar-weather",
+    hint: "Internal timing for master timekeeper election. Do not edit.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 5
   });
 };

@@ -14,6 +14,7 @@ https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.jso
 ```
 2. Enable the module in your world.
 3. (Optional) Install [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar) for advanced date formatting.
+4. (Optional) Install [Smalltime](https://foundryvtt.com/packages/smalltime) To advance time with a UI. Otherwise gametime macros will be required to advance time.
 
 ---
 
