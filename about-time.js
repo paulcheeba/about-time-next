@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.0.6.1  (Additive: exposes api.fmtDHMS and a minimal '/at list' alias. No other behavior changed.)
+// v13.0.6.2  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -8,14 +8,14 @@ import { PseudoClock } from './module/PseudoClock.js';
 import { DTMod } from './module/calendar/DTMod.js';
 import { DTCalc } from './module/calendar/DTCalc.js';
 
-// Side-effect imports (hooks)
+// New (modular, non-destructive)
+import { registerMiniSettings } from './module/ATMiniSettings.js';
+import { showMiniPanel, hideMiniPanel, toggleMiniPanel } from './module/ATMiniPanel.js';
+import './module/ATMiniToolbar.js'; // only adds tool when enabled & GM
+
+// Side-effect imports (existing)
 import './module/ATChat.js'; // /at chat command
-try {
-  // Optional toolbar UI (subtool under Journal/Notes via DialogV2 manager)
-  import('./module/ATToolbar.js');
-} catch (e) {
-  /* optional */
-}
+try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 
 // Legacy helper, used by macros
 export function DTNow() { return game.time.worldTime; }
@@ -23,6 +23,7 @@ export function DTNow() { return game.time.worldTime; }
 Hooks.once('init', () => {
   console.log(`${MODULE_ID} | Initializing`);
   registerSettings();
+  registerMiniSettings(); // <- new mini settings
 
   // Optionally preload (only real template path is loaded)
   preloadTemplates().catch(() => { /* ignore */ });
@@ -88,12 +89,11 @@ Hooks.once('setup', () => {
     pc: PseudoClock,
     showClock: () => globalThis.SimpleCalendar?.api?.showCalendar?.(null, true),
     showCalendar: () => globalThis.SimpleCalendar?.api?.showCalendar?.(),
-    deleteUuid: async (uuid) => {
-      const thing = foundry?.utils?.fromUuidSync?.(uuid) ?? globalThis.fromUuidSync?.(uuid);
-      if (thing && typeof thing.delete === 'function') await thing.delete();
-    },
-    _save: ElapsedTime._save,
-    _load: ElapsedTime._load
+
+    // New: Mini Time Panel controls
+    showMiniPanel,
+    hideMiniPanel,
+    toggleMiniPanel
   };
 
   // Legacy/global shims
@@ -121,21 +121,27 @@ Hooks.once('ready', () => {
   }
   PseudoClock.init();
   ElapsedTime.init();
+
+  // Auto-open the mini panel per user setting
+  try {
+    if (game.settings.get(MODULE_ID, "enableMiniPanel")) {
+      showMiniPanel();
+    }
+  } catch (e) {
+    console.warn(`${MODULE_ID} | enableMiniPanel read failed`, e);
+  }
 });
 
 /* ------------------------------------------------------------------ */
-/* v13.0.6.1 additive helpers (non-destructive)
-   - Expose api.fmtDHMS(seconds)  → "DD:HH:MM:SS" with zero padding.
-   - Provide a minimal '/at list' chat alias that delegates to chatQueue()
-     and only consumes that exact message. No other '/at' handling changed.
-   - GM-only output behavior remains governed by your existing chatQueue().
+/* v13.0.6.1 additive helpers (non-destructive) — kept from previous
+   - api.fmtDHMS(seconds) → "DD:HH:MM:SS"
+   - minimal '/at list' alias → delegates to chatQueue()
 --------------------------------------------------------------------- */
 Hooks.once('ready', () => {
   try {
     const api = (game.abouttime ?? game.Gametime);
     if (!api) return;
 
-    // Canonical duration formatter: seconds -> DD:HH:MM:SS
     if (typeof api.fmtDHMS !== "function") {
       api.fmtDHMS = function fmtDHMS(seconds) {
         const s = Math.trunc(Number(seconds) || 0);
@@ -150,7 +156,6 @@ Hooks.once('ready', () => {
       };
     }
 
-    // Minimal '/at list' alias → delegates to existing queue printer
     Hooks.on("chatMessage", (_log, content) => {
       try {
         if (typeof content !== "string") return false;
@@ -158,8 +163,8 @@ Hooks.once('ready', () => {
         if (!/^\/at\s+list\b/i.test(msg)) return false;
 
         if (typeof api.chatQueue === "function") {
-          api.chatQueue({});   // rely on module's GM-whisper behavior
-          return true;         // consume only this message
+          api.chatQueue({});
+          return true;
         }
         return false;
       } catch (e) {
