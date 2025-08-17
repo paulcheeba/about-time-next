@@ -1,4 +1,4 @@
-# About Time (v13.0.5 — Toolbar Edition)
+# About Time (v13.0.6)
 
 **About Time** is a timekeeping and event scheduling utility for Foundry VTT.  
 It works with **Simple Calendar** (if installed) or falls back to Foundry’s core time system.
@@ -55,6 +55,7 @@ Key Methods
 ## 🗣 /at Chat Command
 Available in chat:
 
+- `/at help` — list available commands  
 - `/at queue` or `/at list` — show the queue  
 - `/at clear` — clear the entire queue  
 - `/at stop <uid>` — cancel a specific event by its UID  
@@ -63,7 +64,8 @@ Available in chat:
 
 **Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds.
 
-Examples:
+/at Examples:
+- `/at help`
 - `/at in 10m Check the stew`
 - `/at every 1h Random Encounter`
 - `/at stop abc123(uid)`
@@ -72,7 +74,7 @@ Examples:
 
 ---
 
-## ⏱ Examples
+## ⏱ Macro Examples
 These examples work with or without Simple Calendar.
 
 Schedule a Macro to Run in 5 Minutes:
