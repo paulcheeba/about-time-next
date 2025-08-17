@@ -9,9 +9,15 @@
     "maximum": "13.999"
   },
   "authors": [
-    { "name": "tposney" },
-    { "name": "crusherDestroyer666" },
-    { "name": "chatGPT" }
+    {
+      "name": "tposney"
+    },
+    {
+      "name": "crusherDestroyer666"
+    },
+    {
+      "name": "chatGPT"
+    }
   ],
   "esmodules": [
     "about-time.js",
@@ -20,21 +26,61 @@
   "styles": [],
   "packs": [],
   "languages": [
-    { "lang": "en", "name": "English", "path": "lang/en.json" },
-    { "lang": "de", "name": "Deutsch (German)", "path": "lang/de.json" },
-    { "lang": "ko", "name": "Korean", "path": "lang/ko.json" },
-    { "lang": "ja", "name": "日本語", "path": "lang/ja.json" },
-    { "lang": "fr", "name": "Français", "path": "lang/fr.json" },
-    { "lang": "pt-BR", "name": "Português (Brasil)", "path": "lang/pt-BR.json" },
-    { "lang": "es", "name": "Español", "path": "lang/es.json" },
-    { "lang": "it", "name": "Italian", "path": "lang/it.json" },
-    { "lang": "cn", "name": "中文", "path": "lang/cn.json" },
-    { "lang": "zh-tw", "name": "正體中文", "path": "lang/zh-tw.json" }
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "de",
+      "name": "Deutsch (German)",
+      "path": "lang/de.json"
+    },
+    {
+      "lang": "ko",
+      "name": "Korean",
+      "path": "lang/ko.json"
+    },
+    {
+      "lang": "ja",
+      "name": "日本語",
+      "path": "lang/ja.json"
+    },
+    {
+      "lang": "fr",
+      "name": "Français",
+      "path": "lang/fr.json"
+    },
+    {
+      "lang": "pt-BR",
+      "name": "Português (Brasil)",
+      "path": "lang/pt-BR.json"
+    },
+    {
+      "lang": "es",
+      "name": "Español",
+      "path": "lang/es.json"
+    },
+    {
+      "lang": "it",
+      "name": "Italian",
+      "path": "lang/it.json"
+    },
+    {
+      "lang": "cn",
+      "name": "中文",
+      "path": "lang/cn.json"
+    },
+    {
+      "lang": "zh-tw",
+      "name": "正體中文",
+      "path": "lang/zh-tw.json"
+    }
   ],
   "socket": true,
   "bugs": "https://github.com/paulcheeba/about-time-v13/issues",
   "allowBugReporter": true,
   "url": "https://github.com/paulcheeba/about-time-v13",
   "manifest": "https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json",
-  "download": "https://github.com/paulcheeba/about-time-v13/releases/latest/download/about-time-v13.0.5.zip"
+  "download": "https://github.com/paulcheeba/about-time-v13/releases/latest/download/about-time.zip"
 }
