@@ -1,5 +1,5 @@
 // module/ATMiniToolbar.js
-// v13.0.6.2 — Conditional toolbar tool: "AT Time Manager"
+// v13.0.6.3 — Toolbar tool under Journal/Notes: “About Time - Time Manager” (GM-only)
 
 import { MODULE_ID } from "./settings.js";
 
@@ -8,21 +8,26 @@ Hooks.on("getSceneControlButtons", (controls) => {
     if (!game.user?.isGM) return; // GM-only tool
     if (!game.settings.get(MODULE_ID, "enableMiniPanel")) return;
 
-    // v13 controls can be a record; fall back to array form just in case
-    const token = controls?.["token"] ?? controls?.find?.(c => c?.name === "token");
-    const tools = token?.tools;
+    // v13: controls is commonly a record; fall back to array find for resilience.
+    const journalCtl =
+      controls?.["journal"] ??
+      controls?.["notes"] ??
+      controls?.find?.((c) => c?.name === "journal") ??
+      controls?.find?.((c) => c?.name === "notes");
+
+    const tools = journalCtl?.tools;
     if (!tools) return;
 
     // Duplicate guard
     const exists = Array.isArray(tools)
-      ? tools.some(t => t?.name === "abouttime-mini")
+      ? tools.some((t) => t?.name === "abouttime-mini")
       : Boolean(tools["abouttime-mini"]);
     if (exists) return;
 
     const tool = {
       name: "abouttime-mini",
-      title: "AT Time Manager",
-      icon: "fas fa-clock-rotate-left", // different from the event manager icon
+      title: "About Time - Time Manager",
+      icon: "fas fa-clock-rotate-left", // distinct from Event Manager icon
       visible: true,
       button: true,
       onClick: () => {
