@@ -1,17 +1,21 @@
 // module/ATMiniSettings.js
-// v13.0.6.7-hotfix.2 — Register mini panel + realtime settings (client/world) on init.
+// v13.0.6.7-hotfix.3 — Provide named export `registerMiniSettings()` (idempotent) + init hook.
+//                      This satisfies `import { registerMiniSettings } ...` in about-time.js.
+//                      Safe to be called manually and via init; registers only once.
 
 import { MODULE_ID } from "./settings.js";
 
-/**
- * Helper to trigger mini panel to refresh behavior (dim/disable state etc.)
- * We reuse a single hook name so listeners don't need to change.
- */
+let _registered = false;
+
 function pingMiniBehavior(key, value) {
   try { Hooks.callAll("about-time.miniBehaviorChanged", key, value); } catch {}
 }
 
-Hooks.once("init", () => {
+/** Idempotent: safe to call multiple times; only registers once. */
+export function registerMiniSettings() {
+  if (_registered) return;
+  _registered = true;
+
   // ---------- CLIENT (per-user) ----------
   game.settings.register(MODULE_ID, "miniEnableClient", {
     name: "Enable AT Time Manager (this user)",
@@ -26,12 +30,12 @@ Hooks.once("init", () => {
     onChange: v => pingMiniBehavior("miniDimOnBlur", v)
   });
 
-  // Step buttons (use /at durations like 10s, 1m, 1h5m3s)
-  game.settings.register(MODULE_ID, "miniRWD1", { name: "RWD1 duration", scope: "client", config: true, type: String, default: "1m", onChange: v => pingMiniBehavior("miniRWD1", v) });
-  game.settings.register(MODULE_ID, "miniRWD2", { name: "RWD2 duration", scope: "client", config: true, type: String, default: "10s", onChange: v => pingMiniBehavior("miniRWD2", v) });
+  // Step buttons (use /at-style durations)
+  game.settings.register(MODULE_ID, "miniRWD1",  { name: "RWD1 duration",  scope: "client", config: true, type: String, default: "1m",  onChange: v => pingMiniBehavior("miniRWD1", v) });
+  game.settings.register(MODULE_ID, "miniRWD2",  { name: "RWD2 duration",  scope: "client", config: true, type: String, default: "10s", onChange: v => pingMiniBehavior("miniRWD2", v) });
   game.settings.register(MODULE_ID, "miniFFWD1", { name: "FFWD1 duration", scope: "client", config: true, type: String, default: "10s", onChange: v => pingMiniBehavior("miniFFWD1", v) });
-  game.settings.register(MODULE_ID, "miniFFWD2", { name: "FFWD2 duration", scope: "client", config: true, type: String, default: "1m", onChange: v => pingMiniBehavior("miniFFWD2", v) });
-  game.settings.register(MODULE_ID, "miniFFWD3", { name: "FFWD3 duration", scope: "client", config: true, type: String, default: "1h", onChange: v => pingMiniBehavior("miniFFWD3", v) });
+  game.settings.register(MODULE_ID, "miniFFWD2", { name: "FFWD2 duration", scope: "client", config: true, type: String, default: "1m",  onChange: v => pingMiniBehavior("miniFFWD2", v) });
+  game.settings.register(MODULE_ID, "miniFFWD3", { name: "FFWD3 duration", scope: "client", config: true, type: String, default: "1h",  onChange: v => pingMiniBehavior("miniFFWD3", v) });
 
   // Time of day
   game.settings.register(MODULE_ID, "miniDawnTime", {
@@ -103,4 +107,7 @@ Hooks.once("init", () => {
     scope: "world", config: true, type: Boolean, default: true,
     onChange: v => pingMiniBehavior("rtAutoPauseCombat", v)
   });
-});
+}
+
+// Also register on init for safety, but the function is idempotent so calling twice is OK.
+Hooks.once("init", () => registerMiniSettings());
