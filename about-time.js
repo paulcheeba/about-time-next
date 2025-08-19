@@ -1,7 +1,7 @@
 // about-time.js
-// v13.0.6.7-hotfix.2 — ADDED A SINGLE IMPORT near your other top-level imports.
-// This ensures settings are registered on `init` before any code reads them.
-import "./module/ATMiniSettings.js";
+// v13.0.6.7-hotfix.4 — settings registration hardening + safe reads + toolbar gating + mini panel enable
+// Non-destructive: preserves public API, legacy globals, hooks, and behaviors.
+
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { ElapsedTime } from './module/ElapsedTime.js';
@@ -9,6 +9,7 @@ import { PseudoClock } from './module/PseudoClock.js';
 import { DTMod } from './module/calendar/DTMod.js';
 import { DTCalc } from './module/calendar/DTCalc.js';
 
+// Mini panel + realtime
 import { registerMiniSettings } from './module/ATMiniSettings.js';
 import { showMiniPanel, hideMiniPanel, toggleMiniPanel } from './module/ATMiniPanel.js';
 import { startRealtime, stopRealtime, isRealtimeRunning, setRealtimeRate } from './module/ATRealtimeClock.js';
@@ -17,14 +18,43 @@ import { startRealtime, stopRealtime, isRealtimeRunning, setRealtimeRate } from 
 import './module/ATChat.js';
 // Optional legacy toolbar (if present)
 try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
-// If you have ATChatAdvance in your tree, it will continue to work with client Dawn/Dusk settings.
-// try { import('./module/ATChatAdvance.js'); } catch (e) { /* optional */ }
 
-// Legacy helper, used by macros
+// ---------------- Utilities ----------------
+/** Legacy helper, used by macros */
 export function DTNow() { return game.time.worldTime; }
 
+/** Robust setting existence check */
+function hasSettingKey(key) {
+  try { return game?.settings?.settings?.has?.(`${MODULE_ID}.${key}`) ?? false; }
+  catch { return false; }
+}
+
+/** Safe getter that never throws; falls back if key is missing */
+function getSettingSafe(key, fallback) {
+  try {
+    if (!hasSettingKey(key)) return fallback;
+    return game.settings.get(MODULE_ID, key);
+  } catch {
+    return fallback;
+  }
+}
+
+/** Mini panel enabled? Prefer new key, fall back to legacy alias. Default: true */
+function isMiniEnabledForThisUser() {
+  const v = getSettingSafe('miniEnableClient', undefined);
+  if (typeof v === 'boolean') return v;
+  return !!getSettingSafe('enableMiniPanel', true); // legacy alias (hidden) provided by ATMiniSettings
+}
+
+/** Should we show the Time Manager toolbar? World setting, default true */
+function isTimeManagerToolbarEnabled() {
+  return !!getSettingSafe('enableTimeManagerToolbar', true);
+}
+
+// ---------------- Lifecycle ----------------
 Hooks.once('init', () => {
-  console.log(`${MODULE_ID} | Initializing v13.0.6.5-RT`);
+  console.log(`${MODULE_ID} | Initializing v13.0.6.7-hotfix.4`);
+  // Register core and mini settings at init so any later reads won't crash
   registerSettings();
   registerMiniSettings();
   preloadTemplates().catch(() => { /* ignore */ });
@@ -99,15 +129,41 @@ Hooks.once('setup', () => {
   globalThis.Gametime = new Proxy(operations, warnProxy);
 });
 
+// Scene controls: add "About Time — Time Manager" tool under Journal/Notes (GM-only)
+Hooks.on('getSceneControlButtons', (controls) => {
+  try {
+    if (!isTimeManagerToolbarEnabled()) return;
+
+    // Prefer journal palette; fall back to notes
+    const journal = controls.find(c => c.name === 'journal') || controls.find(c => c.name === 'notes');
+    if (!journal) return;
+
+    journal.tools ??= [];
+    const exists = journal.tools.some(t => t?.name === 'about-time-manager');
+    if (exists) return;
+
+    journal.tools.push({
+      name: 'about-time-manager',
+      title: 'About Time — Time Manager',
+      icon: 'fas fa-clock-rotate-left', // distinct from Event Manager icon
+      visible: game.user.isGM,
+      onClick: () => toggleMiniPanel(),
+      button: true
+    });
+  } catch (e) {
+    console.warn(`${MODULE_ID} | toolbar setup failed`, e);
+  }
+});
+
 Hooks.once('ready', () => {
   // Initialize core pieces
   PseudoClock.init();
   ElapsedTime.init();
 
-  // Keep AT’s internal scheduler in sync with Foundry’s pause (if linked)
+  // Keep AT’s internal runner in sync with Foundry’s pause (if linked)
   Hooks.on("pauseGame", (paused) => {
     try {
-      const link = !!game.settings.get(MODULE_ID, "rtLinkPause");
+      const link = !!getSettingSafe("rtLinkPause", true);
       if (!link) return;
       if (paused) stopRealtime(); else startRealtime();
     } catch (e) {
@@ -120,7 +176,7 @@ Hooks.once('ready', () => {
   let _rtWasRunning = false;
 
   async function handleCombatStart() {
-    const on = !!game.settings.get(MODULE_ID, "rtAutoPauseCombat");
+    const on = !!getSettingSafe("rtAutoPauseCombat", true);
     if (!on) return;
     // Only act when the first combat appears (collection 0 -> 1)
     const count = (game.combats?.size ?? 0);
@@ -132,14 +188,14 @@ Hooks.once('ready', () => {
     // Stop our runner; pause world if linked
     try { stopRealtime(); } catch {}
     try {
-      if (game.settings.get(MODULE_ID, "rtLinkPause") && !game.paused) {
+      if (getSettingSafe("rtLinkPause", true) && !game.paused) {
         await game.togglePause(true);
       }
     } catch {}
   }
 
   async function handleCombatEnd() {
-    const on = !!game.settings.get(MODULE_ID, "rtAutoPauseCombat");
+    const on = !!getSettingSafe("rtAutoPauseCombat", true);
     if (!on) return;
     // Only act when we just removed the last combat (collection 1 -> 0)
     const count = (game.combats?.size ?? 0);
@@ -148,7 +204,7 @@ Hooks.once('ready', () => {
     if (_pausedByAT) {
       _pausedByAT = false;
       try {
-        if (game.settings.get(MODULE_ID, "rtLinkPause") && game.paused) {
+        if (getSettingSafe("rtLinkPause", true) && game.paused) {
           await game.togglePause(false);
         }
       } catch {}
@@ -161,9 +217,9 @@ Hooks.once('ready', () => {
   Hooks.on("createCombat", handleCombatStart);
   Hooks.on("deleteCombat", handleCombatEnd);
 
-  // Show mini panel if enabled
+  // Show mini panel if enabled (safe read)
   try {
-    if (game.settings.get(MODULE_ID, "enableMiniPanel")) {
+    if (isMiniEnabledForThisUser()) {
       showMiniPanel();
     }
   } catch (e) {
