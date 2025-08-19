@@ -1,7 +1,6 @@
 // module/ATMiniSettings.js
-// v13.0.6.7-hotfix.3 — Provide named export `registerMiniSettings()` (idempotent) + init hook.
-//                      This satisfies `import { registerMiniSettings } ...` in about-time.js.
-//                      Safe to be called manually and via init; registers only once.
+// v13.0.6.7-hotfix.4 — Settings registration + legacy alias ("enableMiniPanel").
+// Non-destructive and idempotent. Safe to import anywhere.
 
 import { MODULE_ID } from "./settings.js";
 
@@ -11,12 +10,16 @@ function pingMiniBehavior(key, value) {
   try { Hooks.callAll("about-time.miniBehaviorChanged", key, value); } catch {}
 }
 
-/** Idempotent: safe to call multiple times; only registers once. */
+function hasSetting(key) {
+  try { return game?.settings?.settings?.has?.(`${MODULE_ID}.${key}`) ?? false; } catch { return false; }
+}
+
+/** Idempotent: safe if called multiple times. */
 export function registerMiniSettings() {
   if (_registered) return;
   _registered = true;
 
-  // ---------- CLIENT (per-user) ----------
+  // ---------- CLIENT (per-user, visible) ----------
   game.settings.register(MODULE_ID, "miniEnableClient", {
     name: "Enable AT Time Manager (this user)",
     hint: "Show the mini panel for this user. GM sees controls; players see time only.",
@@ -30,7 +33,7 @@ export function registerMiniSettings() {
     onChange: v => pingMiniBehavior("miniDimOnBlur", v)
   });
 
-  // Step buttons (use /at-style durations)
+  // Step button durations (/at-style: 10s, 1m, 1h5m3s)
   game.settings.register(MODULE_ID, "miniRWD1",  { name: "RWD1 duration",  scope: "client", config: true, type: String, default: "1m",  onChange: v => pingMiniBehavior("miniRWD1", v) });
   game.settings.register(MODULE_ID, "miniRWD2",  { name: "RWD2 duration",  scope: "client", config: true, type: String, default: "10s", onChange: v => pingMiniBehavior("miniRWD2", v) });
   game.settings.register(MODULE_ID, "miniFFWD1", { name: "FFWD1 duration", scope: "client", config: true, type: String, default: "10s", onChange: v => pingMiniBehavior("miniFFWD1", v) });
@@ -51,7 +54,7 @@ export function registerMiniSettings() {
     onChange: v => pingMiniBehavior("miniDuskTime", v)
   });
 
-  // Optional behavior locks
+  // Optional behavior toggles
   game.settings.register(MODULE_ID, "miniRespectPause", {
     name: "Respect game pause (disable step buttons when paused)",
     scope: "client", config: true, type: Boolean, default: false,
@@ -107,7 +110,31 @@ export function registerMiniSettings() {
     scope: "world", config: true, type: Boolean, default: true,
     onChange: v => pingMiniBehavior("rtAutoPauseCombat", v)
   });
+
+  // ---------- LEGACY/COMPAT (hidden) ----------
+  // Some existing code reads about-time-v13.enableMiniPanel — provide a hidden alias.
+  // Keep it in sync with miniEnableClient (visible toggle).
+  const aliasKey = "enableMiniPanel";
+  if (!hasSetting(aliasKey)) {
+    game.settings.register(MODULE_ID, aliasKey, {
+      name: "(compat) enableMiniPanel (alias of miniEnableClient)",
+      scope: "client", config: false, type: Boolean, default: true,
+      onChange: v => {
+        try {
+          const cur = game.settings.get(MODULE_ID, "miniEnableClient");
+          if (cur !== v) game.settings.set(MODULE_ID, "miniEnableClient", v);
+          pingMiniBehavior(aliasKey, v);
+        } catch {}
+      }
+    });
+  }
+  // On first load, sync alias value to visible key (avoid loops by checking value first)
+  try {
+    const a = game.settings.get(MODULE_ID, aliasKey);
+    const b = game.settings.get(MODULE_ID, "miniEnableClient");
+    if (a !== b) game.settings.set(MODULE_ID, aliasKey, b);
+  } catch {}
 }
 
-// Also register on init for safety, but the function is idempotent so calling twice is OK.
+// Register at init as a fallback. If you also call it yourself, it’s still safe.
 Hooks.once("init", () => registerMiniSettings());
