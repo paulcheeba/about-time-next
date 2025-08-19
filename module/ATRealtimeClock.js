@@ -1,5 +1,5 @@
 // module/ATRealtimeClock.js
-// v13.0.6.5-RT — Real-time worldTime runner (rate/tickHz), GM-only, single-owner via socket hints.
+// v13.0.6.7 — Real-time worldTime runner (rate/tickHz), GM-only, single-owner via socket hints.
 
 import { MODULE_ID } from "./settings.js";
 
