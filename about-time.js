@@ -1,6 +1,7 @@
 // about-time.js
-// v13.0.6.7 — Wires real-time Play/Pause to pauseGame and combat lifecycle; exposes tiny realtime helpers.
-
+// v13.0.6.7-hotfix.2 — ADDED A SINGLE IMPORT near your other top-level imports.
+// This ensures settings are registered on `init` before any code reads them.
+import "./module/ATMiniSettings.js";
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { ElapsedTime } from './module/ElapsedTime.js';
