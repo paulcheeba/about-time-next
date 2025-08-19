@@ -1,6 +1,6 @@
 // module/ATMiniPanel.js
-// v13.0.6.7-hotfix.1 — Ensure named exports (showMiniPanel, hideMiniPanel, toggleMiniPanel)
-//                      No functional changes; restores ESM import contract for about-time.js.
+// v13.0.6.7-hotfix.2 — Add safe getters + defaults for settings reads.
+// NOTE: Functionality unchanged besides guarding; includes named exports used by about-time.js.
 
 import { MODULE_ID } from "./settings.js";
 import { startRealtime, stopRealtime, isRealtimeRunning } from "./ATRealtimeClock.js";
@@ -10,6 +10,17 @@ const POS_KEY  = `${MODULE_ID}:miniPanelPos`;
 
 let _visible = false;
 let _closer  = null;
+
+// ---------- Safe settings getter ----------
+function hasSetting(key) {
+  try { return game?.settings?.settings?.has?.(`${MODULE_ID}.${key}`) ?? false; } catch { return false; }
+}
+function getSetting(key, fallback) {
+  try {
+    if (!hasSetting(key)) return fallback;
+    return game.settings.get(MODULE_ID, key);
+  } catch { return fallback; }
+}
 
 // ---------- Utils ----------
 function parseDuration(input) {
@@ -50,16 +61,16 @@ function currentTimeLabel() {
 }
 function readDurations() {
   return {
-    rwd1: game.settings.get(MODULE_ID, "miniRWD1"),
-    rwd2: game.settings.get(MODULE_ID, "miniRWD2"),
-    fwd1: game.settings.get(MODULE_ID, "miniFFWD1"),
-    fwd2: game.settings.get(MODULE_ID, "miniFFWD2"),
-    fwd3: game.settings.get(MODULE_ID, "miniFFWD3")
+    rwd1: String(getSetting("miniRWD1", "1m") || "1m"),
+    rwd2: String(getSetting("miniRWD2", "10s") || "10s"),
+    fwd1: String(getSetting("miniFFWD1", "10s") || "10s"),
+    fwd2: String(getSetting("miniFFWD2", "1m") || "1m"),
+    fwd3: String(getSetting("miniFFWD3", "1h") || "1h"),
   };
 }
 function readTimeOfDay() {
-  const dawn = String(game.settings.get(MODULE_ID, "miniDawnTime") ?? "06:00");
-  const dusk = String(game.settings.get(MODULE_ID, "miniDuskTime") ?? "18:00");
+  const dawn = String(getSetting("miniDawnTime", "06:00") || "06:00");
+  const dusk = String(getSetting("miniDuskTime", "18:00") || "18:00");
   return { dawn, dusk };
 }
 function hhmmToSecs(hhmm) {
@@ -83,11 +94,11 @@ function isCombatActive() {
 }
 function getBehavior() {
   return {
-    dimOnBlur: !!game.settings.get(MODULE_ID, "miniDimOnBlur"),
-    respectPause: !!game.settings.get(MODULE_ID, "miniRespectPause"),
-    disableInCombat: !!game.settings.get(MODULE_ID, "miniDisableInCombat"),
-    safety: !!game.settings.get(MODULE_ID, "miniSafetyLock"),
-    linkPause: !!game.settings.get(MODULE_ID, "rtLinkPause")
+    dimOnBlur: !!getSetting("miniDimOnBlur", true),
+    respectPause: !!getSetting("miniRespectPause", false),
+    disableInCombat: !!getSetting("miniDisableInCombat", false),
+    safety: !!getSetting("miniSafetyLock", false),
+    linkPause: !!getSetting("rtLinkPause", true)
   };
 }
 function buttonsShouldDisable() {
@@ -174,17 +185,14 @@ function buildPanel() {
   const title = document.createElement("div"); title.className = "atmp-title"; title.textContent = "Current time";
   const time = document.createElement("div"); time.className = "atmp-time"; time.id = `${PANEL_ID}-time`; time.textContent = currentTimeLabel();
 
-  // Control row (single Play/Pause button)
   const ctlRow = document.createElement("div"); ctlRow.className = "atmp-ctl-row";
   const playPause = document.createElement("button"); playPause.type = "button"; playPause.className = "atmp-ctl-btn"; playPause.textContent = (game.paused ? "Play" : "Pause");
   playPause.title = "Toggle real-time & world pause (if linked)";
   ctlRow.append(playPause);
 
-  // Step buttons (RWD/FFWD)
   const steps = document.createElement("div"); steps.className = "atmp-buttons";
   addStepButtons(steps);
 
-  // Time-of-day buttons
   const tod = document.createElement("div"); tod.className = "atmp-buttons-td";
   addTimeOfDayButtons(tod);
 
@@ -240,8 +248,7 @@ function setButtonsEnabled(root, enabled) {
 function updateDisableState(root, pill) {
   const disabled = buttonsShouldDisable();
   setButtonsEnabled(root, !disabled);
-  // Show pill only if we're in combat and auto-pause world setting is on
-  const on = !!game.settings.get(MODULE_ID, "rtAutoPauseCombat");
+  const on = !!getSetting("rtAutoPauseCombat", true);
   if (on && isCombatActive()) pill.style.display = "block"; else pill.style.display = "none";
 }
 
@@ -263,16 +270,13 @@ function wireBehavior(ctx) {
   const { root, steps, tod, pill, timeEl, playPauseBtn } = ctx;
   const cleanup = [];
 
-  // Close
   const close = () => { cleanup.forEach((fn) => { try { fn(); } catch {} }); document.getElementById(PANEL_ID)?.remove(); _visible = false; };
   root.querySelector(".atmp-close")?.addEventListener("click", close);
 
-  // Time refresh on world time updates + 1s heartbeat
   const updateTime = () => { if (timeEl?.isConnected) timeEl.textContent = currentTimeLabel(); };
   const hookWT = Hooks.on("updateWorldTime", updateTime); cleanup.push(() => Hooks.off("updateWorldTime", hookWT));
   const tick = setInterval(updateTime, 1000); cleanup.push(() => clearInterval(tick));
 
-  // Disable state updates (pause/combat/settings)
   const updateState = () => updateDisableState(root, pill);
   const hookBeh = Hooks.on("about-time.miniBehaviorChanged", updateState); cleanup.push(() => Hooks.off("about-time.miniBehaviorChanged", hookBeh));
   const onPause = () => { updateState(); refreshPlayPause(); }; Hooks.on("pauseGame", onPause); cleanup.push(() => Hooks.off("pauseGame", onPause));
@@ -281,7 +285,7 @@ function wireBehavior(ctx) {
   // Dim on blur
   let hover = false;
   function applyDim() {
-    const dimOnBlur = !!game.settings.get(MODULE_ID, "miniDimOnBlur");
+    const dimOnBlur = !!getSetting("miniDimOnBlur", true);
     if (dimOnBlur && !hover) root.classList.add("dimmed"); else root.classList.remove("dimmed");
   }
   const enter = () => { hover = true; applyDim(); };
@@ -291,7 +295,7 @@ function wireBehavior(ctx) {
   const hookDim = Hooks.on("about-time.miniBehaviorChanged", (k) => { if (k === "miniDimOnBlur") applyDim(); });
   cleanup.push(() => Hooks.off("about-time.miniBehaviorChanged", hookDim));
 
-  // Step buttons (GM only; respect safety/disable states)
+  // Step buttons (GM only)
   if (game.user.isGM) {
     const onStep = async (ev) => {
       if (buttonsShouldDisable()) return;
@@ -323,38 +327,36 @@ function wireBehavior(ctx) {
     tod.querySelectorAll(".atmp-btn").forEach((b) => b.addEventListener("click", onTod));
   }
 
-  // Play/Pause button behavior
   function refreshPlayPause() {
     playPauseBtn.textContent = game.paused ? "Play" : "Pause";
   }
   refreshPlayPause();
 
   playPauseBtn.addEventListener("click", async () => {
-    const link = !!game.settings.get(MODULE_ID, "rtLinkPause");
+    const link = !!getSetting("rtLinkPause", true);
     if (game.paused) {
-      // going to Play
       startRealtime();
       if (link) await requestPause(false);
     } else {
-      // going to Pause
       stopRealtime();
       if (link) await requestPause(true);
     }
     refreshPlayPause();
   });
 
-  // Dragging
   cleanup.push(makeDraggable(root));
 
-  // Initial paints
-  applyDim();
-  updateTime();
-  updateState();
+  function initialPaint() {
+    applyDim();
+    updateTime();
+    updateState();
+  }
+  initialPaint();
 
   return close;
 }
 
-// ---------- Public API (named exports) ----------
+// ---------- Public API ----------
 export function showMiniPanel() {
   if (_visible) return;
   const ctx = buildPanel();
