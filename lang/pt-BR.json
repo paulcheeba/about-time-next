@@ -1,0 +1,38 @@
+{
+  "I18N.LANGUAGE": "Portugues do Brasil",
+  "I18N.MAINTAINERS": "",
+
+  "about-time.notMaster": "Não há cronometrista - operação abortada",
+  "about-time.GTM.name": "Multiplicador de atualização do tempo de jogo",
+  "about-time.GTM.hint": "o relógio 'multiplica' os segundos em jogo para cada segundo em tempo real",
+  "about-time.RTU.name": "Intervalo em tempo real",
+  "about-time.RTU.hint": "Com que frequência o relógio do jogo é atualizado. Ou seja, 30 o relógio do jogo é atualizado a cada 30 segundos em tempo real. Se 0 o relógio do jogo não é atualizado com alterações em tempo real",
+  "about-time.SPR.name": "Segundos de jogo por rodada",
+  "about-time.SPR.hint": "A duração das rodadas em combate",
+  "about-time.MCT.name": "Tempo limite antes de assumir o relógio principal",
+  "about-time.MCT.hint": "Quando um cliente GM se une a quanto tempo esperar para ver se outra conta GM já é o cronometrista",
+  "about-time.CAL.name": "Calendário ativo",
+  "about-time.CAL.hint": "Escolha qual calendário usar no jogo",
+  
+  "about-time.Date": "Data",
+  "about-time.Year": "Y",
+  "about-time.Month": "M",
+  "about-time.Day": "D",
+  "about-time.Hour": "H",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Calendar Details",
+  "about-time.current": "Current Date & Time",
+  "about-time.monthDetails": "Month Details",
+  "about-time.weekDays": "Week Days",
+
+  "about-time.display.advance1min": "Advance 1 minute",
+  "about-time.display.advance10min": "Advance 10 minutes",
+  "about-time.display.advance1h": "Advance 1 hour",
+  "about-time.display.advance8h": "Advance 8 hours",
+  "about-time.display.advance7am": "Advance to 7am the next day",
+  "about-time.display.advanceMidnight": "Advance to midnight",
+
+  "about-time.countDown.startStop": "Start/Stop psuedoclock."
+}

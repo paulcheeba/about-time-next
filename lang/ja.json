@@ -1,0 +1,38 @@
+{
+  "I18N.LANGUAGE": "日本語",
+  "I18N.MAINTAINERS": "",
+
+  "about-time.notMaster": "時間操作のマスター権を持っていません。操作を取り消します。",
+  "about-time.GTM.name": "ゲーム時間更新倍率Game Time update multiplier",
+  "about-time.GTM.hint": "時間更新間隔による更新が発生したとき、ゲーム無い時間はこの倍率ぶんだけ変動します。",
+  "about-time.RTU.name": "時間更新間隔",
+  "about-time.RTU.hint": "ゲーム内時間がどのぐらいのリアル時間後に更新されるのかを設定します。例えば30に設定した場合は30秒後に更新されます。0に設定した場合は更新が発生しません。",
+  "about-time.SPR.name": "ラウンド毎の秒",
+  "about-time.SPR.hint": "戦闘の1ラウンドが経過するたびにゲーム無い時間が何秒進むのかを設定します。",
+  "about-time.MCT.name": "マスター権を得るまでのタイムアウト時間",
+  "about-time.MCT.hint": "GMが入室したとき、他のGMが居ない場合は何秒後に時間を操作するためのマスター権を付与するかを設定します。",
+  "about-time.CAL.name": "使用カレンダー",
+  "about-time.CAL.hint": "ゲーム内で使用するカレンダーを設定します。",
+  
+  "about-time.Date": "Date",
+  "about-time.Year": "Y",
+  "about-time.Month": "M",
+  "about-time.Day": "D",
+  "about-time.Hour": "H",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Calendar Details",
+  "about-time.current": "Current Date & Time",
+  "about-time.monthDetails": "Month Details",
+  "about-time.weekDays": "Week Days",
+
+  "about-time.display.advance1min": "Advance 1 minute",
+  "about-time.display.advance10min": "Advance 10 minutes",
+  "about-time.display.advance1h": "Advance 1 hour",
+  "about-time.display.advance8h": "Advance 8 hours",
+  "about-time.display.advance7am": "Advance to 7am the next day",
+  "about-time.display.advanceMidnight": "Advance to midnight",
+
+  "about-time.countDown.startStop": "Start/Stop psuedoclock."
+}

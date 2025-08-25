@@ -1,0 +1,38 @@
+{
+  "I18N.LANGUAGE": "Deutsch",
+  "I18N.MAINTAINERS": "CarnVanBeck",
+
+  "about-time.notMaster": "Nicht der Haupt-Zeitnehmer - Operation abgebrochen",
+  "about-time.GTM.name": "Multiplikator für Spielzeit Aktualisierung",
+  "about-time.GTM.hint": "Die Spiel Uhr ändert sich 'Multiplikator' Sekunden für jede Echtzeitsekunde.",
+  "about-time.RTU.name": "Echtzeitinterval",
+  "about-time.RTU.hint": "Wie oft sich die Spiel Uhr aktualisiert. Z.B. 30, die Spiel Uhr aktualisiert sich alle 30 Sekunden Echtzeit. Wenn 0 aktualisiert sich die Spieluhr nicht  mit Echtzeit Änderungen.",
+  "about-time.SPR.name": "Spiel Sekunden pro Runde",
+  "about-time.SPR.hint": "Wie lang eine Kampfrunde dauert.",
+  "about-time.MCT.name": "Zeitüberschreitung bis die Hauptuhr übernommen wird",
+  "about-time.MCT.hint": "Wenn ein SL beitritt, wie lang gewartet werden soll, ob ein weiterer SL Benutzer bereits Haupt-Zeitnehmer ist.",
+  "about-time.CAL.name": "Aktiver Kalender",
+  "about-time.CAL.hint": "Wähle aus welcher Kalender im Spiel verwendet werden soll",
+
+  "about-time.Date": "Datum",
+  "about-time.Year": "J",
+  "about-time.Month": "M",
+  "about-time.Day": "T",
+  "about-time.Hour": "H",
+  "about-time.Minute": "M",
+  "about-time.Second": "S",
+
+  "about-time.details": "Kalendardetails",
+  "about-time.current": "Aktuelles Datum & Uhrzeit",
+  "about-time.monthDetails": "Monatsdetails",
+  "about-time.weekDays": "Wochentage",
+
+  "about-time.display.advance1min": "1 Minute vorranschreiten",
+  "about-time.display.advance10min": "10 Minutes vorranschreiten",
+  "about-time.display.advance1h": "1 Stunde vorranschreiten",
+  "about-time.display.advance8h": "8 Stunden vorranschreiten",
+  "about-time.display.advance7am": "Zum nächsten Tag um 7 vorranschreiten",
+  "about-time.display.advanceMidnight": "Bis Mitternacht vorranschreiten",
+
+  "about-time.countDown.startStop": "Start/Stop Psuedouhr."
+}
