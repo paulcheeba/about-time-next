@@ -1,4 +1,6 @@
-// About Time v13.0.5 — DateTime helpers
+// About Time v13 — DateTime helpers (v13.0.7.3+)
+// Accept plural/singular/short interval keys; provide seconds conversion
+// and keep SC integration intact.
 
 import { ElapsedTime } from "../ElapsedTime.js";
 const warn = (...a) => ElapsedTime.debug && console.warn("about-time |", ...a);
@@ -28,22 +30,48 @@ export function dateToTimestamp(date) {
   return api.dateToTimestamp(scDate);
 }
 
-export function intervalATtoSC(interval) {
+/** Normalize AT-style interval objects to singular keys SC expects. */
+export function normalizeATInterval(raw) {
+  if (raw == null) return {};
+  if (typeof raw === "number") return { second: raw };  // already seconds
+  const map = {
+    years: "year", year: "year", yr: "year",
+    months: "month", month: "month", mo: "month",
+    days: "day", day: "day", d: "day",
+    hours: "hour", hour: "hour", h: "hour",
+    minutes: "minute", minute: "minute", min: "minute", m: "minute",
+    seconds: "second", second: "second", sec: "second", s: "second",
+  };
   const out = {};
-  if (
-    interval?.years !== undefined || interval?.months !== undefined ||
-    interval?.days  !== undefined || interval?.hours  !== undefined ||
-    interval?.minutes !== undefined || interval?.seconds !== undefined
-  ) {
-    warn("About Time | Prefer singular keys: year/month/day/hour/minute/second");
+  for (const [k, v] of Object.entries(raw)) {
+    const key = map[k] || k;
+    const num = Number(v) || 0;
+    if (!num) continue;
+    out[key] = (out[key] || 0) + num;
   }
-  out.year   = interval?.year   ?? interval?.years   ?? 0;
-  out.month  = interval?.month  ?? interval?.months  ?? 0;
-  out.day    = interval?.day    ?? interval?.days    ?? 0;
-  out.hour   = interval?.hour   ?? interval?.hours   ?? 0;
-  out.minute = interval?.minute ?? interval?.minutes ?? 0;
-  out.second = interval?.second ?? interval?.seconds ?? 0;
   return out;
+}
+
+/** Convert a (possibly plural) interval object to seconds (conservative month/year). */
+export function secondsFromATInterval(raw) {
+  const iv = normalizeATInterval(raw);
+  const toSec = (n) => Math.trunc(Number(n) || 0);
+  let s = 0;
+  s += toSec(iv.year)   * 365 * 24 * 3600;   // conservative; SC calendars may vary
+  s += toSec(iv.month)  * 30  * 24 * 3600;   // conservative
+  s += toSec(iv.day)    * 24 * 3600;
+  s += toSec(iv.hour)   * 3600;
+  s += toSec(iv.minute) * 60;
+  s += toSec(iv.second);
+  return s;
+}
+
+/**
+ * Convert an About Time interval to the Simple Calendar shape.
+ * (Now tolerant of plural keys; no warning needed.)
+ */
+export function intervalATtoSC(interval) {
+  return normalizeATInterval(interval);
 }
 
 export function intervalSCtoAT(interval) {
