@@ -1,6 +1,6 @@
-# About Time (v13.0.7)
+# About Time (v13.0.7.x)
 
-**About Time** is a timekeeping and event scheduling utility for Foundry VTT.  
+**About Time** is a timekeeping and event scheduling utility for Foundry VTT v13+.  
 It works with **Simple Calendar** (if installed) or falls back to Foundry’s core time system.
 
 ---
@@ -9,119 +9,95 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
 
 1. Download and install via Foundry’s module browser  
    **OR** add the manifest URL:  
-```
-https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
-```
+   ```text
+   https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
+   ```
 2. Enable the module in your world.
 3. (Optional) Install [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar) for advanced date formatting.
-4. (Optional) Install [Smalltime](https://foundryvtt.com/packages/smalltime) To advance time with a UI. Otherwise gametime macros will be required to advance time.
 
 ---
 
 ## ⚙ Settings
 
-### Use Simple Calendar (if installed)
+### Use Simple Calendar (if installed) *Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
 - **Default:** On  
-- When on and SC is active, About Time uses SC’s date/time formatting and intervals.  
-- When off or SC is missing, About Time uses Foundry’s core time (`t+seconds`).
+- When enabled, About Time uses SC’s date/time formatting and intervals.  
+- When disabled (or if SC is not present), it falls back to Foundry core world time.
+
+### Debug Mode
+- Logs additional info (queue status, SC conversions) to the console.  
+- Useful for troubleshooting.
 
 ---
 
-## 🛠 API
+## 🗂 Toolbar Buttons
 
-The API is exposed as:
+Two buttons appear on the Foundry **Scene Controls** toolbar:
 
-```js
-game.abouttime    // Preferred
-game.Gametime     // Deprecated, kept for backwards compatibility
-```
-Key Methods
-| Method                                      | Description                                   |
-| ------------------------------------------- | --------------------------------------------- |
-| `doAt(when, handler, ...args)`              | Run a function/macro at a specific game time. |
-| `doIn(interval, handler, ...args)`          | Run after an interval from now.               |
-| `doEvery(interval, handler, ...args)`       | Repeat at a given interval.                   |
-| `reminderAt(when, message)`                 | Send a chat message at a specific time.       |
-| `reminderIn(interval, message)`             | Send a chat message after an interval.        |
-| `reminderEvery(interval, message)`          | Send a chat message repeatedly.               |
-| `notifyAt(when, eventName, ...args)`        | Trigger a Foundry hook at a specific time.    |
-| `notifyIn(interval, eventName, ...args)`    | Trigger a Foundry hook after an interval.     |
-| `notifyEvery(interval, eventName, ...args)` | Trigger a Foundry hook repeatedly.            |
-| `chatQueue(options)`                        | Print the event queue to chat.                |
-| `gclearTimeout(uid)`                        | Cancel a scheduled event.                     |
-| `DTNow()`                                   | Get current world time (seconds).             |
+- **Time Manager**: opens the floating panel.  
+- **Event Manager**: opens the queue view to manage scheduled events.  
+
+Visibility is limited to GMs.
+
+<img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
+
 
 ---
 
-## 🗣 /at Chat Command
-Available in chat:
+## 🕓 Time Manager
 
-- `/at help` — list available commands  
-- `/at queue` or `/at list` — show the queue  
-- `/at clear` — clear the entire queue  
-- `/at stop <uid>` — cancel a specific event by its UID  
-- `/at in <duration> <message>` — schedule one-time reminder  
-- `/at every <duration> <message>` — schedule repeating reminder  
+A floating **Time Manager panel** provides quick controls for world time.  
+- Play/Pause button: toggles real-time clock advancement.  
+- Current time display.  
+- Mini toggle buttons (settings, advancement options, etc.)  
+- Drag to reposition, persists across sessions.
 
-**Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds.
+<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
 
-/at Examples:
-- `/at help`
-- `/at in 10m Check the stew`
-- `/at every 1h Random Encounter`
-- `/at stop abc123(uid)`
-- `/at clear`
-- `/at in 10 Time for a coffee break!`
 
 ---
 
-## ⏱ Macro Examples
-These examples work with or without Simple Calendar.
+## 📅 Event Manager
 
-Schedule a Macro to Run in 5 Minutes:
-```js
-game.abouttime.doIn({ minutes: 5 }, () => {
-  ui.notifications.info("Five minutes have passed!");
-});
-```
-Schedule a Reminder at a Specific Game Time:
-```js
-game.abouttime.reminderAt(
-  { hour: 12, minute: 0, second: 0 },
-  "It is high noon!"
-);
-```
-Repeat Every Round (6 seconds):
-```js
-game.abouttime.doEvery({ seconds: 6 }, () => {
-  console.log("New combat round started!");
-});
-```
-Trigger a Custom Hook in 30 Seconds:
-```js
-game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
-```
+The Event Manager window lets you view and manage the event queue:
+
+- See upcoming one-shot and repeating events.  
+- Delete specific events by ID.  
+- Queue is automatically saved and restored across reloads.  
+
+<img width="849" height="800" alt="image" src="https://github.com/user-attachments/assets/de0dca06-41cf-4670-b6ef-fcefe03ae4d2" />
+
 
 ---
 
-## 📜 Legacy Macro Globals
-For old macros, these globals are still defined:
+## 💬 Chat Commands
 
-- DMf → DTMod.create  
-- DTM → DTMod class  
-- DTC → DTCalc class  
-- DTNow → Get current world time (seconds)  
-- DTf → Soft alias to DMf (deprecated)
+About Time supports both the Foundry command registry and `/chat` fallback.
+
+### Event Scheduling
+- `/at in 30s Hello!` – run once in 30 seconds.  
+- `/at every 10m Hello again!` – repeat every 10 minutes.  
+- `/at 20:00 Torch burns out` – schedule for specific time of day.  
+
+### Queue Management
+- `/at queue` – list scheduled events (GM-only whisper).  
+- `/at clear` – clear all events.  
+
+### Notes
+- Repeating events now remain in the queue and reschedule correctly.  
+- Queue outputs are whispered to GMs by default (per workflow).  
+- Times respect Simple Calendar if active.
 
 ---
 
-## 🧪 Testing Without Simple Calendar
-If Simple Calendar is not installed or disabled:
+## 🚧 Known Limitations
 
-- Times in output appear as t+<seconds>
-- All scheduling functions still work the same
+- About Time does not override combat round/initiative time.  
+- Complex SC calendars (non-365-day years, custom months) use SC conversion but may behave conservatively for raw seconds math.  
+- Only GMs can create and view scheduled events.  
 
 ---
 
-## 📝 License
-MIT — see LICENSE file.
+## 📝 Credits
+
+Originally created by **Tim Posney**, updated and maintained for Foundry VTT v13 by **Paulcheeba** with community input and ChatGPT-assisted refactoring.
