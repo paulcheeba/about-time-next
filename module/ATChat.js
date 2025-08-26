@@ -1,5 +1,5 @@
 // module/ATChat.js
-// v13.0.5.1 — /at chat command (GM-only output)
+// v13.0.7.6 — /at chat command (GM-only output) - (v11-)CHAT_MESSAGE_TYPES.OTHER changed to CHAT_MESSAGE_STYLES.OTHER (v12+)
 
 const MODULE_ID = "about-time-v13";
 const AT = () => (game.abouttime ?? game.Gametime);
