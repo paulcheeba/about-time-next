@@ -1,10 +1,13 @@
 // module/ElapsedTime.js
-// Event scheduling (v13.0.5.1) — stabilized SC checks and logging
+// Event scheduling (v13.0.7.3) — stabilized SC checks and logging
 
 import { FastPriorityQueue, Quentry } from "./FastPirorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
 import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT } from "./calendar/DateTime.js";
 import { MODULE_ID } from "./settings.js";
+
+// Tiny tolerance to avoid float jitter / early triggers
+const EPS = 0.25; // seconds
 
 const _moduleSocket = `module.${MODULE_ID}`;
 let _userId = "";
@@ -128,38 +131,54 @@ export class ElapsedTime {
   }
 
   static async pseudoClockUpdate() {
-    if (!PseudoClock.isMaster) return;
-    let needSave = false;
-    const q = ElapsedTime._eventQueue;
+  // Only the master processes the queue (unchanged behavior)
+  if (!PseudoClock.isMaster) return;
 
-    while (q.peek() && q.peek()._time <= currentWorldTime()) {
-      const qe = q.poll();
-      try {
-        if (typeof qe._handler === "string") {
-          const macro = game.macros.get(qe._handler) || game.macros.getName(qe._handler);
-          if (macro) await macroExecute(macro, ...qe._args);
-        } else {
-          await qe._handler(...qe._args);
-        }
-        if (qe._recurring) {
-          let next;
-          if (typeof qe._increment === "number") next = qe._time + qe._increment;
-          else next = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
-          if (next > qe._time) {
-            qe._time = next;
-            q.add(qe);
+  const q = ElapsedTime._eventQueue;
+  let needSave = false;
+  // Normalize to integer seconds to avoid tiny jitter; compare with EPS
+  const nowSec = Math.floor(currentWorldTime());
+
+  while (q.peek() && (q.peek()._time - nowSec) <= EPS) {
+    const qe = q.poll(); // remove head
+    try {
+      // ---- Execute the entry's handler (string macro id/name OR function) ----
+      if (typeof qe._handler === "string") {
+        const macro =
+          game.macros.get(qe._handler) ||
+          game.macros.getName(qe._handler);
+        if (macro) {
+          // Prefer v11+ execute, fall back to legacy eval if needed
+          if (typeof macro.execute === "function") {
+            await macro.execute({ args: qe._args ?? [] });
           } else {
-            console.error(`${MODULE_ID} | Recurring event reschedule rejected`, qe);
+            const body = `return (async () => { ${macro.command} })()`;
+            const fn = Function("{speaker, actor, token, character, args}={}", body);
+            await fn.call(this, { speaker: {}, actor: undefined, token: undefined, character: null, args: qe._args ?? [] });
           }
         }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        needSave = true;
+      } else if (typeof qe._handler === "function") {
+        await qe._handler(...(qe._args ?? []));
       }
+
+      // ---- Reschedule repeating entries drift-free ----
+      if (qe._recurring && Number(qe._increment) > 0) {
+        const iv = Math.floor(Number(qe._increment));
+        // Count how many whole intervals have passed since the scheduled time.
+        // +EPS avoids missing an interval due to rounding; +1 ensures strictly in the future.
+        const missed = Math.max(1, Math.ceil((nowSec - qe._time + EPS) / iv));
+        qe._time = qe._time + missed * iv;  // reschedule from last scheduled time
+        q.add(qe);                           // reinsert (do NOT remove a repeating event)
+      }
+    } catch (err) {
+      console.error("about-time | queue entry failed", err);
+    } finally {
+      needSave = true;
     }
-    if (needSave) ElapsedTime._save(true);
   }
+
+  if (needSave) ElapsedTime._save(true);
+}
 
   static _flushQueue() {
     if (PseudoClock.isMaster) {
