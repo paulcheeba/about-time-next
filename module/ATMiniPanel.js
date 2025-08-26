@@ -1,5 +1,5 @@
 // module/ATMiniPanel.js
-// v13.0.6.7-hotfix.2 — Add safe getters + defaults for settings reads.
+// v13.0.7.1 — cleaning up the panel ui - removing pill
 // NOTE: Functionality unchanged besides guarding; includes named exports used by about-time.js.
 
 import { MODULE_ID } from "./settings.js";
@@ -142,8 +142,6 @@ function ensureStyles() {
 #${PANEL_ID} .atmp-label { font-size: 11px; font-weight: 700; line-height: 1; }
 #${PANEL_ID} .atmp-icon { font-size: 10px; opacity: .85; line-height: 1; }
 #${PANEL_ID}.readonly .atmp-buttons, #${PANEL_ID}.readonly .atmp-buttons-td, #${PANEL_ID}.readonly .atmp-ctl-row { display: none; } /* players see time only */
-#${PANEL_ID} .atmp-pill { position: absolute; top: -10px; left: 10px; font-size: 10px; padding: 2px 6px; border-radius: 6px;
-  background: rgba(255, 180, 0, .2); border: 1px solid rgba(255, 180, 0, .35); color: #ffda7b; }
 #${PANEL_ID} .atmp-ctl-row { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; justify-content: center; gap: 8px; margin-bottom: 6px; }
 #${PANEL_ID} .atmp-ctl-btn { padding: 4px 8px; border-radius: 6px;
   background: var(--color-background, rgba(255,255,255,0.06)); border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18)); cursor: pointer; }
@@ -180,7 +178,7 @@ function buildPanel() {
   const closeBtn = document.createElement("div"); closeBtn.className = "atmp-close"; closeBtn.title = "Close"; closeBtn.textContent = "✕";
 
   const inner = document.createElement("div"); inner.className = "atmp-inner";
-  const pill = document.createElement("div"); pill.className = "atmp-pill"; pill.textContent = "Combat controls time"; pill.style.display = "none";
+  //const pill = document.createElement("div"); pill.className = "atmp-pill"; pill.textContent = "Combat controls time"; pill.style.display = "none";
 
   const title = document.createElement("div"); title.className = "atmp-title"; title.textContent = "Current time";
   const time = document.createElement("div"); time.className = "atmp-time"; time.id = `${PANEL_ID}-time`; time.textContent = currentTimeLabel();
@@ -196,10 +194,10 @@ function buildPanel() {
   const tod = document.createElement("div"); tod.className = "atmp-buttons-td";
   addTimeOfDayButtons(tod);
 
-  inner.append(pill, title, time, ctlRow, steps, tod);
+  inner.append(title, time, ctlRow, steps, tod);
   root.append(grip, closeBtn, inner);
   document.body.appendChild(root);
-  return { root, steps, tod, pill, timeEl: time, playPauseBtn: playPause };
+  return { root, steps, tod, timeEl: time, playPauseBtn: playPause };
 }
 function addStepButtons(container) {
   container.replaceChildren();
@@ -245,11 +243,9 @@ function setButtonsEnabled(root, enabled) {
     else b.classList.add("is-disabled");
   });
 }
-function updateDisableState(root, pill) {
+function updateDisableState(root) {
   const disabled = buttonsShouldDisable();
   setButtonsEnabled(root, !disabled);
-  const on = !!getSetting("rtAutoPauseCombat", true);
-  if (on && isCombatActive()) pill.style.display = "block"; else pill.style.display = "none";
 }
 
 async function requestPause(desired) {
@@ -267,7 +263,7 @@ async function requestPause(desired) {
 }
 
 function wireBehavior(ctx) {
-  const { root, steps, tod, pill, timeEl, playPauseBtn } = ctx;
+  const { root, steps, tod, timeEl, playPauseBtn } = ctx;
   const cleanup = [];
 
   const close = () => { cleanup.forEach((fn) => { try { fn(); } catch {} }); document.getElementById(PANEL_ID)?.remove(); _visible = false; };
@@ -277,7 +273,7 @@ function wireBehavior(ctx) {
   const hookWT = Hooks.on("updateWorldTime", updateTime); cleanup.push(() => Hooks.off("updateWorldTime", hookWT));
   const tick = setInterval(updateTime, 1000); cleanup.push(() => clearInterval(tick));
 
-  const updateState = () => updateDisableState(root, pill);
+  const updateState = () => updateDisableState(root);
   const hookBeh = Hooks.on("about-time.miniBehaviorChanged", updateState); cleanup.push(() => Hooks.off("about-time.miniBehaviorChanged", hookBeh));
   const onPause = () => { updateState(); refreshPlayPause(); }; Hooks.on("pauseGame", onPause); cleanup.push(() => Hooks.off("pauseGame", onPause));
   const hookUC = Hooks.on("updateCombat", () => updateState()); cleanup.push(() => Hooks.off("updateCombat", hookUC));
