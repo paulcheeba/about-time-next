@@ -1,6 +1,7 @@
-# About Time (v13.0.6.4)
+# About Time (v13.0.7.7)
 
-**About Time** is a timekeeping and event scheduling utility for Foundry VTT.  
+
+**About Time** is a timekeeping and event scheduling utility for Foundry VTT v13+.  
 It works with **Simple Calendar** (if installed) or falls back to Foundry’s core time system.
 
 ---
@@ -8,42 +9,27 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
 ## 📦 Installation
 
 1. Download and install via Foundry’s module browser  
+
    **OR** add the manifest URL:
    ```
    https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
    ```
 2. Enable the module in your world.
 3. (Optional) Install [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar) for advanced date formatting.
-4. (Optional) Install [Smalltime](https://foundryvtt.com/packages/smalltime) to advance time with a UI. Otherwise, macros or About Time’s **AT Time Manager** panel can be used to advance time.
-
----
-
-## 🆕 What’s new in v13.0.6.4
-
-- **AT Time Manager mini panel** (GM-only controls; players see time-only):  
-  - Windowless, draggable panel with **Pause** / **Play** flanking the time.  
-  - Five configurable step buttons: **RWD1**, **RWD2**, **FFWD1**, **FFWD2**, **FFWD3**.  
-  - New “time-of-day” buttons: **Dawn**, **Noon**, **Dusk**, **Midnight**.  
-  - Time display ticks once per second and updates immediately on changes.  
-  - Uses **Simple Calendar** formatting when SC is active; else shows `DD:HH:MM:SS`.
-- **Toolbar tool** under **Journal/Notes**: **About Time - Time Manager** (GM-only) to toggle the mini panel.
-- **Behavior toggles** (see Settings):  
-  - *Safety Lock* (master switch)  
-  - *Disable while paused*  
-  - *Disable during combat*  
-  - *Auto-pause on combat start/resume on last end*
-- Per-user **position persistence** and live updates when you change step/dawn/dusk settings.
-
-> ✅ Non-destructive: all existing About Time features and APIs remain intact.
 
 ---
 
 ## ⚙ Settings
 
 ### Use Simple Calendar (if installed)
+*Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
 - **Default:** On  
-- When on and SC is active, About Time uses SC’s date/time formatting and intervals.  
-- When off or SC is missing, About Time uses Foundry’s core time (`t+seconds`).
+- When enabled, About Time uses SC’s date/time formatting and intervals.  
+- When disabled (or if SC is not present), it falls back to Foundry core world time.
+
+### Debug Mode
+- Logs additional info (queue status, SC conversions) to the console.  
+- Useful for troubleshooting.
 
 ### AT Time Manager (Mini Panel)
 
@@ -74,6 +60,33 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
   - 1-second heartbeat for a clock-like display; also listens to world time updates for instant refresh.  
 - **Toolbar toggle**: **About Time - Time Manager** under **Journal/Notes** (GM-only).  
 - **Position**: draggable; last position is saved per user.
+
+---
+
+## 🗂 Toolbar Buttons
+
+Two buttons appear on the Foundry **Scene Controls** toolbar:
+
+- **Time Manager**: opens the floating panel.  
+- **Event Manager**: opens the queue view to manage scheduled events.  
+
+Visibility is limited to GMs.
+
+<img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
+
+
+---
+
+## 📅 Event Manager
+
+The Event Manager window lets you view and manage the event queue:
+
+- See upcoming one-shot and repeating events.  
+- Delete specific events by ID.  
+- Queue is automatically saved and restored across reloads.  
+
+<img width="849" height="800" alt="image" src="https://github.com/user-attachments/assets/de0dca06-41cf-4670-b6ef-fcefe03ae4d2" />
+
 
 ---
 
@@ -123,7 +136,7 @@ game.Gametime     // Deprecated, kept for backwards compatibility
 - `/at in <duration> <message>` — schedule one-time reminder  
 - `/at every <duration> <message>` — schedule repeating reminder
 
-**Duration shorthand:** supports mixed units — `1h30m`, `2d 4h`, `45m10s`, or plain seconds.
+<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
 
 **Examples**
 - `/at help`  
@@ -181,6 +194,18 @@ If Simple Calendar is not installed or disabled:
 - The mini panel still works; time-of-day buttons compute forward boundaries by seconds-of-day.
 
 ---
+
+## 🚧 Known Limitations
+
+- About Time does not override combat round/initiative time.  
+- Complex SC calendars (non-365-day years, custom months) use SC conversion but may behave conservatively for raw seconds math.  
+- Only GMs can create and view scheduled events.  
+
+---
+
+## 📝 Credits
+
+Originally created by **Tim Posney**, updated and maintained for Foundry VTT v13 by **Paulcheeba** with community input and ChatGPT-assisted refactoring.
 
 ## 📝 License
 

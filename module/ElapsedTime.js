@@ -1,10 +1,15 @@
 // module/ElapsedTime.js
-// Event scheduling (v13.0.5.1) — stabilized SC checks and logging
+// Event scheduling (v13.0.7.3) — stabilized SC checks and logging
+// v13.0.7.3+ patch: ensure doIn/doEvery produce numeric increment (seconds)
+// for reliable repeating reschedules; respect SC when available.
 
 import { FastPriorityQueue, Quentry } from "./FastPirorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
-import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT } from "./calendar/DateTime.js";
+import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT, secondsFromATInterval, normalizeATInterval } from "./calendar/DateTime.js";
 import { MODULE_ID } from "./settings.js";
+
+// Tiny tolerance to avoid float jitter / early triggers
+const EPS = 0.25; // seconds
 
 const _moduleSocket = `module.${MODULE_ID}`;
 let _userId = "";
@@ -59,6 +64,7 @@ export class ElapsedTime {
   static setDateTime()   { console.error(`${MODULE_ID} | setDateTime() deprecated.`); }
   static setAbsolute()   { console.error(`${MODULE_ID} | setAbsolute() deprecated.`); }
 
+  // --- Absolute "at" (date/time object or timestamp) ---
   static doAt(when, handler, ...args) {
     if (typeof when !== "number") {
       when = intervalATtoSC(when);
@@ -67,21 +73,46 @@ export class ElapsedTime {
     return ElapsedTime._addEVent(when, false, null, handler, ...args);
   }
 
+  // --- Relative "in" (interval) -> schedule once ---
   static doIn(when, handler, ...args) {
-    if (typeof when !== "number") {
-      when = intervalATtoSC(when);
-      when = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(0, when) ?? when;
+    // Produce a numeric delta in seconds; prefer SC when available, else fallback
+    let incSeconds;
+    if (typeof when === "number") {
+      incSeconds = Math.floor(when);
+    } else {
+      const norm = normalizeATInterval(when);
+      if (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval) {
+        const nextTs = globalThis.SimpleCalendar.api.timestampPlusInterval(0, norm);
+        incSeconds = Math.max(0, Math.floor(nextTs)); // base 0 => pure interval in seconds
+      } else {
+        incSeconds = secondsFromATInterval(norm);
+      }
     }
-    return ElapsedTime._addEVent(when, false, null, handler, ...args);
+    const at = Math.floor(currentWorldTime()) + incSeconds;
+    return ElapsedTime._addEVent(at, false, 0, handler, ...args);
   }
 
+  // --- Relative "every" (interval) -> schedule repeat ---
   static doEvery(when, handler, ...args) {
-    if (typeof when !== "number") when = intervalATtoSC(when);
-    const base = currentWorldTime();
-    const first = (typeof when === "number")
-      ? base + when
-      : globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(base, when) ?? base;
-    return ElapsedTime._addEVent(first, true, when, handler, ...args);
+    // Compute numeric increment (seconds) and the first fire time
+    let incSeconds;
+    if (typeof when === "number") {
+      incSeconds = Math.floor(when);
+    } else {
+      const norm = normalizeATInterval(when);
+      if (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval) {
+        const base = 0;
+        const nextTs = globalThis.SimpleCalendar.api.timestampPlusInterval(base, norm);
+        incSeconds = Math.max(0, Math.floor(nextTs - base));
+      } else {
+        incSeconds = secondsFromATInterval(norm);
+      }
+    }
+    if (!incSeconds) return;
+    const baseNow = Math.floor(currentWorldTime());
+    const first = baseNow + incSeconds;
+    // IMPORTANT: increment must be numeric seconds so repeats reschedule correctly
+    return ElapsedTime._addEVent(first, true, incSeconds, handler, ...args);
   }
 
   static reminderAt(when, ...args) {
@@ -117,47 +148,84 @@ export class ElapsedTime {
 
   static gclearTimeout(uid) { return ElapsedTime._eventQueue.removeId(uid); }
 
+  // Legacy helpers that pass increment explicitly (keep behavior)
   static doAtEvery(when, every, handler, ...args) {
-    return ElapsedTime._addEVent(when, true, every, handler, ...args);
+    // Convert 'every' to numeric seconds if object
+    let incSeconds = (typeof every === "number")
+      ? Math.floor(every)
+      : (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval)
+          ? Math.max(0, Math.floor(globalThis.SimpleCalendar.api.timestampPlusInterval(0, normalizeATInterval(every))))
+          : secondsFromATInterval(every);
+    const at = (typeof when === "number") ? when : dateToTimestamp(intervalATtoSC(when));
+    return ElapsedTime._addEVent(at, true, incSeconds, handler, ...args);
   }
   static reminderAtEvery(when, every, ...args) {
-    return ElapsedTime._addEVent(when, true, every, (...a) => game.abouttime.ElapsedTime.message(...a), ...args);
+    let incSeconds = (typeof every === "number")
+      ? Math.floor(every)
+      : (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval)
+          ? Math.max(0, Math.floor(globalThis.SimpleCalendar.api.timestampPlusInterval(0, normalizeATInterval(every))))
+          : secondsFromATInterval(every);
+    const at = (typeof when === "number") ? when : dateToTimestamp(intervalATtoSC(when));
+    return ElapsedTime._addEVent(at, true, incSeconds, (...a) => game.abouttime.ElapsedTime.message(...a), ...args);
   }
   static notifyAtEvery(when, every, eventName, ...args) {
-    return ElapsedTime._addEVent(when, true, every, (e, ...a) => game.abouttime._notifyEvent(e, ...a), eventName, ...args);
+    let incSeconds = (typeof every === "number")
+      ? Math.floor(every)
+      : (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval)
+          ? Math.max(0, Math.floor(globalThis.SimpleCalendar.api.timestampPlusInterval(0, normalizeATInterval(every))))
+          : secondsFromATInterval(every);
+    const at = (typeof when === "number") ? when : dateToTimestamp(intervalATtoSC(when));
+    return ElapsedTime._addEVent(at, true, incSeconds, (e, ...a) => game.abouttime._notifyEvent(e, ...a), eventName, ...args);
   }
 
+  // --- Queue processor (already improved) ---
   static async pseudoClockUpdate() {
+    // Only the master processes the queue (unchanged behavior)
     if (!PseudoClock.isMaster) return;
-    let needSave = false;
-    const q = ElapsedTime._eventQueue;
 
-    while (q.peek() && q.peek()._time <= currentWorldTime()) {
-      const qe = q.poll();
+    const q = ElapsedTime._eventQueue;
+    let needSave = false;
+    // Normalize to integer seconds to avoid tiny jitter; compare with EPS
+    const nowSec = Math.floor(currentWorldTime());
+
+    while (q.peek() && (q.peek()._time - nowSec) <= EPS) {
+      const qe = q.poll(); // remove head
       try {
+        // ---- Execute the entry's handler (string macro id/name OR function) ----
         if (typeof qe._handler === "string") {
-          const macro = game.macros.get(qe._handler) || game.macros.getName(qe._handler);
-          if (macro) await macroExecute(macro, ...qe._args);
-        } else {
-          await qe._handler(...qe._args);
-        }
-        if (qe._recurring) {
-          let next;
-          if (typeof qe._increment === "number") next = qe._time + qe._increment;
-          else next = globalThis.SimpleCalendar?.api?.timestampPlusInterval?.(qe._time, qe._increment);
-          if (next > qe._time) {
-            qe._time = next;
-            q.add(qe);
-          } else {
-            console.error(`${MODULE_ID} | Recurring event reschedule rejected`, qe);
+          const macro =
+            game.macros.get(qe._handler) ||
+            game.macros.getName(qe._handler);
+          if (macro) {
+            // Prefer v11+ execute, fall back to legacy eval if needed
+            if (typeof macro.execute === "function") {
+              await macro.execute({ args: qe._args ?? [] });
+            } else {
+              const body = `return (async () => { ${macro.command} })()`;
+              const fn = Function("{speaker, actor, token, character, args}={}", body);
+              await fn.call(this, { speaker: {}, actor: undefined, token: undefined, character: null, args: qe._args ?? [] });
+            }
           }
+        } else if (typeof qe._handler === "function") {
+          await qe._handler(...(qe._args ?? []));
+        }
+
+        // ---- Reschedule repeating entries drift-free ----
+        if (qe._recurring && Number(qe._increment) > 0) {
+          const iv = Math.floor(Number(qe._increment));
+          // Count how many whole intervals have passed since the scheduled time.
+          // +EPS avoids missing an interval due to rounding; +1 ensures strictly in the future.
+          const missed = Math.max(1, Math.ceil((nowSec - qe._time + EPS) / iv));
+          qe._time = qe._time + missed * iv;  // reschedule from last scheduled time
+          q.add(qe);                           // reinsert (do NOT remove a repeating event)
         }
       } catch (err) {
-        console.error(err);
+        console.error("about-time | queue entry failed", err);
       } finally {
         needSave = true;
       }
     }
+
     if (needSave) ElapsedTime._save(true);
   }
 
@@ -245,26 +313,41 @@ export class ElapsedTime {
     ChatMessage.create(chatData);
   }
 
-  static message(content, alias = null, targets = null, ...args) {
-    const Doc = CONFIG.ChatMessage.documentClass;
-    const chatData = {
-      user: game.user.id,
-      content,
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
-      flags: {}
-    };
-    if (alias) chatData.speaker = { alias };
-    if (targets) {
-      let whisperTargets = [];
-      if (Array.isArray(targets)) {
-        for (let id of targets) whisperTargets = whisperTargets.concat(Doc.getWhisperRecipients(id));
-      } else if (typeof targets === "string") {
-        whisperTargets = Doc.getWhisperRecipients(targets);
-      }
-      if (whisperTargets.length > 0) chatData["whisper"] = whisperTargets;
+  static message(content, alias = null, targets = undefined, ...args) {
+  const Doc = CONFIG.ChatMessage.documentClass;
+
+  // Base payload (v12+: 'style' replaces 'type')
+  const chatData = {
+    user: game.user.id,
+    content,
+    style: CONST.CHAT_MESSAGE_STYLES.OTHER,
+    flags: {}
+  };
+  if (alias) chatData.speaker = { alias };
+
+  // Default per workflow: GM-only whisper unless explicitly overridden
+  let recipients = null;
+
+  if (targets === "PUBLIC") {
+    recipients = null; // public message
+  } else if (Array.isArray(targets) && targets.length) {
+    recipients = [];
+    for (const id of targets) {
+      recipients = recipients.concat(Doc.getWhisperRecipients(id));
     }
-    Doc.create(chatData);
+  } else if (typeof targets === "string" && targets.trim()) {
+    recipients = Doc.getWhisperRecipients(targets.trim());
+  } else {
+    // Default: GM-only
+    recipients = Doc.getWhisperRecipients("GM").filter(u => u.active);
   }
+
+  if (recipients && recipients.length > 0) chatData.whisper = recipients;
+
+  Doc.create(chatData);
+}
+
+
 }
 
 ElapsedTime.debug = true;
