@@ -316,42 +316,37 @@ export class ElapsedTime {
   static message(content, alias = null, targets = undefined, ...args) {
   const Doc = CONFIG.ChatMessage.documentClass;
 
-  // Base payload
+  // Base payload (v12+: 'style' replaces 'type')
   const chatData = {
     user: game.user.id,
     content,
-    type: CONST.CHAT_MESSAGE_TYPES.OTHER,
+    style: CONST.CHAT_MESSAGE_STYLES.OTHER,
     flags: {}
   };
   if (alias) chatData.speaker = { alias };
 
-  // --- Recipient resolution ---
-  // Default behavior (per workflow): GM-only whisper when no targets supplied.
-  // If you want a public message explicitly, pass targets = "PUBLIC".
+  // Default per workflow: GM-only whisper unless explicitly overridden
   let recipients = null;
 
   if (targets === "PUBLIC") {
-    recipients = null; // omit whisper -> public
+    recipients = null; // public message
   } else if (Array.isArray(targets) && targets.length) {
-    // Array of user IDs or roles
     recipients = [];
     for (const id of targets) {
       recipients = recipients.concat(Doc.getWhisperRecipients(id));
     }
   } else if (typeof targets === "string" && targets.trim()) {
-    // Single role or user name/id (e.g., "GM", "players", specific user)
     recipients = Doc.getWhisperRecipients(targets.trim());
   } else {
     // Default: GM-only
     recipients = Doc.getWhisperRecipients("GM").filter(u => u.active);
   }
 
-  if (recipients && recipients.length > 0) {
-    chatData.whisper = recipients;
-  }
+  if (recipients && recipients.length > 0) chatData.whisper = recipients;
 
   Doc.create(chatData);
 }
+
 
 }
 
