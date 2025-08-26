@@ -49,6 +49,19 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
 
 ---
 
+## 🗂 Toolbar Buttons
+
+Two buttons appear on the Foundry **Scene Controls** toolbar:
+
+- **Time Manager**: opens the floating panel.  
+- **Event Manager**: opens the queue view to manage scheduled events.  
+
+Visibility is limited to GMs.
+
+<img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
+
+---
+
 ## 🪟 AT Time Manager Panel
 
 - **GM view**: Pause/Play, five step buttons, and four time-of-day buttons (Dawn/Noon/Dusk/Midnight).  
@@ -61,19 +74,7 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
 - **Toolbar toggle**: **About Time - Time Manager** under **Journal/Notes** (GM-only).  
 - **Position**: draggable; last position is saved per user.
 
----
-
-## 🗂 Toolbar Buttons
-
-Two buttons appear on the Foundry **Scene Controls** toolbar:
-
-- **Time Manager**: opens the floating panel.  
-- **Event Manager**: opens the queue view to manage scheduled events.  
-
-Visibility is limited to GMs.
-
-<img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
-
+<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
 
 ---
 
@@ -87,7 +88,6 @@ The Event Manager window lets you view and manage the event queue:
 
 <img width="849" height="800" alt="image" src="https://github.com/user-attachments/assets/de0dca06-41cf-4670-b6ef-fcefe03ae4d2" />
 
-
 ---
 
 ## 🗣 /at Chat Command
@@ -99,7 +99,7 @@ The Event Manager window lets you view and manage the event queue:
 - `/at in <duration> <message>` — schedule one-time reminder  
 - `/at every <duration> <message>` — schedule repeating reminder
 
-<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
+<img width="294" height="470" alt="image" src="https://github.com/user-attachments/assets/20ecf3b2-ab4e-4990-8d6a-81ba582de708" />
 
 **Examples**
 - `/at help`  
