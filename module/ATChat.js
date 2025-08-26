@@ -6,7 +6,7 @@ const AT = () => (game.abouttime ?? game.Gametime);
 
 function gmWhisper(html) {
   const gm = ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id);
-  return ChatMessage.create({ content: html, whisper: gm, type: CONST.CHAT_MESSAGE_TYPES.OTHER });
+  return ChatMessage.create({ content: html, whisper: gm, type: CONST.CHAT_MESSAGE_STYLES.OTHER });
 }
 
 function parseDuration(input) {
