@@ -1,5 +1,5 @@
 // module/ATMiniPanel.js
-// v13.0.7.1 — cleaning up the panel ui - removing pill
+// v13.0.7.1 - cleaning up the panel ui - removing pill - reducing height - adding buttons for linking pause/combat
 // NOTE: Functionality unchanged besides guarding; includes named exports used by about-time.js.
 
 import { MODULE_ID } from "./settings.js";
@@ -121,10 +121,10 @@ function ensureStyles() {
 #${PANEL_ID} { position: fixed; z-index: 99999; display: inline-block;
   background: var(--color-bg, rgba(20,20,20,0.92)); color: var(--color-text, #eee);
   border-radius: 10px; box-shadow: 0 8px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
-  padding: 8px 10px 8px 12px; user-select: none; transition: opacity .12s ease, filter .12s ease; }
+  padding: 4px 4px 4px 4px; user-select: none; transition: opacity .12s ease, filter .12s ease; }
 #${PANEL_ID}.dimmed { opacity: .72; filter: saturate(.9); }
 #${PANEL_ID} .atmp-inner { position: relative; border: 1px solid var(--color-border-light-2, rgba(255,255,255,0.12));
-  border-radius: 8px; background: var(--color-bg-alt, rgba(255,255,255,0.05)); padding: 10px 12px 8px; }
+  border-radius: 8px; background: var(--color-bg-alt, rgba(255,255,255,0.05)); padding: 4px 4px 4px; }
 #${PANEL_ID} .atmp-close { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
   border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: 1px solid rgba(255,255,255,0.25);
   font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; transition: transform .06s ease; }
@@ -142,10 +142,14 @@ function ensureStyles() {
 #${PANEL_ID} .atmp-label { font-size: 11px; font-weight: 700; line-height: 1; }
 #${PANEL_ID} .atmp-icon { font-size: 10px; opacity: .85; line-height: 1; }
 #${PANEL_ID}.readonly .atmp-buttons, #${PANEL_ID}.readonly .atmp-buttons-td, #${PANEL_ID}.readonly .atmp-ctl-row { display: none; } /* players see time only */
-#${PANEL_ID} .atmp-ctl-row { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; justify-content: center; gap: 8px; margin-bottom: 6px; }
+#${PANEL_ID} .atmp-ctl-row { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; }
 #${PANEL_ID} .atmp-ctl-btn { padding: 4px 8px; border-radius: 6px;
   background: var(--color-background, rgba(255,255,255,0.06)); border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18)); cursor: pointer; }
 #${PANEL_ID} .atmp-ctl-btn[disabled] { opacity: .5; cursor: not-allowed; }
+#${PANEL_ID} .atmp-icon-col { display:flex; flex-direction:row; gap:4px; align-items:center; }
+#${PANEL_ID} .atmp-tiny { width: 24px; height: 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; }
+#${PANEL_ID} .atmp-tiny.off { opacity:.4; }
 `;
   document.head.appendChild(style);
 }
@@ -175,10 +179,16 @@ function buildPanel() {
   if (!game.user.isGM) root.classList.add("readonly");
 
   const grip = document.createElement("div"); grip.className = "atmp-grip"; grip.title = "Drag";
-  const closeBtn = document.createElement("div"); closeBtn.className = "atmp-close"; closeBtn.title = "Close"; closeBtn.textContent = "✕";
+  const closeBtn = document.createElement("div"); closeBtn.className = "atmp-close"; closeBtn.title = "Close"; closeBtn.textContent = "âœ•";
 
   const inner = document.createElement("div"); inner.className = "atmp-inner";
   //const pill = document.createElement("div"); pill.className = "atmp-pill"; pill.textContent = "Combat controls time"; pill.style.display = "none";
+
+  const iconCol = document.createElement("div"); iconCol.className ="atmp-icon-col"; //adds a small column for the tiny buttons
+
+  const tinyLink = document.createElement("div"); tinyLink.className ="atmp-tiny atmp-link"; //adds a small pause link tiny button
+
+  const tinyCombat = document.createElement("div"); tinyCombat.className ="atmp-tiny atmp-combat"; //adds a small combat link tiny button
 
   const title = document.createElement("div"); title.className = "atmp-title"; title.textContent = "Current time";
   const time = document.createElement("div"); time.className = "atmp-time"; time.id = `${PANEL_ID}-time`; time.textContent = currentTimeLabel();
@@ -186,7 +196,8 @@ function buildPanel() {
   const ctlRow = document.createElement("div"); ctlRow.className = "atmp-ctl-row";
   const playPause = document.createElement("button"); playPause.type = "button"; playPause.className = "atmp-ctl-btn"; playPause.textContent = (game.paused ? "Play" : "Pause");
   playPause.title = "Toggle real-time & world pause (if linked)";
-  ctlRow.append(playPause);
+  iconCol.append(tinyLink,tinyCombat);
+  ctlRow.append(playPause,time,iconCol);
 
   const steps = document.createElement("div"); steps.className = "atmp-buttons";
   addStepButtons(steps);
@@ -194,7 +205,7 @@ function buildPanel() {
   const tod = document.createElement("div"); tod.className = "atmp-buttons-td";
   addTimeOfDayButtons(tod);
 
-  inner.append(title, time, ctlRow, steps, tod);
+  inner.append(title, ctlRow, steps, tod);
   root.append(grip, closeBtn, inner);
   document.body.appendChild(root);
   return { root, steps, tod, timeEl: time, playPauseBtn: playPause };
@@ -214,10 +225,10 @@ function addTimeOfDayButtons(container) {
   container.replaceChildren();
   const { dawn, dusk } = readTimeOfDay();
   container.append(
-    mkTodBtn("dawn",     "Dawn",     "fa-cloud-sun",  `Advance to Dawn — ${dawn}`),
-    mkTodBtn("noon",     "Noon",     "fa-sun",        "Advance to Noon — 12:00"),
-    mkTodBtn("dusk",     "Dusk",     "fa-cloud-moon", `Advance to Dusk — ${dusk}`),
-    mkTodBtn("midnight", "Midnight", "fa-moon",       "Advance to Midnight — 00:00"),
+    mkTodBtn("dawn",     "Dawn",     "fa-cloud-sun",  `Advance to Dawn â€” ${dawn}`),
+    mkTodBtn("noon",     "Noon",     "fa-sun",        "Advance to Noon â€” 12:00"),
+    mkTodBtn("dusk",     "Dusk",     "fa-cloud-moon", `Advance to Dusk â€” ${dusk}`),
+    mkTodBtn("midnight", "Midnight", "fa-moon",       "Advance to Midnight â€” 00:00"),
   );
 }
 
