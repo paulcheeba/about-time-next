@@ -19,7 +19,8 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
 
 ## ⚙ Settings
 
-### Use Simple Calendar (if installed) *Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
+### Use Simple Calendar (if installed)
+*Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
 - **Default:** On  
 - When enabled, About Time uses SC’s date/time formatting and intervals.  
 - When disabled (or if SC is not present), it falls back to Foundry core world time.
