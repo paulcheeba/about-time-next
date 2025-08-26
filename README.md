@@ -90,6 +90,29 @@ The Event Manager window lets you view and manage the event queue:
 
 ---
 
+## 🗣 /at Chat Command
+
+- `/at help` — list available commands  
+- `/at queue` or `/at list` — show the queue  
+- `/at clear` — clear the entire queue  
+- `/at stop <uid>` — cancel a specific event by its UID  
+- `/at in <duration> <message>` — schedule one-time reminder  
+- `/at every <duration> <message>` — schedule repeating reminder
+
+<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
+
+**Examples**
+- `/at help`  
+- `/at in 10m Check the stew`  
+- `/at every 1h Random Encounter`  
+- `/at stop abc123(uid)`  
+- `/at clear`  
+- `/at in 10 Time for a coffee break!`
+
+> Tip: You can also control time via the **AT Time Manager** panel (GM-only), which uses core `game.time.advance(...)` under the hood.
+
+---
+
 ## 🛠 API
 
 The API is exposed as:
@@ -124,29 +147,6 @@ game.Gametime     // Deprecated, kept for backwards compatibility
 - `DTC` → `DTCalc` class  
 - `DTNow` → current world time (seconds)  
 - `DTf` → soft alias to `DMf` (deprecated)
-
----
-
-## 🗣 /at Chat Command
-
-- `/at help` — list available commands  
-- `/at queue` or `/at list` — show the queue  
-- `/at clear` — clear the entire queue  
-- `/at stop <uid>` — cancel a specific event by its UID  
-- `/at in <duration> <message>` — schedule one-time reminder  
-- `/at every <duration> <message>` — schedule repeating reminder
-
-<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
-
-**Examples**
-- `/at help`  
-- `/at in 10m Check the stew`  
-- `/at every 1h Random Encounter`  
-- `/at stop abc123(uid)`  
-- `/at clear`  
-- `/at in 10 Time for a coffee break!`
-
-> Tip: You can also control time via the **AT Time Manager** panel (GM-only), which uses core `game.time.advance(...)` under the hood.
 
 ---
 
