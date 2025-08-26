@@ -43,22 +43,22 @@
     },
     {
       "lang": "ja",
-      "name": "\u65e5\u672c\u8a9e",
+      "name": "日本語",
       "path": "lang/ja.json"
     },
     {
       "lang": "fr",
-      "name": "Fran\u00e7ais",
+      "name": "Français",
       "path": "lang/fr.json"
     },
     {
       "lang": "pt-BR",
-      "name": "Portugu\u00eas (Brasil)",
+      "name": "Português (Brasil)",
       "path": "lang/pt-BR.json"
     },
     {
       "lang": "es",
-      "name": "Espa\u00f1ol",
+      "name": "Español",
       "path": "lang/es.json"
     },
     {
@@ -68,12 +68,12 @@
     },
     {
       "lang": "cn",
-      "name": "\u4e2d\u6587",
+      "name": "中文",
       "path": "lang/cn.json"
     },
     {
       "lang": "zh-tw",
-      "name": "\u6b63\u9ad4\u4e2d\u6587",
+      "name": "正體中文",
       "path": "lang/zh-tw.json"
     }
   ],
