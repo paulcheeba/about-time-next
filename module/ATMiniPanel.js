@@ -1,5 +1,5 @@
 // module/ATMiniPanel.js
-// v13.0.7.1 - cleaning up the panel ui - removing pill - reducing height - adding buttons for linking pause/combat
+// v13.0.7.1 â€” cleaning up the panel ui - removing pill
 // NOTE: Functionality unchanged besides guarding; includes named exports used by about-time.js.
 
 import { MODULE_ID } from "./settings.js";
