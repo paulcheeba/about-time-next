@@ -1,18 +1,23 @@
-<section class="at-emv2">
+<section class="at-emv2 at-dracula">
   <style>
+    :root { --atd-bg:#282a36; --atd-panel:#1e1f29; --atd-surface:#2b2e3b; --atd-fg:#f8f8f2; --atd-muted:#bd93f9;
+            --atd-accent:#6272a4; --atd-green:#50fa7b; --atd-red:#ff5555; --atd-orange:#ffb86c; --atd-yellow:#f1fa8c; --atd-cyan:#8be9fd; --atd-pink:#ff79c6; }
+    .at-dracula { color: var(--atd-fg); }
+    .at-dracula input, .at-dracula select, .at-dracula textarea { background: var(--atd-surface); color: var(--atd-fg); border: 1px solid var(--atd-accent); }
     .at-emv2 .row{display:flex;gap:.5rem;align-items:center;margin:.25rem 0}
-    .at-emv2 label{min-width:120px}
+    .at-emv2 label{min-width:120px;color:var(--atd-fg)}
     .at-emv2 input[type="text"], .at-emv2 input[type="search"]{width:100%}
-    .at-emv2 table{width:100%;border-collapse:collapse;}
-    .at-emv2 th, .at-emv2 td{padding:.35rem;border-bottom:1px solid var(--color-border-light-1)}
-    .at-emv2 .muted{opacity:.85;font-size:.9em}
-    .at-emv2 .actions button{margin-right:.25rem}
-    .at-emv2 .controls .buttons button{border:2px groove}
-    .at-emv2 .controls .buttons button[data-action="create"]{background:#bcf879}
-    .at-emv2 .controls .buttons button[data-action="stop-by-name"],
-    .at-emv2 .controls .buttons button[data-action="stop-by-uid"]{background:#ff9752}
-    .at-emv2 .controls .buttons button[data-action="flush"]{background:#ff5252}
-    .at-emv2 .controls .buttons button[data-action="flush-rem"]{background:#ffc452}
+    .at-emv2 table{width:100%;border-collapse:collapse;background:var(--atd-panel)}
+    .at-emv2 th, .at-emv2 td{padding:.45rem;border-bottom:1px solid var(--atd-accent)}
+    .at-emv2 th{color:var(--atd-yellow)}
+    .at-emv2 .muted{opacity:.9;color:var(--atd-muted);font-size:.9em}
+    .at-emv2 hr{border:none;border-top:1px solid var(--atd-accent);margin:.5rem 0}
+    .at-btn{display:inline-block;padding:.35rem .6rem;border-radius:.5rem;border:1px solid var(--atd-accent);background:var(--atd-surface);
+            color:var(--atd-fg);line-height:1;white-space:nowrap}
+    .at-btn:hover{filter:brightness(1.1)}
+    .at-btn.primary{border-color:var(--atd-green);box-shadow:0 0 0 1px var(--atd-green) inset}
+    .at-btn.warn{border-color:var(--atd-orange);box-shadow:0 0 0 1px var(--atd-orange) inset}
+    .at-btn.danger{border-color:var(--atd-red);box-shadow:0 0 0 1px var(--atd-red) inset}
   </style>
 
   <div class="controls">
@@ -37,13 +42,13 @@
     </div>
     <div class="row buttons">
       {{#if isGM}}
-      <button type="button" data-action="create">Create</button>
+      <button type="button" class="at-btn primary" data-action="create">Create</button>
       <input type="text" name="stopKey" placeholder="Stop → enter Name or UID" />
-      <button type="button" data-action="stop-by-name">Stop by Name</button>
-      <button type="button" data-action="stop-by-uid">Stop by UID</button>
-      <button type="button" data-action="list">Send Queue to Chat</button>
-      <button type="button" data-action="flush">Stop all Events</button>
-      <button type="button" data-action="flush-rem">Stop all + 1h reminder</button>
+      <button type="button" class="at-btn warn" data-action="stop-by-name">Stop by Name</button>
+      <button type="button" class="at-btn warn" data-action="stop-by-uid">Stop by UID</button>
+      <button type="button" class="at-btn" data-action="list">Send Queue to Chat</button>
+      <button type="button" class="at-btn danger" data-action="flush">Stop all Events</button>
+      <button type="button" class="at-btn danger" data-action="flush-rem">Stop all + 1h reminder</button>
       {{else}}
       <span class="muted">Players can view the queue only.</span>
       {{/if}}
@@ -76,8 +81,8 @@
             <td class="msg">{{e.msg}}</td>
             <td class="uid"><code>{{e.uid}}</code></td>
             <td class="actions">
-              {{#if ../isGM}}<button type="button" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
-              <button type="button" data-action="copy-uid" data-uid="{{e.uid}}">Copy UID</button>
+              {{#if ../isGM}}<button type="button" class="at-btn warn" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
+              <button type="button" class="at-btn" data-action="copy-uid" data-uid="{{e.uid}}">Copy UID</button>
             </td>
           </tr>
           {{/each}}
