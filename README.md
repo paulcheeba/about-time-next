@@ -1,4 +1,4 @@
-# About Time (v13.0.7.7)
+# About Time (v13.0.8.0)
 
 
 **About Time** is a timekeeping and event scheduling utility for Foundry VTT v13+.  
