@@ -1,0 +1,90 @@
+<section class="at-emv2">
+  <style>
+    .at-emv2 .row{display:flex;gap:.5rem;align-items:center;margin:.25rem 0}
+    .at-emv2 label{min-width:120px}
+    .at-emv2 input[type="text"], .at-emv2 input[type="search"]{width:100%}
+    .at-emv2 table{width:100%;border-collapse:collapse;}
+    .at-emv2 th, .at-emv2 td{padding:.35rem;border-bottom:1px solid var(--color-border-light-1)}
+    .at-emv2 .muted{opacity:.85;font-size:.9em}
+    .at-emv2 .actions button{margin-right:.25rem}
+    .at-emv2 .controls .buttons button{border:2px groove}
+    .at-emv2 .controls .buttons button[data-action="create"]{background:#bcf879}
+    .at-emv2 .controls .buttons button[data-action="stop-by-name"],
+    .at-emv2 .controls .buttons button[data-action="stop-by-uid"]{background:#ff9752}
+    .at-emv2 .controls .buttons button[data-action="flush"]{background:#ff5252}
+    .at-emv2 .controls .buttons button[data-action="flush-rem"]{background:#ffc452}
+  </style>
+
+  <div class="controls">
+    <div class="row">
+      <label>Event Name</label>
+      <input type="text" name="eventName" placeholder="Short name (used for stop-by-name)" />
+    </div>
+    <div class="row">
+      <label>Duration</label>
+      <input type="text" name="duration" placeholder="e.g. 1h30m, 45s, 2d 4h" />
+      <span class="muted">Format accepts d/h/m/s in any order.</span>
+    </div>
+    <div class="row">
+      <label>Message</label>
+      <input type="text" name="message" placeholder="GM whisper or macro arg" />
+    </div>
+    <div class="row">
+      <label>Options</label>
+      <label><input type="checkbox" name="repeat" /> Repeat</label>
+      <label><input type="checkbox" name="runMacro" /> Run Macro</label>
+      <input type="text" name="macroName" placeholder="Macro Name" />
+    </div>
+    <div class="row buttons">
+      {{#if isGM}}
+      <button type="button" data-action="create">Create</button>
+      <input type="text" name="stopKey" placeholder="Stop → enter Name or UID" />
+      <button type="button" data-action="stop-by-name">Stop by Name</button>
+      <button type="button" data-action="stop-by-uid">Stop by UID</button>
+      <button type="button" data-action="list">Send Queue to Chat</button>
+      <button type="button" data-action="flush">Stop all Events</button>
+      <button type="button" data-action="flush-rem">Stop all + 1h reminder</button>
+      {{else}}
+      <span class="muted">Players can view the queue only.</span>
+      {{/if}}
+    </div>
+  </div>
+
+  <hr />
+
+  <div class="queue">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Starts</th>
+          <th>Remaining</th>
+          <th>Repeat</th>
+          <th>Message</th>
+          <th>UID</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#if entries.length}}
+          {{#each entries as |e|}}
+          <tr data-uid="{{e.uid}}">
+            <td class="name">{{e.name}}</td>
+            <td class="start">{{e.startTxt}}</td>
+            <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
+            <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
+            <td class="msg">{{e.msg}}</td>
+            <td class="uid"><code>{{e.uid}}</code></td>
+            <td class="actions">
+              {{#if ../isGM}}<button type="button" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
+              <button type="button" data-action="copy-uid" data-uid="{{e.uid}}">Copy UID</button>
+            </td>
+          </tr>
+          {{/each}}
+        {{else}}
+          <tr><td colspan="7" class="muted">- (empty queue) -</td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+  </div>
+</section>
