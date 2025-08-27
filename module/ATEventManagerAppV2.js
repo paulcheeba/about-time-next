@@ -1,28 +1,30 @@
 // ============================================================================
 // File: modules/about-time-v13/module/ATEventManagerAppV2.js
-// v13.0.8-dev — Standalone Event Manager (AppV2) — additive, macro-opened only
+// v13.0.8.0.1 — AppV2 Event Manager (dev-only, opened by macro)
+// Notes: fixed action binding, live ticker, safer stop-by-name, Dracula theme hooks
 // ============================================================================
 
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+ API
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
 import { MODULE_ID } from "./settings.js";
 
 export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "at-em-v2",
-    classes: ["about-time", "at-emv2"],
+    classes: ["about-time", "at-emv2", "at-dracula"],
     tag: "form",
     window: { title: "About Time — Event Manager V2", icon: "fas fa-clock", resizable: true },
     position: { width: 760, height: "auto" },
+    // IMPORTANT: method-name strings so Foundry binds to instance
     actions: {
-      create:      (ev, el) => el.closest?.("form") && this._onCreate.call(this, ev),
-      list:        () => this._onList(),
-      flush:       () => this._onFlush(false),
-      "flush-rem": () => this._onFlush(true),
-      "stop-by-name": () => this._onStopByName(),
-      "stop-by-uid":  () => this._onStopByUID(),
-      "row-stop":   (ev, el) => this._onRowStop(el.dataset.uid),
-      "copy-uid":   (ev, el) => this._onCopyUID(el.dataset.uid)
+      create: "onCreate",
+      list: "onList",
+      flush: "onFlush",
+      "flush-rem": "onFlushRem",
+      "stop-by-name": "onStopByName",
+      "stop-by-uid": "onStopByUID",
+      "row-stop": "onRowStop",
+      "copy-uid": "onCopyUID"
     }
   };
 
@@ -30,54 +32,54 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     body: { template: "modules/about-time-v13/templates/ATEventManagerAppV2.hbs" }
   };
 
-  // ---- Lifecycle -----------------------------------------------------------
   #ticker = null;
 
+  // Start ticker after render; stop on close
+  async render(force, options = {}) {
+    const out = await super.render(force, options);
+    if (!this.#ticker) this.#startTicker();
+    return out;
+  }
+
+  async close(options) {
+    this.#stopTicker();
+    return super.close(options);
+  }
+
   async _prepareContext() {
-    const q = ElapsedTime._eventQueue;
     const now = game.time.worldTime;
+    const q = ElapsedTime?._eventQueue;
     const entries = [];
 
-    if (q && Array.isArray(q.array)) {
+    if (q?.array && Number.isInteger(q.size)) {
       for (let i = 0; i < q.size; i++) {
         const e = q.array[i];
+        if (!e) continue;
         const meta = e?._args?.[0] ?? {};
         const name = String(meta.__atName ?? "");
         const msg  = String(meta.__atMsg  ?? "");
         const inc  = Number(e?._increment || 0);
+        const time = Number(e._time || 0);
         entries.push({
           uid: e._uid,
           name,
           msg,
-          time: Number(e._time || 0),
-          startTxt: this.#fmtTimestamp(e._time),
-          remainingTxt: this.#fmtDHMS(Math.max(0, Math.floor(e._time - now))),
+          time,
+          startTxt: this.#fmtTimestamp(time),
+          remainingTxt: this.#fmtDHMS(Math.max(0, Math.floor(time - now))),
           recurring: !!e?._recurring,
-          increment: inc,
-          incTxt: inc ? this.#fmtDHMS(inc) : "",
-          handler: typeof e?._handler === "string" ? e._handler : "[function]"
+          incTxt: inc ? this.#fmtDHMS(inc) : ""
         });
       }
     }
 
-    return {
-      isGM: !!game.user?.isGM,
-      now,
-      usingSC: !!(globalThis.SimpleCalendar?.api),
-      entries,
-      modId: MODULE_ID
-    };
+    return { isGM: !!game.user?.isGM, entries };
   }
 
-  async _onFirstRender() { this.#startTicker(); }
-  _onClose() { this.#stopTicker(); }
-
-  // ---- Actions -------------------------------------------------------------
-  static async _onCreate() {
+  // ---- Actions (instance methods) ----------------------------------------
+  async onCreate(event) {
     if (!game.user?.isGM) return ui.notifications?.warn?.("GM only");
-    const form = this.form; if (!form) return;
-
-    const fd = new FormData(form);
+    const fd = new FormData(this.form);
     const name      = String(fd.get("eventName") || "").trim();
     const durStr    = String(fd.get("duration")  || "").trim();
     const message   = String(fd.get("message")   || "");
@@ -86,21 +88,20 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const macroName = String(fd.get("macroName") || "").trim();
 
     const seconds = this.#parseMixedDuration(durStr);
-    if (!seconds) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a valid duration.</p>`);
+    if (!seconds || seconds <= 0) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a valid duration.</p>`);
 
     const meta = { __atName: name || (runMacro ? macroName : "(unnamed)"), __atMsg: message };
 
     const handler = async (metaArg) => {
       try {
         if (runMacro && macroName) {
-          const macro = game.macros.get(macroName) || game.macros.getName?.(macroName);
+          const macro = game.macros.getName?.(macroName) ?? game.macros.find?.(m => m.name === macroName);
           if (macro) {
             if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
-              // Legacy execute shim (why: keep compatibility if on v10/early v11)
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
-              await fn.call(this, { speaker: {}, actor: undefined, token: undefined, character: null, args: [metaArg] });
+              await fn.call(this, { speaker: {}, args: [metaArg] });
             }
           } else ui.notifications?.warn?.(`[${MODULE_ID}] Macro not found: ${macroName}`);
         } else {
@@ -116,85 +117,97 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
     if (name) await game.user.setFlag(MODULE_ID, name, uid);
 
-    await this.#gmWhisper(
-      `<p>[${MODULE_ID}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event:
-        <code>${foundry.utils.escapeHTML(uid)}</code> — ${this.#fmtDHMS(seconds)} — “${foundry.utils.escapeHTML(meta.__atName)}”</p>`
-    );
+    await this.#gmWhisper(`<p>[${MODULE_ID}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event: <code>${foundry.utils.escapeHTML(uid)}</code> — ${this.#fmtDHMS(seconds)} — “${foundry.utils.escapeHTML(meta.__atName)}”</p>`);
     this.render(true);
   }
 
-  async _onStopByName() {
+  async onStopByName(event) {
     if (!game.user?.isGM) return;
     const fd = new FormData(this.form);
     const key = String(fd.get("stopKey") || "").trim();
     if (!key) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter an Event Name to stop.</p>`);
 
-    const q = ElapsedTime._eventQueue;
-    if (!q?.array) return this.#gmWhisper(`<p>[${MODULE_ID}] Queue not available.</p>`);
-    const target = key.toLowerCase();
-    const removed = q.removeMany((e) => (e?._args?.[0]?.__atName || "").toLowerCase() === target);
+    const AT = game.abouttime ?? game.Gametime;
+    const q = ElapsedTime?._eventQueue;
+    let count = 0;
+    if (q?.array && Number.isInteger(q.size)) {
+      for (let i = 0; i < q.size; i++) {
+        const e = q.array[i];
+        if ((e?._args?.[0]?.__atName || "").toLowerCase() === key.toLowerCase()) {
+          if (AT.clearTimeout(e._uid)) count++;
+        }
+      }
+    }
 
-    if (removed?.length) {
+    if (count) {
       const flags = (await game.user.getFlag(MODULE_ID)) || {};
-      for (const k of Object.keys(flags)) if (removed.some((r) => r._uid === flags[k])) await game.user.unsetFlag(MODULE_ID, k);
-      (game.abouttime ?? game.Gametime)._save?.(true);
-      await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped ${removed.length} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+      for (const k of Object.keys(flags)) if (flags[k] && typeof flags[k] === "string") {
+        let exists = false;
+        if (q?.array && Number.isInteger(q.size)) {
+          for (let i = 0; i < q.size; i++) if (q.array[i]?._uid === flags[k]) { exists = true; break; }
+        }
+        if (!exists) await game.user.unsetFlag(MODULE_ID, k);
+      }
+      await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped ${count} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     } else {
       await this.#gmWhisper(`<p>[${MODULE_ID}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     }
     this.render();
   }
 
-  async _onStopByUID() {
+  async onStopByUID(event) {
     if (!game.user?.isGM) return;
     const fd = new FormData(this.form);
     const uid = String(fd.get("stopKey") || "").trim();
     if (!uid) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`);
-    const removed = (game.abouttime ?? game.Gametime).clearTimeout(uid);
-    if (removed) {
-      const flags = (await game.user.getFlag(MODULE_ID)) || {};
-      for (const k of Object.keys(flags)) if (flags[k] === uid) await game.user.unsetFlag(MODULE_ID, k);
-      await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
-    } else {
-      await this.#gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
-    }
+    const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
+    if (ok) await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    else await this.#gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
 
-  async _onList() {
+  async onList() {
     (game.abouttime ?? game.Gametime).chatQueue({ showArgs: false, showUid: true, showDate: true, gmOnly: true });
     await this.#gmWhisper(`<p>[${MODULE_ID}] Queue listed to GM chat.</p>`);
   }
 
-  async _onFlush(withReminder) {
+  async onFlush() {
     const AT = game.abouttime ?? game.Gametime;
-    const q = ElapsedTime._eventQueue; const count = q?.size ?? 0;
+    const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
     AT.flushQueue?.();
-    if (withReminder) AT.reminderIn({ seconds: 3600 }, `[${MODULE_ID}] Queue was flushed an hour ago.`);
-    await this.#gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s)${withReminder ? " and scheduled 1h reminder" : ""}.</p>`);
+    await this.#gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s).</p>`);
     this.render();
   }
 
-  async _onRowStop(uid) {
-    if (!game.user?.isGM || !uid) return;
+  async onFlushRem() {
+    const AT = game.abouttime ?? game.Gametime;
+    const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
+    AT.flushQueue?.();
+    AT.reminderIn?.({ seconds: 3600 }, `[${MODULE_ID}] Queue was flushed an hour ago.`);
+    await this.#gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s) and scheduled 1h reminder.</p>`);
+    this.render();
+  }
+
+  async onRowStop(event) {
+    if (!game.user?.isGM) return;
+    const uid = event?.currentTarget?.dataset?.uid;
+    if (!uid) return;
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
     if (ok) await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
 
-  async _onCopyUID(uid) {
-    try {
-      await navigator.clipboard?.writeText?.(uid);
-      ui.notifications?.info?.("UID copied to clipboard");
-    } catch {
-      ui.notifications?.warn?.("Clipboard unavailable");
-    }
+  async onCopyUID(event) {
+    const uid = event?.currentTarget?.dataset?.uid;
+    if (!uid) return;
+    try { await navigator.clipboard?.writeText?.(uid); ui.notifications?.info?.("UID copied to clipboard"); }
+    catch { ui.notifications?.warn?.("Clipboard unavailable"); }
   }
 
-  // ---- Helpers -------------------------------------------------------------
+  // ---- Helpers ------------------------------------------------------------
   #gmWhisper(html) {
     const ids = ChatMessage.getWhisperRecipients("GM").filter((u) => u.active).map((u) => u.id);
-    return ChatMessage.create({ content: html, whisper: ids, type: CONST.CHAT_MESSAGE_STYLES.OTHER });
+    return ChatMessage.create({ content: html, whisper: ids });
   }
 
   #parseMixedDuration(input) {
@@ -202,10 +215,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     let total = 0; const re = /(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?/gi;
     let m; while ((m = re.exec(input))) {
       const v = Number(m[1]); const u = (m[2] || "s").toLowerCase();
-      total += ["d","day","days"].includes(u) ? v*86400
-             : ["h","hr","hrs","hour","hours"].includes(u) ? v*3600
-             : ["m","min","mins","minute","minutes"].includes(u) ? v*60
-             : v;
+      total += ["d","day","days"].includes(u) ? v*86400 : ["h","hr","hrs","hour","hours"].includes(u) ? v*3600 : ["m","min","mins","minute","minutes"].includes(u) ? v*60 : v;
     }
     return Math.floor(total);
   }
@@ -234,7 +244,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     this.#stopTicker();
     this.#ticker = setInterval(() => {
       const now = game.time.worldTime;
-      for (const el of this.element.querySelectorAll?.("[data-remaining][data-time]")) {
+      for (const el of this.element?.querySelectorAll?.("[data-remaining][data-time]") ?? []) {
         const time = Number(el.dataset.time || 0);
         el.textContent = this.#fmtDHMS(Math.max(0, Math.floor(time - now)));
       }
@@ -244,7 +254,4 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   #stopTicker() { if (this.#ticker) { clearInterval(this.#ticker); this.#ticker = null; } }
 }
 
-// Convenience export if you prefer importing a function
-export function openATEventManagerV2(options = {}) {
-  return new ATEventManagerAppV2(options).render(true);
-}
+export function openATEventManagerV2(options = {}) { return new ATEventManagerAppV2(options).render(true); }
