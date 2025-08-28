@@ -1,8 +1,5 @@
-// ============================================================================
 // File: modules/about-time-v13/module/ATEventManagerAppV2.js
-// v13.0.8.0.6 — Minimal patch: min-width + functional actions for row buttons
-// Base: v13.0.8.0.2
-// ============================================================================
+// v13.0.8.0.7 — Window width 920px; actions as functions; row Stop/Copy wired.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
@@ -14,8 +11,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     classes: ["about-time", "at-emv2", "at-dracula"],
     tag: "form",
     window: { title: "About Time — Event Manager V2", icon: "fas fa-clock", resizable: true },
-    position: { width: 760, height: "auto" }, // keep original width; enforce min-width after render
-    // CHANGE: functions instead of strings; pass (ev, el) for row actions
+    position: { width: 920, height: "auto" },
     actions: {
       create(ev, el)      { return this.onCreate(ev); },
       list(ev, el)        { return this.onList(ev); },
@@ -32,15 +28,16 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
   #ticker = null;
 
-  // CHANGE: enforce min-width after render; keep ticker behavior
   async render(force, options = {}) {
-    const out = await super.render(force, options);
-    this.element?.style && (this.element.style.minWidth = "920px");
+    const out = await super.render(force, options); // no content min-width here
     if (!this.#ticker) this.#startTicker();
     return out;
   }
 
-  async close(options) { this.#stopTicker(); return super.close(options); }
+  async close(options) {
+    this.#stopTicker();
+    return super.close(options);
+  }
 
   async _prepareContext() {
     const now = game.time.worldTime;
@@ -72,7 +69,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     return { isGM: !!game.user?.isGM, entries };
   }
 
-  // ---- Actions (same as 0.2) ---------------------------------------------
+  // ---- Actions -------------------------------------------------------------
   async onCreate(event) {
     if (!game.user?.isGM) return ui.notifications?.warn?.("GM only");
     const fd = new FormData(this.form);
@@ -95,6 +92,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
           if (macro) {
             if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
+              // Legacy shim for older execute signatures
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
               await fn.call(this, { speaker: {}, args: [metaArg] });
@@ -113,7 +111,10 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
     if (name) await game.user.setFlag(MODULE_ID, name, uid);
 
-    await this.#gmWhisper(`<p>[${MODULE_ID}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event: <code>${foundry.utils.escapeHTML(uid)}</code> — ${this.#fmtDHMS(seconds)} — “${foundry.utils.escapeHTML(meta.__atName)}”</p>`);
+    await this.#gmWhisper(
+      `<p>[${MODULE_ID}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event:
+        <code>${foundry.utils.escapeHTML(uid)}</code> — ${this.#fmtDHMS(seconds)} — “${foundry.utils.escapeHTML(meta.__atName)}”</p>`
+    );
     this.render(true);
   }
 
@@ -127,9 +128,10 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const q = ElapsedTime?._eventQueue;
     let count = 0;
     if (q?.array && Number.isInteger(q.size)) {
+      const target = key.toLowerCase();
       for (let i = 0; i < q.size; i++) {
         const e = q.array[i];
-        if ((e?._args?.[0]?.__atName || "").toLowerCase() === key.toLowerCase()) {
+        if ((e?._args?.[0]?.__atName || "").toLowerCase() === target) {
           if (AT.clearTimeout(e._uid)) count++;
         }
       }
@@ -158,7 +160,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     if (!uid) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`);
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
     if (ok) await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
-    else await this.#gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    else    await this.#gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
 
@@ -184,7 +186,6 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     this.render();
   }
 
-  // CHANGE: accept (event, el) and prefer el.dataset.uid
   async onRowStop(event, el) {
     if (!game.user?.isGM) return;
     const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
@@ -197,11 +198,15 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   async onCopyUID(event, el) {
     const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
     if (!uid) return;
-    try { await navigator.clipboard?.writeText?.(uid); ui.notifications?.info?.("UID copied to clipboard"); }
-    catch { ui.notifications?.warn?.("Clipboard unavailable"); }
+    try {
+      await navigator.clipboard?.writeText?.(uid);
+      ui.notifications?.info?.("UID copied to clipboard");
+    } catch {
+      ui.notifications?.warn?.("Clipboard unavailable");
+    }
   }
 
-  // ---- Helpers ------------------------------------------------------------
+  // ---- Helpers -------------------------------------------------------------
   #gmWhisper(html) {
     const ids = ChatMessage.getWhisperRecipients("GM").filter((u) => u.active).map((u) => u.id);
     return ChatMessage.create({ content: html, whisper: ids });
@@ -212,7 +217,10 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     let total = 0; const re = /(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes|s|sec|secs|second|seconds)?/gi;
     let m; while ((m = re.exec(input))) {
       const v = Number(m[1]); const u = (m[2] || "s").toLowerCase();
-      total += ["d","day","days"].includes(u) ? v*86400 : ["h","hr","hrs","hour","hours"].includes(u) ? v*3600 : ["m","min","mins","minute","minutes"].includes(u) ? v*60 : v;
+      total += ["d","day","days"].includes(u) ? v*86400
+             : ["h","hr","hrs","hour","hours"].includes(u) ? v*3600
+             : ["m","min","mins","minute","minutes"].includes(u) ? v*60
+             : v;
     }
     return Math.floor(total);
   }
@@ -251,4 +259,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   #stopTicker() { if (this.#ticker) { clearInterval(this.#ticker); this.#ticker = null; } }
 }
 
-export function openATEventManagerV2(options = {}) { return new ATEventManagerAppV2(options).render(true); }
+// Convenience export for macro users
+export function openATEventManagerV2(options = {}) {
+  return new ATEventManagerAppV2(options).render(true);
+}
