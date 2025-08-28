@@ -1,5 +1,5 @@
 <!-- File: modules/about-time-v13/templates/ATEventManagerAppV2.hbs -->
-<!-- v13.0.8.0.7 — Dracula theme, no content min-width rule; structure unchanged -->
+<!-- v13.0.8.1.0 — Remove "Copy UID" button; add bordered board + header; keep everything else the same. -->
 
 <section class="at-emv2 at-dracula">
   <style>
@@ -25,6 +25,10 @@
     .at-btn.primary{border-color:var(--atd-green);box-shadow:0 0 0 1px var(--atd-green) inset}
     .at-btn.warn{border-color:var(--atd-orange);box-shadow:0 0 0 1px var(--atd-orange) inset}
     .at-btn.danger{border-color:var(--atd-red);box-shadow:0 0 0 1px var(--atd-red) inset}
+
+    /* Event Status Board framing */
+    .board { border:1px solid var(--atd-accent); border-radius:8px; padding:.5rem; }
+    .board-title { margin: .25rem .25rem .5rem; color: var(--atd-yellow); font-weight: 600; }
   </style>
 
   <div class="controls">
@@ -64,39 +68,42 @@
 
   <hr />
 
-  <div class="queue">
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Starts</th>
-          <th>Remaining</th>
-          <th>Repeat</th>
-          <th>Message</th>
-          <th>UID</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#if entries.length}}
-          {{#each entries as |e|}}
-          <tr data-uid="{{e.uid}}">
-            <td class="name">{{e.name}}</td>
-            <td class="start">{{e.startTxt}}</td>
-            <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
-            <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
-            <td class="msg">{{e.msg}}</td>
-            <td class="uid"><code>{{e.uid}}</code></td>
-            <td class="actions">
-              {{#if ../isGM}}<button type="button" class="at-btn warn" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
-              <button type="button" class="at-btn" data-action="copy-uid" data-uid="{{e.uid}}">Copy UID</button>
-            </td>
+  <div class="board">
+    <h3 class="board-title">Event Status Board</h3>
+    <div class="queue">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Starts</th>
+            <th>Remaining</th>
+            <th>Repeat</th>
+            <th>Message</th>
+            <th>UID</th>
+            <th>Actions</th>
           </tr>
-          {{/each}}
-        {{else}}
-          <tr><td colspan="7" class="muted">- (empty queue) -</td></tr>
-        {{/if}}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {{#if entries.length}}
+            {{#each entries as |e|}}
+            <tr data-uid="{{e.uid}}">
+              <td class="name">{{e.name}}</td>
+              <td class="start">{{e.startTxt}}</td>
+              <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
+              <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
+              <td class="msg">{{e.msg}}</td>
+              <td class="uid"><code>{{e.uid}}</code></td>
+              <td class="actions">
+                {{#if ../isGM}}<button type="button" class="at-btn warn" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
+                <!-- Copy UID button removed by request -->
+              </td>
+            </tr>
+            {{/each}}
+          {{else}}
+            <tr><td colspan="7" class="muted">- (empty queue) -</td></tr>
+          {{/if}}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
