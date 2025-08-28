@@ -1,5 +1,6 @@
 // File: modules/about-time-v13/module/ATEventManagerAppV2.js
-// v13.0.8.0.7 — Window width 920px; actions as functions; row Stop/Copy wired.
+// v13.0.8.1.0 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
+// NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
@@ -29,7 +30,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   #ticker = null;
 
   async render(force, options = {}) {
-    const out = await super.render(force, options); // no content min-width here
+    const out = await super.render(force, options);
     if (!this.#ticker) this.#startTicker();
     return out;
   }
@@ -92,7 +93,6 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
           if (macro) {
             if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
-              // Legacy shim for older execute signatures
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
               await fn.call(this, { speaker: {}, args: [metaArg] });
@@ -235,6 +235,8 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     return `${String(d).padStart(2, "0")}:${pad(h)}:${pad(m)}:${pad(sec)}`;
   }
 
+  // If Simple Calendar is present, show its formatted date/time.
+  // Otherwise, show a friendly relative start: "in DD:HH:MM:SS".
   #fmtTimestamp(ts) {
     const api = globalThis.SimpleCalendar?.api;
     if (api?.timestampToDate && api?.formatDateTime) {
@@ -242,7 +244,9 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
       const f = api.formatDateTime(dt) ?? { date: "", time: `t+${ts}` };
       return `${f.date ? f.date + " " : ""}${f.time}`;
     }
-    return `t+${ts}`;
+    const now = game.time.worldTime ?? 0;
+    const diff = Math.max(0, Math.floor(ts - now));
+    return `in ${this.#fmtDHMS(diff)}`;
   }
 
   #startTicker() {
