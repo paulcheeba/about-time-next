@@ -143,7 +143,7 @@ function ensureStyles() {
 #${PANEL_ID} .atmp-title { font-size: 8px; font-weight: 600; opacity: .9; margin: 0 0 2px 0; text-align: center; }
 #${PANEL_ID} .atmp-time { font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; min-width: 140px; }
 
-#${PANEL_ID} .atmp-ctl-btn { padding: 4px 8px; border-radius: 6px;
+#${PANEL_ID} .atmp-ctl-btn { width: 54px; text-align: center; padding: 4px 8px; border-radius: 6px;
   background: var(--color-background, rgba(255,255,255,0.06));
   border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18)); cursor: pointer; }
 #${PANEL_ID} .atmp-ctl-btn[disabled] { opacity: .5; cursor: not-allowed; }
