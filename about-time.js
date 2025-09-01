@@ -178,23 +178,7 @@ Hooks.once('ready', () => {
         return `${sign}${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
       };
     }
-
-    Hooks.on("chatMessage", (_log, content) => {
-      try {
-        if (typeof content !== "string") return false;
-        const msg = content.trim();
-        if (!/^\/at\s+list\b/i.test(msg)) return false;
-
-        if (typeof api.chatQueue === "function") {
-          api.chatQueue({});
-          return true;
-        }
-        return false;
-      } catch (e) {
-        console.error("[About Time] '/at list' alias failed:", e);
-        return false;
-      }
-    });
+// Removed in v13.0.8-dev: redundant "/at list" alias lived here and was breaking normal chat.
   } catch (err) {
     console.error("[About Time] v13.0.6.1 helpers failed to initialize:", err);
   }
