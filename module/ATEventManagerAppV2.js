@@ -1,5 +1,5 @@
 // File: modules/about-time-v13/module/ATEventManagerAppV2.js
-// v13.0.8.1.0 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
+// v13.0.8.1.2 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
@@ -25,12 +25,14 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     }
   };
 
-  static PARTS = { body: { template: "modules/about-time-v13/templates/ATEventManagerAppV2.hbs" } };
+    static PARTS = { body: { template: "modules/about-time-v13/templates/ATEventManagerAppV2.hbs" } };
 
   #ticker = null;
+  #queueSig = ""; // tracks UID:time signature so we know when to refresh
 
   async render(force, options = {}) {
     const out = await super.render(force, options);
+    this.#queueSig = this.#computeQueueSignature();
     if (!this.#ticker) this.#startTicker();
     return out;
   }
@@ -207,6 +209,19 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   // ---- Helpers -------------------------------------------------------------
+    // Build a lightweight signature of the current queue (order-stable)
+  #computeQueueSignature() {
+    const q = ElapsedTime?._eventQueue;
+    if (!q?.array || !Number.isInteger(q.size)) return "";
+    let sig = "";
+    for (let i = 0; i < q.size; i++) {
+      const e = q.array[i];
+      if (!e) continue;
+      sig += `${e._uid}:${Number(e._time || 0)}|`;
+    }
+    return sig;
+  }
+
   #gmWhisper(html) {
     const ids = ChatMessage.getWhisperRecipients("GM").filter((u) => u.active).map((u) => u.id);
     return ChatMessage.create({ content: html, whisper: ids });
@@ -249,13 +264,19 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     return `in ${this.#fmtDHMS(diff)}`;
   }
 
-  #startTicker() {
+    #startTicker() {
     this.#stopTicker();
     this.#ticker = setInterval(() => {
       const now = game.time.worldTime;
       for (const el of this.element?.querySelectorAll?.("[data-remaining][data-time]") ?? []) {
         const time = Number(el.dataset.time || 0);
         el.textContent = this.#fmtDHMS(Math.max(0, Math.floor(time - now)));
+      }
+      // If queue changed (event fired/removed/rescheduled), re-render to refresh rows & data-time
+      const nextSig = this.#computeQueueSignature();
+      if (nextSig !== this.#queueSig) {
+        this.#queueSig = nextSig;
+        this.render();
       }
     }, 1000);
   }
