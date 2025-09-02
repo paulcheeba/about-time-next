@@ -1,6 +1,8 @@
-// About Time v13.0.6 — Toolbar tool (Journal/Notes subtool) + DialogV2 Event Manager
+// About Time v13.0.8.1.3 — Toolbar tool (Journal/Notes subtool) + AppV2 Event Manager + AppV2 Time Manager
 
 const MOD = "about-time-v13";
+
+import { openATEventManagerV2 } from "./ATEventManagerAppV2.js";
 
 /** Normalize controls (v13 provides Record<string, SceneControl>) */
 function normalizeControls(controlsArg) {
@@ -47,7 +49,7 @@ Hooks.on("getSceneControlButtons", (controlsArg) => {
     order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999,
     button: true,
     visible: true,
-    onClick: () => openATEventManager()
+    onClick: () => openATEventManagerV2()
   });
 });
 
