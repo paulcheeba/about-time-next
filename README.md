@@ -1,8 +1,7 @@
-# About Time (v13.0.8.1.3)
-
+# About Time (v13.0.9.0)
 
 **About Time** is a timekeeping and event scheduling utility for Foundry VTT v13+.  
-It works with **Simple Calendar** (if installed) or falls back to Foundry’s core time system.
+It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
 
 ---
 
@@ -14,143 +13,125 @@ It works with **Simple Calendar** (if installed) or falls back to Foundry’s co
    ```
    https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
    ```
+
 2. Enable the module in your world.
-3. (Optional) Install [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar) for advanced date formatting.
-
----
-
-## ⚙ Settings
-
-### Use Simple Calendar (if installed)
+3. (Optional) Install **Simple Calendar** for advanced date formatting.
 *Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
-- **Default:** On  
-- When enabled, About Time uses SC’s date/time formatting and intervals.  
-- When disabled (or if SC is not present), it falls back to Foundry core world time.
 
-### Debug Mode
-- Logs additional info (queue status, SC conversions) to the console.  
-- Useful for troubleshooting.
-
-### AT Time Manager (Mini Panel)
-
-**Client (per-user) settings**
-- **Enable AT Time Manager** — Show the mini panel on load for this user. GMs see controls; players see time-only.  
-- **RWD1 / RWD2 / FFWD1 / FFWD2 / FFWD3 durations** — Set each button’s duration using `/at`-style tokens: `10s`, `1m`, `1h5m3s`, etc.  
-- **Dawn time (HH:MM)** — default `06:00`  
-- **Dusk time (HH:MM)** — default `18:00`
-
-**World (per-world) settings**
-- **Safety Lock: never advance while paused or during combat** — Master safety. When enabled, About Time will not change game time while the game is paused or during active combat. The two options below are effectively disabled.  
-- **Disable step buttons while paused** — default Off. When On, step buttons are disabled if the world is paused. When Off, the GM can still advance time while paused.  
-- **Disable step buttons during active combat** — default Off. When On, step buttons are disabled whenever a combat is active.  
-- **Auto-pause on combat start (resume when last ends)** — default On. If enabled, starting the first combat pauses the game; ending the last combat resumes. The panel shows a small pill indicating “Combat controls time”.
-
-> Turning **Enable AT Time Manager** on/off prompts a reload so the toolbar & panel reflect your changes immediately.
+> Compatibility: Designed for FVTT v13 (min 12, max 13.x).  
+> With SC enabled, About-Time uses SC’s format/interval helpers where available.
 
 ---
 
-## 🗂 Toolbar Buttons
+## 🚀 Quick Start
 
-Two buttons appear on the Foundry **Scene Controls** toolbar:
+- **EM (Event Manager V2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (GM-only).  
+  Use it to create one-shots or repeating events, stop items by name/UID, view the queue, or flush all.
 
-- **Time Manager**: opens the floating panel.  
-- **Event Manager**: opens the queue view to manage scheduled events.  
+- **Mini Time Manager (optional):** Enable in **Configure Settings → About-Time** to show a compact panel with **Play/Pause**, current time, and tiny toggles for realtime behavior (GM sees controls; players see time).
 
-Visibility is limited to GMs.
+- **Chat commands:** Use **`/at** commands for fast scheduling (GM-only output).  
+  Examples: **`/at in 10m Torch check** · **`/at every 1h Camp bell**
+
+---
+
+## 🧰 Toolbars
 
 <img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
 
----
+### Event Manager (V2, ApplicationV2)
 
-## 🪟 AT Time Manager Panel
+<img width="923" height="437" alt="image" src="https://github.com/user-attachments/assets/6e72b4b3-477a-417e-bb5b-789698696a46" />
 
-- **GM view**: Pause/Play, five step buttons, and four time-of-day buttons (Dawn/Noon/Dusk/Midnight).  
-- **Player view**: time-only (no buttons).
-- **Behavior**:  
-  - Buttons advance or rewind using **core FVTT v13** `game.time.advance(...)`.  
-  - Dawn/Dusk/Noon/Midnight jump **forward** to the next occurrence (today or tomorrow).  
-  - Optional disables when paused or during combat (see Settings), plus a master **Safety Lock**.  
-  - 1-second heartbeat for a clock-like display; also listens to world time updates for instant refresh.  
-- **Toolbar toggle**: **About Time - Time Manager** under **Journal/Notes** (GM-only).  
-- **Position**: draggable; last position is saved per user.
+Opened via the **Journal/Notes** toolbar sub-button (GM-only).
+
+- **Create Event**: One-shot or repeating (DD:HH:MM:SS).  
+- **Stop by Name**: Stops all events matching a given “friendly” name.  
+- **Stop by UID**: Stops a specific event by unique ID.  
+- **Send Queue to Chat**: Posts a GM-whisper summary with name, UID, next fire time.  
+- **Stop all Events**: Flush the queue.  
+- **Stop all + 1h reminder**: Flush and schedule a “Resume in 1h” reminder.
+
+The V2 view auto-updates countdowns and refreshes itself if an event fires or is rescheduled, keeping “Remaining” correct for repeating items.
+
+### Mini Time Manager (optional, client setting)
+Enable **“Enable AT Time Manager”** to show a compact panel:
 
 <img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
 
----
-
-## 📅 Event Manager
-
-The Event Manager window lets you view and manage the event queue:
-
-- See upcoming one-shot and repeating events.  
-- Delete specific events by ID.  
-- Queue is automatically saved and restored across reloads.  
-
-<img width="849" height="800" alt="image" src="https://github.com/user-attachments/assets/de0dca06-41cf-4670-b6ef-fcefe03ae4d2" />
+- **Play/Pause world time** (GM)  
+- Live **clock display** (SC-formatted if SC is present)  
+- Small toggles for realtime behavior (GM):  
+  - **Link Pause** (pause realtime if the game is paused)  
+  - **Auto-Pause on Combat** (pause/resume around combats)  
+- Per-user visibility (players only see time)
 
 ---
 
-## 🗣 /at Chat Command
+## ⌛ Realtime & Clock
 
-- `/at help` — list available commands  
-- `/at queue` or `/at list` — show the queue  
-- `/at clear` — clear the entire queue  
-- `/at stop <uid>` — cancel a specific event by its UID  
-- `/at in <duration> <message>` — schedule one-time reminder  
-- `/at every <duration> <message>` — schedule repeating reminder
+About-Time provides a simple **realtime worldTime runner** (GM-only, single-owner) with:
+- **Rate** (default 1.0×) and **Tick Hz** settings (safe minimums enforced)
+- Best-effort **single owner via socket hinting** (handoff if another GM starts)
+- Respects **pause** and your **link/auto-pause** toggles
 
-<img width="294" height="470" alt="image" src="https://github.com/user-attachments/assets/20ecf3b2-ab4e-4990-8d6a-81ba582de708" />
+---
 
-**Examples**
-- `/at help`  
-- `/at in 10m Check the stew`  
-- `/at every 1h Random Encounter`  
-- `/at stop abc123(uid)`  
+## 💬 Chat Commands (GM-only output)
+
+All commands are handled by `/at` (see `module/ATChat.js`).  
+Durations accept mixed units: days (**d**), hours (**h**), minutes (**m**), seconds (**s**).  
+Examples: `1h30m`, `2d 4h`, `45m10s`, or `5400` (seconds).
+
+- `/at queue`  _or_  `/at list`  
+  Show the current queue (GM-whisper; includes UID, args, and next fire time).
+
 - `/at clear`  
-- `/at in 10 Time for a coffee break!`
+  Clear the entire queue.
 
-> Tip: You can also control time via the **AT Time Manager** panel (GM-only), which uses core `game.time.advance(...)` under the hood.
+- `/at stop <uid>`  
+  Stop a specific event by UID.  
+  > Tip: In EM V2 you can copy a row’s UID, then run **`/at stop UID**.
 
----
+- `/at in <duration> <message>`  
+  Schedule a one-time reminder.  
+  Returns a UID so you can stop it later.
 
-## 🛠 API
+- `/at every <duration> <message>`  
+  Schedule a repeating reminder (interval = duration).  
+  Returns a UID for the anchor event; the repeating instance uses the same “friendly name”.
 
-The API is exposed as:
-
-```js
-game.abouttime    // Preferred
-game.Gametime     // Deprecated, kept for backwards compatibility
-```
-
-### Key Methods
-| Method                                      | Description                                   |
-| ------------------------------------------- | --------------------------------------------- |
-| `doAt(when, handler, ...args)`              | Run a function/macro at a specific game time. |
-| `doIn(interval, handler, ...args)`          | Run after an interval from now.               |
-| `doEvery(interval, handler, ...args)`       | Repeat at a given interval.                   |
-| `reminderAt(when, message)`                 | Send a chat message at a specific time.       |
-| `reminderIn(interval, message)`             | Send a chat message after an interval.        |
-| `reminderEvery(interval, message)`          | Send a chat message repeatedly.               |
-| `notifyAt(when, eventName, ...args)`        | Trigger a Foundry hook at a specific time.    |
-| `notifyIn(interval, eventName, ...args)`    | Trigger a Foundry hook after an interval.     |
-| `notifyEvery(interval, eventName, ...args)` | Trigger a Foundry hook repeatedly.            |
-| `chatQueue(options)`                        | Print the event queue to chat.                |
-| `gclearTimeout(uid)`                        | Cancel a scheduled event.                     |
-| `DTNow()`                                   | Get current world time (seconds).             |
-| `fmtDHMS(seconds)`                          | Format seconds as `DD:HH:MM:SS`.              |
-| `showMiniPanel()` / `hideMiniPanel()`       | Show/hide the AT Time Manager panel.          |
-| `toggleMiniPanel()`                         | Toggle the panel (used by the toolbar).       |
-
-**Legacy macros (still defined for compatibility):**
-- `DMf` → `DTMod.create`  
-- `DTM` → `DTMod` class  
-- `DTC` → `DTCalc` class  
-- `DTNow` → current world time (seconds)  
-- `DTf` → soft alias to `DMf` (deprecated)
+**Duration grammar:**  
+- Mixed units accepted in any order (e.g., `1d 2h 30m 5s`).  
+- **Integers** are treated as seconds (e.g., `300 = 5m`).  
+- Whitespace is ignored between number and unit (e.g., `10 m` is valid).
 
 ---
 
-## ⏱ Macro Examples
+## 🗓 Event Manager (details)
+
+The EM V2 lists every queued item with:
+
+- **Name** (friendly name you provided when scheduling)
+- **UID** (unique identifier; safe to copy)
+- **Remaining** (countdown, auto-updates)
+- **Interval** (if repeating) and **Next in …** hint
+- **Stop** button per row (GM-only)
+
+Actions (top buttons):
+
+- **Create Event**  
+  - **Duration**: DD:HH:MM:SS  
+  - **Interval (optional)**: DD:HH:MM:SS for repeating events  
+- **Stop by Name / Stop by UID**  
+- **Send Queue to Chat** (GM-whisper)  
+- **Stop all Events** / **Stop all + 1h reminder**
+
+> With **Simple Calendar** installed, About-Time uses SC’s formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+
+---
+
+## 🧩 Macros
 
 **Advance by 30 seconds (core FVTT v13):**
 ```js
@@ -186,26 +167,47 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## 🧪 Testing Without Simple Calendar
+## 🧪 Example Scenarios
 
-If Simple Calendar is not installed or disabled:
-- Times in output appear as `DD:HH:MM:SS` or `t+<seconds>`.
-- All scheduling functions still work the same.
-- The mini panel still works; time-of-day buttons compute forward boundaries by seconds-of-day.
+- **Short Rest timer (one-shot):**  
+  “Wake the party in 1 hour.”  
+  **Chat:** `/at in 1h Wake the party  
+  **Result:** GM gets a whisper in 1h with the message; EM shows the countdown.
+
+- **Camp reminder (repeating):**  
+  “Every hour, ring the bell for watch rotation.”  
+  **Chat:** `/at every 1h Watch rotation bell  
+  **Result:** A repeating event appears in EM V2 with **Interval = 01:00:00**, and **Remaining** auto-resets each hour.
+
+- **Spell/Effect duration:**  
+  “Bless ends in 1 minute.”  
+  **Chat:** `/at in 60s Bless ends  
+  **Result:** One-shot reminder fires in 60 seconds.
 
 ---
 
-## 🚧 Known Limitations
+## ⚙ Settings (high-level)
 
-- About Time does not override combat round/initiative time.  
-- Complex SC calendars (non-365-day years, custom months) use SC conversion but may behave conservatively for raw seconds math.  
-- Only GMs can create and view scheduled events.  
+- **Enable AT Time Manager (client)** — Shows the mini panel for this user.  
+- **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
+- **Link Pause / Auto-Pause Combat (client)** — How the mini panel reacts to world/game state.
+
+> Where SC is present, date/time formatting in the mini panel and EM uses SC helpers.
+
+---
+
+## ❗ Notes & Limitations
+
+- The module **does not** override combat round/initiative time.  
+- Complex SC calendars (non-365-day years, custom months) are supported via SC’s own conversions, while raw seconds math remains conservative in fallback mode.  
+- Only GMs can create, manage, and view scheduled events.  
+- Realtime runner is **single-owner (GM)**; if another GM starts it, ownership is handed off gracefully.
 
 ---
 
 ## 📝 Credits
 
-Originally created by **Tim Posney**, updated and maintained for Foundry VTT v13 by **Paulcheeba** with community input and ChatGPT-assisted refactoring.
+Originally created by **Tim Posney**, updated and maintained for FVTT v13+ by **paulcheeba** with community input and ChatGPT-assisted refactoring.
 
 ## 📝 License
 
