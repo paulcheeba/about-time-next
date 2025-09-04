@@ -118,6 +118,9 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         await gmWhisper(`<p>[${MODULE_ID}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}</p>`);
       }
     };
+    
+    // Mark this handler so the queue knows to serialize as a GM whisper handler
+    handler._atHandlerType = "gmWhisper";
 
     const AT = game.abouttime ?? game.Gametime;
     const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
