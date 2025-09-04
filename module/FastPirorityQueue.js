@@ -25,8 +25,13 @@ export class Quentry {
 
   exportToJson() {
     let handler;
-    if (typeof this._handler === "function") handler = { type: "none" };
-    else handler = { type: "string", val: this._handler };
+    if (typeof this._handler === "function" && this._handler._atHandlerType === "gmWhisper") {
+ handler = { type: "gmWhisper" };
+} else if (typeof this._handler === "function") {
+ handler = { type: "none" };
+} else {
+ handler = { type: "string", val: this._handler };
+}
     return {
       time: this._time,
       recurring: this._recurring,
@@ -42,8 +47,19 @@ export class Quentry {
     let handler = null;
     try {
       if (data && data.handler) {
-        if (data.handler.type === "string") handler = data.handler.val;
-        // legacy "function" or "none" -> leave null, we will substitute console.log
+        if (data.handler.type === "string") {
+          handler = data.handler.val;
+        } else if (data.handler.type === "gmWhisper") {
+          handler = async (metaArg) => {
+            try {
+              const ids = ChatMessage.getWhisperRecipients("GM").map((u) => u.id);
+              await ChatMessage.create({ content: metaArg?.__atMsg || "(event)", whisper: ids });
+            } catch (e) {
+              console.warn("about-time | gmWhisper handler failed", e);
+            }
+          };
+        }
+        // legacy "function" or "none" -> leave null
       }
     } catch (err) {
       console.warn(err);
@@ -51,7 +67,7 @@ export class Quentry {
     }
     if (!handler) {
       console.warn("about-time | Could not restore handler ", data?.handler, " substituting console.log");
-      handler = console.log;
+      handler = (...a) => console.log("about-time | restored event (no handler)", ...a);
     }
     return new Quentry(
       data.time,
