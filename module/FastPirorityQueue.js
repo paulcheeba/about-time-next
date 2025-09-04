@@ -1,27 +1,13 @@
-// About Time v13.0.9.0.1 — FastPriorityQueue & Quentry
-// Changes: remove eval-based handler revival; add handler registry; legacy-safe serialization
+// About Time v13.0.9.0.1 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
 
 'use strict';
-
-// Lightweight handler registry for persisted queue handlers
-const __AT_HANDLER_REGISTRY = new Map();
-function __atRegisterHandler(id, fn) {
-  if (id && typeof fn === "function") __AT_HANDLER_REGISTRY.set(String(id), fn);
-}
-function __atGetHandler(id) {
-  return __AT_HANDLER_REGISTRY.get(String(id)) || null;
-}
 
 const defaultcomparator = function (a, b) {
   if (a._time !== b._time) return a._time < b._time;
   return a._uid < b._uid;
 };
 
-// Quentry holds an entry in the priority queue
-class Quentry {
-  static registerHandler(id, fn) { __atRegisterHandler(id, fn); }
-  static getHandler(id) { return __atGetHandler(id); }
-
+export class Quentry {
   constructor(time, recurring, increment, handler, uid, originator, ...args) {
     const uidGen =
       (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function" && globalThis.crypto.randomUUID()) ||
@@ -39,13 +25,8 @@ class Quentry {
 
   exportToJson() {
     let handler;
-    if (typeof this._handler === "function") {
-      const id = this._handler._atHandlerId || null;
-      if (id && __atGetHandler(id)) handler = { type: "registry", id: String(id) };
-      else handler = { type: "none" };
-    } else {
-      handler = { type: "string", val: this._handler };
-    }
+    if (typeof this._handler === "function") handler = { type: "none" };
+    else handler = { type: "string", val: this._handler };
     return {
       time: this._time,
       recurring: this._recurring,
@@ -61,24 +42,16 @@ class Quentry {
     let handler = null;
     try {
       if (data && data.handler) {
-        if (data.handler.type === "registry") {
-          handler = __atGetHandler(data.handler.id) || null;
-        } else if (data.handler.type === "string") {
-          handler = data.handler.val; // textual descriptor or macro name
-        } else if (data.handler.type === "function") {
-          // Legacy persisted function — do not eval
-          console.warn("about-time | Legacy function handler ignored during restore; substituting console.log");
-          handler = null;
-        } else if (data.handler.type === "none") {
-          handler = null;
-        }
+        if (data.handler.type === "string") handler = data.handler.val;
+        // legacy "function" or "none" -> leave null, we will substitute console.log
       }
     } catch (err) {
       console.warn(err);
       handler = null;
     }
     if (!handler) {
-      handler = (...a) => console.log("about-time | restored event (no handler) args:", ...a);
+      console.warn("about-time | Could not restore handler ", data?.handler, " substituting console.log");
+      handler = console.log;
     }
     return new Quentry(
       data.time,
@@ -89,7 +62,7 @@ class Quentry {
       data.originator,
       ...data.args
     );
-  }
+  }}
 }
 
 export class FastPriorityQueue {
@@ -109,85 +82,154 @@ export class FastPriorityQueue {
       while (i > 0) {
         p = (i - 1) >> 1;
         ap = this.array[p];
-        if (this.compare(myval, ap) >= 0) break;
+        if (!this.compare(myval, ap)) break;
         this.array[i] = ap;
         i = p;
       }
       this.array[i] = myval;
-      return true;
-    };
-
-    this.poll = function () {
-      if (this.size === 0) return undefined;
-      var ans = this.array[0];
-      var x = this.array[this.size - 1];
-      this.size -= 1;
-      if (this.size > 0) {
-        var i = 0, a = this.array;
-        var half = this.size >> 1;
-        while (i < half) {
-          var j = (i << 1) + 1;
-          var right = j + 1;
-          var best = a[j];
-          if (right < this.size && this.compare(a[right], best) < 0) {
-            j = right;
-            best = a[right];
-          }
-          if (this.compare(best, x) >= 0) break;
-          a[i] = best;
-          i = j;
-        }
-        a[i] = x;
-      }
-      return ans;
-    };
-
-    this.peek = function () { return this.array[0]; };
-
-    this.replaceTop = function (myval) {
-      var ans = this.array[0];
-      this.array[0] = myval;
-      var i = 0, a = this.array;
-      var half = this.size >> 1;
-      while (i < half) {
-        var j = (i << 1) + 1;
-        var right = j + 1;
-        var best = a[j];
-        if (right < this.size && this.compare(a[right], best) < 0) {
-          j = right;
-          best = a[right];
-        }
-        if (this.compare(best, myval) >= 0) break;
-        a[i] = best;
-        i = j;
-      }
-      return ans;
     };
 
     this.heapify = function (arr) {
-      this.array = arr || [];
-      this.size = this.array.length;
-      for (var i = (this.size >> 1) - 1; i >= 0; i--) this._percolateDown(i);
-      return this;
+      this.array = arr;
+      this.size = arr.length;
+      for (let i = (this.size >> 1); i >= 0; i--) this._percolateDown(i);
+    };
+
+    this._percolateUp = function (i, force) {
+      var myval = this.array[i];
+      var p, ap;
+      while (i > 0) {
+        p = (i - 1) >> 1;
+        ap = this.array[p];
+        if (!force && !this.compare(myval, ap)) break;
+        this.array[i] = ap;
+        i = p;
+      }
+      this.array[i] = myval;
     };
 
     this._percolateDown = function (i) {
-      var x = this.array[i];
-      var a = this.array;
       var size = this.size;
-      for (;;) {
-        var l = (i << 1) + 1;
-        if (l >= size) break;
-        var r = l + 1;
-        var best = a[l];
-        if (r < size && this.compare(a[r], best) < 0) best = a[r], l = r;
-        if (this.compare(best, x) >= 0) break;
-        a[i] = best;
+      var hsize = this.size >>> 1;
+      var ai = this.array[i];
+      var l, r, bestc;
+      while (i < hsize) {
+        l = (i << 1) + 1;
+        r = l + 1;
+        bestc = this.array[l];
+        if (r < size) {
+          if (this.compare(this.array[r], bestc)) {
+            l = r;
+            bestc = this.array[r];
+          }
+        }
+        if (!this.compare(bestc, ai)) break;
+        this.array[i] = bestc;
         i = l;
       }
-      a[i] = x;
+      this.array[i] = ai;
     };
 
+    this._removeAt = function (index) {
+      if (index > this.size - 1 || index < 0) return undefined;
+      this._percolateUp(index, true);
+      return this.poll();
+    };
+
+    this.remove = function (myval) {
+      for (var i = 0; i < this.size; i++) {
+        if (!this.compare(this.array[i], myval) && !this.compare(myval, this.array[i])) {
+          this._removeAt(i);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    this.removeId = function (id) {
+      for (var i = 0; i < this.size; i++) {
+        if (this.array[i]._uid === id) return this._removeAt(i);
+      }
+      return undefined;
+    };
+
+    this._batchRemove = function (callback, limit) {
+      var retArr = new Array(limit ? limit : this.size);
+      var count = 0;
+      if (typeof callback === 'function' && this.size) {
+        var i = 0;
+        while (i < this.size && count < retArr.length) {
+          if (callback(this.array[i])) {
+            retArr[count] = this._removeAt(i);
+            count++;
+            i = i >> 1;
+          } else i++;
+        }
+      }
+      retArr.length = count;
+      return retArr;
+    };
+
+    this.removeOne = function (callback) {
+      var arr = this._batchRemove(callback, 1);
+      return arr.length > 0 ? arr[0] : undefined;
+    };
+
+    this.removeMany = function (callback, limit) { return this._batchRemove(callback, limit); };
+
+    this.peek = () => { if (this.size === 0) return undefined; return this.array[0]; };
+
+    this.poll = function () {
+      if (this.size == 0) return undefined;
+      var ans = this.array[0];
+      if (this.size > 1) {
+        this.array[0] = this.array[--this.size];
+        this._percolateDown(0);
+      } else this.size -= 1;
+      return ans;
+    };
+
+    this.replaceTop = function (myval) {
+      if (this.size == 0) return undefined;
+      var ans = this.array[0];
+      this.array[0] = myval;
+      this._percolateDown(0);
+      return ans;
+    };
+
+    this.trim = function () { this.array = this.array.slice(0, this.size); };
+    this.isEmpty = function () { return this.size === 0; };
+
+    this.forEach = function (callback) {
+      if (this.isEmpty() || typeof callback != 'function') return;
+      var i = 0;
+      var fpq = this.clone();
+      while (!fpq.isEmpty()) callback(fpq.poll(), i++);
+    };
+
+    this.kSmallest = function (k) {
+      if (this.size == 0) return [];
+      var comparator = this.compare;
+      var arr = this.array;
+      var fpq = new FastPriorityQueue(function (a, b) { return comparator(arr[a], arr[b]); });
+      k = Math.min(this.size, k);
+      var smallest = new Array(k);
+      var j = 0;
+      fpq.add(0);
+      while (j < k) {
+        var small = fpq.poll();
+        smallest[j++] = this.array[small];
+        var l = (small << 1) + 1;
+        var r = l + 1;
+        if (l < this.size) fpq.add(l);
+        if (r < this.size) fpq.add(r);
+      }
+      return smallest;
+    };
+
+    this.toString = () => this.array.toString();
+
+    if (!(this instanceof FastPriorityQueue)) return new FastPriorityQueue(comparator);
     this.array = [];
     this.size = 0;
     this.compare = comparator || defaultcomparator;
@@ -210,5 +252,3 @@ export class FastPriorityQueue {
     };
   }
 }
-
-export { Quentry };
