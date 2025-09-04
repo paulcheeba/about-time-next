@@ -49,25 +49,33 @@ export class Quentry {
       if (data && data.handler) {
         if (data.handler.type === "string") {
           handler = data.handler.val;
-        } else if (data.handler.type === "gmWhisper") {
-          handler = async (metaArg) => {
+        } else if (data.handler.type === "gmWhisper" || data.handler.type === "none") {
+          // Treat 'none' as GM whisper per module behavior: AT output should whisper to GMs even after reload.
+          handler = async (...args) => {
             try {
               const ids = ChatMessage.getWhisperRecipients("GM").map((u) => u.id);
-              await ChatMessage.create({ content: metaArg?.__atMsg || "(event)", whisper: ids });
+              const meta = args?.[args.length - 1];
+              let text = "(event)";
+              if (typeof meta === "string") text = meta;
+              else if (meta && typeof meta === "object") text = meta.__atMsg ?? meta.__atName ?? "(event)";
+              const safe = (globalThis.foundry?.utils?.escapeHTML?.(text)) ?? String(text);
+              await ChatMessage.create({ content: `<p>${safe}</p>`, whisper: ids });
             } catch (e) {
-              console.warn("about-time | gmWhisper handler failed", e);
+              console.warn("about-time | gmWhisper fallback failed", e);
             }
           };
         }
-        // legacy "function" or "none" -> leave null
+        // legacy "function" -> leave null, we’ll set fallback below
       }
     } catch (err) {
       console.warn(err);
       handler = null;
     }
     if (!handler) {
-      console.warn("about-time | Could not restore handler ", data?.handler, " substituting console.log");
-      handler = (...a) => console.log("about-time | restored event (no handler)", ...a);
+      console.warn("about-time | Could not restore handler ", data?.handler, " substituting GM whisper fallback");
+      handler = async (...args) => {
+        try { const ids = ChatMessage.getWhisperRecipients("GM").map((u)=>u.id); await ChatMessage.create({content:"<p>(event)</p>", whisper: ids}); } catch(e) { console.warn("about-time | fallback whisper failed", e); }
+      };
     }
     return new Quentry(
       data.time,
