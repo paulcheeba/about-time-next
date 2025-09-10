@@ -1,4 +1,4 @@
-// File: modules/about-time-v13/module/ATEventManagerAppV2.js
+// File: modules/about-time-next/module/ATEventManagerAppV2.js
 // v13.0.9.0.1 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
@@ -35,7 +35,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     }
   };
 
-    static PARTS = { body: { template: "modules/about-time-v13/templates/ATEventManagerAppV2.hbs" } };
+    static PARTS = { body: { template: "modules/about-time-next/templates/ATEventManagerAppV2.hbs" } };
 
   #ticker = null;
   #queueSig = ""; // tracks UID:time signature so we know when to refresh
