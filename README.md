@@ -18,7 +18,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 3. (Optional) Install **Simple Calendar** for advanced date formatting.
 *Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
 
-> Compatibility: Designed for FVTT v13 (min 12, max 13.x).  
+> Compatibility: Designed for FVTT v13 (min 13, max 13.x).  
 > With SC enabled, About-Time uses SC’s format/interval helpers where available.
 > Works with smalltime and Season and Stars (using foundry's core time system, not Seasons and Stars') but also has it's own Time Management app built in (which can be disabled in settings).
 
