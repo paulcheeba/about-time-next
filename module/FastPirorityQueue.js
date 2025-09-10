@@ -1,4 +1,4 @@
-// About Time v13.0.9.0.1 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
+// About Time v13.0.9.0.4 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
 
 'use strict';
 
@@ -86,7 +86,7 @@ export class Quentry {
       data.originator,
       ...data.args
     );
-  }}
+  }
 }
 
 export class FastPriorityQueue {
