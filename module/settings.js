@@ -1,7 +1,7 @@
 // module/settings.js
 // Settings (v13.0.5.1)
 
-export const MODULE_ID = "about-time-v13";
+export const MODULE_ID = "about-time-next";
 
 export const registerSettings = function () {
   game.settings.register(MODULE_ID, "store", {
