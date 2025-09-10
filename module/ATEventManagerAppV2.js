@@ -103,7 +103,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         if (runMacro && macroName) {
           const macro = game.macros.getName?.(macroName) ?? game.macros.find?.(m => m.name === macroName);
           if (macro) {
-            if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
+            if (foundry.utils.isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
