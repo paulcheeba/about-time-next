@@ -11,7 +11,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
    **OR** add the manifest URL:
    ```
-   https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
+   https://github.com/paulcheeba/about-time-next/releases/latest/download/module.json
    ```
 
 2. Enable the module in your world.
