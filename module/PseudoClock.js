@@ -1,5 +1,5 @@
 // module/PseudoClock.js
-// PseudoClock (v13.0.5.1) — v13-safe sockets/users
+// PseudoClock (v13.0.9.0.4) — v13-safe sockets/users
 
 import { ElapsedTime } from "./ElapsedTime.js";
 import { Quentry } from "./FastPriorityQueue.js";
