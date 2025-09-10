@@ -1,6 +1,6 @@
-# About Time (v13.0.9.0)
+# About Time Next (v13.1.0)
 
-**About Time v13** is a timekeeping and event scheduling utility for Foundry VTT v13+.  
+**About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
 It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
 
 ---
@@ -11,7 +11,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
    **OR** add the manifest URL:
    ```
-   https://github.com/paulcheeba/about-time-v13/releases/latest/download/module.json
+   https://github.com/paulcheeba/about-time-next/releases/latest/download/module.json
    ```
 
 2. Enable the module in your world.
@@ -20,6 +20,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 > Compatibility: Designed for FVTT v13 (min 12, max 13.x).  
 > With SC enabled, About-Time uses SC’s format/interval helpers where available.
+> Works with smalltime and Season and Stars (using foundry's core time system, not Seasons and Stars') but also has it's own Time Management app built in (which can be disabled in settings).
 
 ---
 

@@ -1,6 +1,6 @@
 // About Time v13.0.8.1.3 — Toolbar tool (Journal/Notes subtool) + AppV2 Event Manager + AppV2 Time Manager
 
-const MOD = "about-time-v13";
+const MOD = "about-time-next";
 
 import { openATEventManagerV2 } from "./ATEventManagerAppV2.js";
 

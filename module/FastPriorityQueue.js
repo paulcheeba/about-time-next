@@ -1,4 +1,4 @@
-// About Time v13.0.5 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
+// About Time v13.0.9.0.4 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
 
 'use strict';
 
@@ -25,8 +25,13 @@ export class Quentry {
 
   exportToJson() {
     let handler;
-    if (typeof this._handler === "function") handler = { type: "function", val: this._handler.toString() };
-    else handler = { type: "string", val: this._handler };
+    if (typeof this._handler === "function" && this._handler._atHandlerType === "gmWhisper") {
+ handler = { type: "gmWhisper" };
+} else if (typeof this._handler === "function") {
+ handler = { type: "none" };
+} else {
+ handler = { type: "string", val: this._handler };
+}
     return {
       time: this._time,
       recurring: this._recurring,
@@ -39,17 +44,38 @@ export class Quentry {
   }
 
   static createFromJSON(data) {
-    let handler;
+    let handler = null;
     try {
-      if (data.handler.type === "function") handler = eval("handler = " + data.handler.val);
-      else handler = data.handler.val;
+      if (data && data.handler) {
+        if (data.handler.type === "string") {
+          handler = data.handler.val;
+        } else if (data.handler.type === "gmWhisper" || data.handler.type === "none") {
+          // Treat 'none' as GM whisper per module behavior: AT output should whisper to GMs even after reload.
+          handler = async (...args) => {
+            try {
+              const ids = ChatMessage.getWhisperRecipients("GM").map((u) => u.id);
+              const meta = args?.[args.length - 1];
+              let text = "(event)";
+              if (typeof meta === "string") text = meta;
+              else if (meta && typeof meta === "object") text = meta.__atMsg ?? meta.__atName ?? "(event)";
+              const safe = (globalThis.foundry?.utils?.escapeHTML?.(text)) ?? String(text);
+              await ChatMessage.create({ content: `<p>${safe}</p>`, whisper: ids });
+            } catch (e) {
+              console.warn("about-time | gmWhisper fallback failed", e);
+            }
+          };
+        }
+        // legacy "function" -> leave null, we’ll set fallback below
+      }
     } catch (err) {
       console.warn(err);
       handler = null;
     }
     if (!handler) {
-      console.warn("about-time | Could not restore handler ", data.handler, "substituting console.log");
-      handler = console.log;
+      console.warn("about-time | Could not restore handler ", data?.handler, " substituting GM whisper fallback");
+      handler = async (...args) => {
+        try { const ids = ChatMessage.getWhisperRecipients("GM").map((u)=>u.id); await ChatMessage.create({content:"<p>(event)</p>", whisper: ids}); } catch(e) { console.warn("about-time | fallback whisper failed", e); }
+      };
     }
     return new Quentry(
       data.time,

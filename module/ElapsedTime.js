@@ -1,9 +1,9 @@
 // module/ElapsedTime.js
-// Event scheduling (v13.0.7.3) — stabilized SC checks and logging
+// Event scheduling (v13.0.9.0.4) — stabilized SC checks and logging
 // v13.0.7.3+ patch: ensure doIn/doEvery produce numeric increment (seconds)
 // for reliable repeating reschedules; respect SC when available.
 
-import { FastPriorityQueue, Quentry } from "./FastPirorityQueue.js";
+import { FastPriorityQueue, Quentry } from "./FastPriorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
 import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT, secondsFromATInterval, normalizeATInterval } from "./calendar/DateTime.js";
 import { MODULE_ID } from "./settings.js";

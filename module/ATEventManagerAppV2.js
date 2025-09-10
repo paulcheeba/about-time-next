@@ -1,10 +1,20 @@
-// File: modules/about-time-v13/module/ATEventManagerAppV2.js
-// v13.0.8.1.2 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
+// File: modules/about-time-next/module/ATEventManagerAppV2.js
+// v13.0.9.0.1 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
 import { MODULE_ID } from "./settings.js";
+// Minimal helper for GM whisper used inside scheduled handlers (no private fields)
+const gmWhisper = (html) => {
+  try {
+    const ids = ChatMessage.getWhisperRecipients("GM").filter((u) => u.active).map((u) => u.id);
+    return ChatMessage.create({ content: html, whisper: ids });
+  } catch (e) {
+    console.warn("[about-time] gmWhisper failed", e);
+    return ChatMessage.create({ content: html });
+  }
+};
 
 export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
@@ -25,7 +35,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     }
   };
 
-    static PARTS = { body: { template: "modules/about-time-v13/templates/ATEventManagerAppV2.hbs" } };
+    static PARTS = { body: { template: "modules/about-time-next/templates/ATEventManagerAppV2.hbs" } };
 
   #ticker = null;
   #queueSig = ""; // tracks UID:time signature so we know when to refresh
@@ -84,7 +94,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const macroName = String(fd.get("macroName") || "").trim();
 
     const seconds = this.#parseMixedDuration(durStr);
-    if (!seconds || seconds <= 0) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a valid duration.</p>`);
+    if (!seconds || seconds <= 0) return gmWhisper(`<p>[${MODULE_ID}] Enter a valid duration.</p>`);
 
     const meta = { __atName: name || (runMacro ? macroName : "(unnamed)"), __atMsg: message };
 
@@ -93,7 +103,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         if (runMacro && macroName) {
           const macro = game.macros.getName?.(macroName) ?? game.macros.find?.(m => m.name === macroName);
           if (macro) {
-            if (isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
+            if (foundry.utils.isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
               const body = `return (async () => { ${macro.command} })()`;
               const fn = Function("{speaker, actor, token, character, item, args}={}", body);
@@ -101,19 +111,22 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
             }
           } else ui.notifications?.warn?.(`[${MODULE_ID}] Macro not found: ${macroName}`);
         } else {
-          await this.#gmWhisper(`<p>[${MODULE_ID}] ${foundry.utils.escapeHTML(metaArg.__atMsg || metaArg.__atName || "(event)")}</p>`);
+          await gmWhisper(`<p>[${MODULE_ID}] ${foundry.utils.escapeHTML(metaArg.__atMsg || metaArg.__atName || "(event)")}</p>`);
         }
       } catch (err) {
         console.error(`${MODULE_ID} | handler failed`, err);
-        await this.#gmWhisper(`<p>[${MODULE_ID}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}</p>`);
+        await gmWhisper(`<p>[${MODULE_ID}] Handler error: ${foundry.utils.escapeHTML(err?.message || err)}</p>`);
       }
     };
+    
+    // Mark this handler so the queue knows to serialize as a GM whisper handler
+    handler._atHandlerType = "gmWhisper";
 
     const AT = game.abouttime ?? game.Gametime;
     const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
     if (name) await game.user.setFlag(MODULE_ID, name, uid);
 
-    await this.#gmWhisper(
+    await gmWhisper(
       `<p>[${MODULE_ID}] Created <strong>${repeat ? "repeating" : "one-time"}</strong> event:
         <code>${foundry.utils.escapeHTML(uid)}</code> — ${this.#fmtDHMS(seconds)} — “${foundry.utils.escapeHTML(meta.__atName)}”</p>`
     );
@@ -148,9 +161,9 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         }
         if (!exists) await game.user.unsetFlag(MODULE_ID, k);
       }
-      await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped ${count} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+      await gmWhisper(`<p>[${MODULE_ID}] Stopped ${count} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     } else {
-      await this.#gmWhisper(`<p>[${MODULE_ID}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+      await gmWhisper(`<p>[${MODULE_ID}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     }
     this.render();
   }
@@ -161,21 +174,21 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = String(fd.get("stopKey") || "").trim();
     if (!uid) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`);
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
-    if (ok) await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
-    else    await this.#gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    if (ok) await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    else    await gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
 
   async onList() {
     (game.abouttime ?? game.Gametime).chatQueue({ showArgs: false, showUid: true, showDate: true, gmOnly: true });
-    await this.#gmWhisper(`<p>[${MODULE_ID}] Queue listed to GM chat.</p>`);
+    await gmWhisper(`<p>[${MODULE_ID}] Queue listed to GM chat.</p>`);
   }
 
   async onFlush() {
     const AT = game.abouttime ?? game.Gametime;
     const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
     AT.flushQueue?.();
-    await this.#gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s).</p>`);
+    await gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s).</p>`);
     this.render();
   }
 
@@ -184,7 +197,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
     AT.flushQueue?.();
     AT.reminderIn?.({ seconds: 3600 }, `[${MODULE_ID}] Queue was flushed an hour ago.`);
-    await this.#gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s) and scheduled 1h reminder.</p>`);
+    await gmWhisper(`<p>[${MODULE_ID}] Flushed ${count} event(s) and scheduled 1h reminder.</p>`);
     this.render();
   }
 
@@ -193,7 +206,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
     if (!uid) return;
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
-    if (ok) await this.#gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    if (ok) await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
 
