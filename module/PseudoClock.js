@@ -2,7 +2,7 @@
 // PseudoClock (v13.0.5.1) — v13-safe sockets/users
 
 import { ElapsedTime } from "./ElapsedTime.js";
-import { Quentry } from "./FastPirorityQueue.js";
+import { Quentry } from "./FastPriorityQueue.js";
 import { MODULE_ID } from "./settings.js";
 
 const _moduleSocket   = `module.${MODULE_ID}`;
