@@ -1,5 +1,5 @@
 // About Time v13.0.5 — preload templates (kept minimal)
-const MODULE_ID = "about-time-v13";
+const MODULE_ID = "about-time-next";
 
 export const preloadTemplates = async function () {
   const raw = [
