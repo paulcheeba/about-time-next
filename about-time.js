@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.0.6.2  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
++// v13.1.1.0  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -191,7 +191,7 @@ Hooks.once('ready', () => {
     try {
       const link = !!getSettingSafe("rtLinkPause", true);
       if (!link) return;
-      if (paused) stopRealtime(); else startRealtime();
+      if (paused) stopRealtime(); else { const hasCombat = (game.combats?.size ?? 0) > 0; if (!hasCombat) startRealtime(); }
     } catch (e) {
       console.warn(`${MODULE_ID} | pause sync failed`, e);
     }
@@ -202,42 +202,38 @@ Hooks.once('ready', () => {
   let _rtWasRunning = false;
 
   async function handleCombatStart() {
-    const on = !!getSettingSafe("rtAutoPauseCombat", true);
-    if (!on) return;
     // Only act when the first combat appears (collection 0 -> 1)
     const count = (game.combats?.size ?? 0);
     if (count !== 1) return;
 
-    _rtWasRunning = isRealtimeRunning?.() ?? false;
-    _pausedByAT = true;
-
-    // Stop our runner; pause world if linked
+    // Always stop realtime during combat
     try { stopRealtime?.(); } catch {}
-    try {
-      if (getSettingSafe("rtLinkPause", true) && !game.paused) {
-        await game.togglePause(true);
-      }
-    } catch {}
+
+    // Optionally auto-pause the game UI at combat start
+    const on = !!getSettingSafe("rtAutoPauseCombat", true);
+    if (on) {
+      try { if (!game.paused) { await game.togglePause(true); } } catch {}
+    }
+
+    // Flags kept for compatibility (no auto-resume at end)
+    _rtWasRunning = isRealtimeRunning?.() ?? false;
+    _pausedByAT = !!on;
   }
 
   async function handleCombatEnd() {
-    const on = !!getSettingSafe("rtAutoPauseCombat", true);
-    if (!on) return;
     // Only act when we just removed the last combat (collection 1 -> 0)
     const count = (game.combats?.size ?? 0);
     if (count !== 0) return;
 
-    if (_pausedByAT) {
-      _pausedByAT = false;
-      try {
-        if (getSettingSafe("rtLinkPause", true) && game.paused) {
-          await game.togglePause(false);
-        }
-      } catch {}
-      if (_rtWasRunning) {
-        try { startRealtime?.(); } catch {}
-      }
+    // Optionally auto-pause the game UI at combat end
+    const on = !!getSettingSafe("rtAutoPauseCombat", true);
+    if (on) {
+      try { if (!game.paused) { await game.togglePause(true); } } catch {}
     }
+
+    // Do not auto-start realtime or unpause UI here
+    _pausedByAT = false;
+    _rtWasRunning = false;
   }
 
   Hooks.on("createCombat", handleCombatStart);
