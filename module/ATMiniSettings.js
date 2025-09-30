@@ -83,15 +83,15 @@ export function registerMiniSettings() {
   });
   if (!hasSetting("rtLinkPause")) game.settings.register(MODULE_ID, "rtLinkPause", {
      name: "Link realtime to pause", scope: "world", config: true, type: Boolean, default: true,
-+    onChange: (value) => {
-+      try {
-+        const hasCombat = (game.combats?.size ?? 0) > 0;
-+        if (game.paused || hasCombat) game.abouttime?.stopRealtime?.();
-+        else if (value) game.abouttime?.startRealtime?.();
-+      } catch (e) {
-+        console.warn(`${MODULE_ID} | rtLinkPause onChange failed`, e);
-+      }
-+    }
+    onChange: (value) => {
+      try {
+        const hasCombat = (game.combats?.size ?? 0) > 0;
+        if (game.paused || hasCombat) game.abouttime?.stopRealtime?.();
+        else if (value) game.abouttime?.startRealtime?.();
+      } catch (e) {
+        console.warn(`${MODULE_ID} | rtLinkPause onChange failed`, e);
+      }
+    }
   });
 
 }
