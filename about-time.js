@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-+// v13.1.1.0  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
+// v13.1.1.0  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
