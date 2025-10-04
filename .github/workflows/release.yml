@@ -62,7 +62,7 @@ jobs:
           VERSION="${{ inputs.version }}"
 
           MANIFEST_URL="https://github.com/${REPO}/releases/latest/download/module.json"
-          DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/about-time.zip"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/about-time-next.zip"
 
           cp module.json module.json.bak
 
@@ -94,11 +94,11 @@ jobs:
             git push origin HEAD:main
           fi
 
-      - name: Build ZIP (about-time.zip)
+      - name: Build ZIP (about-time-next.zip)
         shell: bash
         run: |
           set -euo pipefail
-          ZIPNAME="about-time.zip"
+          ZIPNAME="about-time-next.zip"
           rm -f "$ZIPNAME"
           # Create a clean ZIP with module files at the root.
           zip -r "$ZIPNAME" . \
@@ -113,7 +113,7 @@ jobs:
 
       - name: Verify release assets exist
         run: |
-          test -f about-time.zip || (echo "about-time.zip missing"; exit 1)
+          test -f about-time-next.zip || (echo "about-time-next.zip missing"; exit 1)
           test -f module.json || (echo "module.json missing"; exit 1)
 
       - name: Create/Update GitHub Release & Upload Assets
@@ -126,7 +126,7 @@ jobs:
           make_latest: ${{ inputs.make_latest }}
           generate_release_notes: true
           files: |
-            about-time.zip
+            about-time-next.zip
             module.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
