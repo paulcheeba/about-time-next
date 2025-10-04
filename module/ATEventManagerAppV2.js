@@ -1,5 +1,5 @@
 // File: modules/about-time-next/module/ATEventManagerAppV2.js
-// v13.1.2.0 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
+// v13.1.2.1 — Hotfix: persist queue after Stop actions (name/uid/row).
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
@@ -181,6 +181,8 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         if (!exists) await game.user.unsetFlag(MODULE_ID, k);
       }
       await gmWhisper(`<p>[${MODULE_ID}] Stopped ${count} event(s) named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
+      // Force persistence so stopped events don't resurrect after reload
+      ElapsedTime._save(true);      
     } else {
       await gmWhisper(`<p>[${MODULE_ID}] No events found named <strong>${foundry.utils.escapeHTML(key)}</strong>.</p>`);
     }
@@ -193,7 +195,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = String(fd.get("stopKey") || "").trim();
     if (!uid) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`);
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
-    if (ok) await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    if (ok) { await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`); ElapsedTime._save(true); }
     else    await gmWhisper(`<p>[${MODULE_ID}] No event found for UID <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
     this.render();
   }
@@ -225,7 +227,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
     if (!uid) return;
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
-    if (ok) await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    if (ok) { await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`); ElapsedTime._save(true); }
     this.render();
   }
 
