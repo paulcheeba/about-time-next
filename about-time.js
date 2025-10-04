@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.1.1.0  (Add: Mini Time Manager settings, panel API, toolbar tool; keep 13.0.6.1 helpers)
+// v13.1.1.1  (Hotfix: use active-combat signal and reconcile on updateCombat)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -191,7 +191,12 @@ Hooks.once('ready', () => {
     try {
       const link = !!getSettingSafe("rtLinkPause", true);
       if (!link) return;
-      if (paused) stopRealtime(); else { const hasCombat = (game.combats?.size ?? 0) > 0; if (!hasCombat) startRealtime(); }
+      if (paused) {
+        stopRealtime();
+      } else {
+        const hasActiveCombat = !!game.combat;
+        if (!hasActiveCombat) startRealtime();
+      }
     } catch (e) {
       console.warn(`${MODULE_ID} | pause sync failed`, e);
     }
@@ -235,6 +240,29 @@ Hooks.once('ready', () => {
     _pausedByAT = false;
     _rtWasRunning = false;
   }
+
+  /**
+   * Reconcile runner state whenever a Combat document updates.
+   * This catches start/stop transitions that don't create/delete the doc,
+   * and scene switches that change the active combat.
+   */
+  Hooks.on("updateCombat", (_combat, _changes, _opts, _userId) => {
+    try {
+      const link = !!getSettingSafe("rtLinkPause", true);
+      const hasActiveCombat = !!game.combat;
+      if (hasActiveCombat) {
+        // Never allow realtime during active combat
+        stopRealtime?.();
+        return;
+      }
+      // No active combat: if game is unpaused and link is on, allow realtime
+      if (!game.paused && link) {
+        startRealtime?.();
+      }
+    } catch (e) {
+      console.warn(`${MODULE_ID} | updateCombat reconcile failed`, e);
+    }
+  });
 
   Hooks.on("createCombat", handleCombatStart);
   Hooks.on("deleteCombat", handleCombatEnd);
