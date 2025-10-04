@@ -1,0 +1,161 @@
+name: Pre-Release (Pinned URLs to Release Assets)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to build from (e.g., v13.1.1.1.0 or feature/my-branch)"
+        required: true
+        type: string
+      tag_name:
+        description: "Optional tag name for the prerelease (if omitted and ref is a branch, we'll use pre-<branch>-<shortsha>)"
+        required: false
+        type: string
+      module_version:
+        description: "Optional override for module.json version (defaults to version in selected ref)"
+        required: false
+        type: string
+
+jobs:
+  prerelease:
+    name: Build & publish prerelease (with pinned asset URLs)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create releases & upload assets
+
+    env:
+      REF: ${{ inputs.ref }}
+      OVERRIDE_VERSION: ${{ inputs.module_version }}
+      INPUT_TAG_NAME: ${{ inputs.tag_name }}
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.REF }}
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq rsync zip
+
+      - name: Repo metadata
+        id: meta
+        run: |
+          OWNER="${GITHUB_REPOSITORY%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
+          echo "repo=${REPO}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine ref type (tag vs branch) and tag name to use
+        id: reftype
+        shell: bash
+        run: |
+          set -euo pipefail
+          REF="${REF}"
+
+          if git show-ref --tags --verify --quiet "refs/tags/${REF}"; then
+            TYPE="tag"
+            TAG_NAME="${INPUT_TAG_NAME:-$REF}"
+          else
+            TYPE="branch"
+            # sanitize branch for a tag name when none provided
+            SAFE_BRANCH="$(echo "${REF}" | tr '/ ' '-' )"
+            TAG_NAME="${INPUT_TAG_NAME:-pre-${SAFE_BRANCH}-${{ steps.meta.outputs.short_sha }}}"
+          fi
+
+          echo "type=${TYPE}"       >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Read current module.json version from ref
+        id: readver
+        run: |
+          if [[ ! -f module.json ]]; then
+            echo "ERROR: module.json not found at repo root." >&2
+            exit 1
+          fi
+          CUR_VER="$(jq -r '.version // empty' module.json)"
+          if [[ -z "${CUR_VER}" ]]; then
+            echo "ERROR: 'version' not found in module.json." >&2
+            exit 1
+          fi
+          echo "current=${CUR_VER}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare dist
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          rsync -a --delete \
+            --exclude ".git" \
+            --exclude ".github" \
+            ./ dist/
+
+      - name: Set target version and release asset URLs
+        id: urls
+        run: |
+          OWNER="${{ steps.meta.outputs.owner }}"
+          REPO="${{ steps.meta.outputs.repo }}"
+          TAG="${{ steps.reftype.outputs.tag_name }}"
+
+          # Version selection
+          if [[ -n "${OVERRIDE_VERSION}" ]]; then
+            TARGET_VER="${OVERRIDE_VERSION}"
+          else
+            TARGET_VER="${{ steps.readver.outputs.current }}"
+          fi
+
+          MODULE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
+          ZIP_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/about-time-next.zip"
+
+          echo "target_ver=${TARGET_VER}" >> "$GITHUB_OUTPUT"
+          echo "module_url=${MODULE_URL}" >> "$GITHUB_OUTPUT"
+          echo "zip_url=${ZIP_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite module.json (pin to release asset URLs)
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          TARGET_VER="${{ steps.urls.outputs.target_ver }}"
+          MODULE_URL="${{ steps.urls.outputs.module_url }}"
+          ZIP_URL="${{ steps.urls.outputs.zip_url }}"
+
+          jq \
+            --arg version   "${TARGET_VER}" \
+            --arg manifest  "${MODULE_URL}" \
+            --arg download  "${ZIP_URL}" \
+            '
+              .version  = $version
+            | .manifest = $manifest
+            | .download = $download
+            ' module.json > module.json.tmp
+
+          mv module.json.tmp module.json
+          echo "Updated module.json:"
+          jq '.' module.json
+
+      - name: Create about-time-next.zip (includes rewritten module.json)
+        id: zip
+        working-directory: dist
+        run: |
+          ZIP="about-time-next.zip"
+          # Zip the contents of dist (not the folder itself)
+          zip -r "${ZIP}" . -x ".git/*" -x ".github/*"
+          echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
+
+      - name: Create (or update) prerelease
+        id: ghrel
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.reftype.outputs.tag_name }}
+          name: ${{ steps.reftype.outputs.tag_name }}
+          body: "Automated prerelease for testing.\n\nRef: `${{ env.REF }}`\nVersion: `${{ steps.urls.outputs.target_ver }}`"
+          prerelease: true
+          draft: false
+          generate_release_notes: false
+          files: |
+            dist/module.json
+            dist/${{ steps.zip.outputs.zip }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
