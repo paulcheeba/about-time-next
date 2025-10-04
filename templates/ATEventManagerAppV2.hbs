@@ -1,5 +1,5 @@
 <!-- File: modules/about-time-v13/templates/ATEventManagerAppV2.hbs -->
-<!-- v13.0.8.1.0 — Remove "Copy UID" button; add bordered board + header; keep everything else the same. -->
+<!-- v13.1.2.0 — Remove "Copy UID" button; add bordered board + header; keep everything else the same. -->
 
 <section class="at-emv2 at-dracula">
   <style>
@@ -27,7 +27,7 @@
     .at-btn.danger{border-color:var(--atd-red);box-shadow:0 0 0 1px var(--atd-red) inset}
 
     /* Event Status Board framing */
-    .board { border:1px solid var(--atd-accent); border-radius:8px; padding:.5rem; }
+    .board { border:1px solid var(--atd-accent); border-radius:8px; padding:.5rem; overflow-x:auto; }
     .board-title { margin: .25rem .25rem .5rem; color: var(--atd-yellow); font-weight: 600; }
   </style>
 
@@ -78,6 +78,7 @@
             <th>Starts</th>
             <th>Remaining</th>
             <th>Repeat</th>
+            <th>Macro</th>
             <th>Message</th>
             <th>UID</th>
             <th>Actions</th>
@@ -91,6 +92,7 @@
               <td class="start">{{e.startTxt}}</td>
               <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
               <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
+              <td class="macro" title="{{e.macroUuid}}">{{#if e.macroName}}{{e.macroName}}{{else}}NA{{/if}}</td>
               <td class="msg">{{e.msg}}</td>
               <td class="uid"><code>{{e.uid}}</code></td>
               <td class="actions">
@@ -100,7 +102,7 @@
             </tr>
             {{/each}}
           {{else}}
-            <tr><td colspan="7" class="muted">- (empty queue) -</td></tr>
+            <tr><td colspan="8" class="muted">- (empty queue) -</td></tr>
           {{/if}}
         </tbody>
       </table>
