@@ -1,4 +1,4 @@
-// About Time v13.0.9.0.4 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
+// About Time v13.1.2.0 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
 
 'use strict';
 
@@ -55,6 +55,16 @@ export class Quentry {
             try {
               const ids = ChatMessage.getWhisperRecipients("GM").map((u) => u.id);
               const meta = args?.[args.length - 1];
+              // Execute linked macro if present (GM only), prefer UUID then name
+              try {
+                if (game.user?.isGM && meta && typeof meta === "object") {
+                  let md = null;
+                  const u = meta.__macroUuid;
+                  if (u && typeof fromUuid === "function") { try { md = await fromUuid(u); } catch(_) {} }
+                  if (!md && meta.__macroName) md = game.macros?.getName?.(meta.__macroName) ?? game.macros?.find?.(m => m.name === meta.__macroName);
+                  if (md?.execute) await md.execute({ args });
+                }
+              } catch (mx) { console.warn("about-time | macro exec via UUID failed", mx); }              
               let text = "(event)";
               if (typeof meta === "string") text = meta;
               else if (meta && typeof meta === "object") text = meta.__atMsg ?? meta.__atName ?? "(event)";
