@@ -60,7 +60,9 @@
       <label>Options</label>
       <label><input type="checkbox" name="repeat" /> Repeat</label>
       <label><input type="checkbox" name="runMacro" /> Run Macro</label>
-      <input type="text" name="macroName" placeholder="Macro Name" />
+      <input type="text" name="macroName" placeholder="Macro Name" list="atn-em-macro-list" />
+      <datalist id="atn-em-macro-list"></datalist>
+      <button type="button" class="at-emv2-btn icon at-emv2-macro-refresh" title="Refresh macros" aria-label="Refresh macros">⟳</button>
     </div>
     <div class="row buttons">
       {{#if isGM}}
