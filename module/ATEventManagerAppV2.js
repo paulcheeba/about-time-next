@@ -1,5 +1,5 @@
-// File: modules/about-time-next/module/ATEventManagerAppV2.js
-// v13.1.2.1 — Hotfix: persist queue after Stop actions (name/uid/row).
++// File: modules/about-time-next/module/ATEventManagerAppV2.js
++// v13.1.3.0 — Add macro datalist + refresh; no behavior changes
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
@@ -17,6 +17,36 @@ const gmWhisper = (html) => {
 };
 
 export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV2) {
+  // v13.1.3.0 — Macro datalist + refresh
+  #macroListId() { return `atn-em-macro-list`; } // single-instance app; stable id
+  #rebuildMacroDatalist() {
+    try {
+      const list  = this.element?.querySelector?.(`#${this.#macroListId()}`);
+      const input = this.element?.querySelector?.(`input[name="macroName"]`);
+      if (!list || !input) return;
+      // Permission filter (Observer for non-GM)
+      const canSee = (m) => game.user?.isGM || m?.testUserPermission?.(game.user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER);
+      const macros = Array.from(game.macros ?? []).filter(canSee);
+      macros.sort((a,b) => {
+        const an = (a.name||'').toLocaleLowerCase(); const bn = (b.name||'').toLocaleLowerCase();
+        if (an < bn) return -1; if (an > bn) return 1;
+        const af = a.folder?.name||''; const bf = b.folder?.name||'';
+        return af.localeCompare(bf);
+      });
+      list.innerHTML = macros.map(m => {
+        const folder = m.folder?.name || '—';
+        const type   = (m.type ?? 'Macro');
+        const id     = m.id ?? '';
+        const title  = `${folder} • ${type} • ${id}`;
+        const safeValue = foundry.utils.escapeHTML(m.name ?? '');
+        const safeTitle = foundry.utils.escapeHTML(title);
+        return `<option value="${safeValue}" title="${safeTitle}"></option>`;
+      }).join('');
+      input.setAttribute('list', this.#macroListId());
+    } catch (e) {
+      console.warn('[about-time-next] rebuildMacroDatalist failed', e);
+    }
+  }
   static DEFAULT_OPTIONS = {
     id: "at-em-v2",
     classes: ["about-time", "at-emv2", "at-dracula"],
@@ -42,6 +72,15 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
   async render(force, options = {}) {
     const out = await super.render(force, options);
+    // v13.1.3.0 — build macro datalist and attach refresh
+    this.#rebuildMacroDatalist?.();
+    const btn = this.element?.querySelector?.('.at-emv2-macro-refresh');
+    if (btn && !btn._atnBound) {
+      btn.addEventListener('click', () => {
+        this.#rebuildMacroDatalist?.();
+      }, { passive: true });
+      btn._atnBound = true;
+    }
     this.#queueSig = this.#computeQueueSignature();
     if (!this.#ticker) this.#startTicker();
     return out;
