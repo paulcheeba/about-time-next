@@ -2,7 +2,7 @@
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/paulcheeba/about-time-next?sort=semver) <!-- Total downloads across all releases -->![Downloads](https://img.shields.io/github/downloads/paulcheeba/about-time-next/total) <!-- Downloads of latest release only -->![Downloads (latest)](https://img.shields.io/github/downloads/paulcheeba/about-time-next/latest/total)
 
 
-# About Time Next (v13.1.1.1)
+# About Time Next (v13.1.2.0)
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
 It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
