@@ -1,5 +1,5 @@
 // module/ATMiniSettings.js
-// v13.1.1.0 — Client settings for the AT Mini Time Panel (reload prompt on enable; live label updates)
+// v13.1.1.1 — Client settings for the AT Mini Time Panel (reload prompt on enable; live label updates; active-combat reconcile)
 
 
 import { MODULE_ID } from "./settings.js";
@@ -82,12 +82,15 @@ export function registerMiniSettings() {
     default: true
   });
   if (!hasSetting("rtLinkPause")) game.settings.register(MODULE_ID, "rtLinkPause", {
-     name: "Link realtime to pause", scope: "world", config: true, type: Boolean, default: true,
+    name: "Link realtime to pause", scope: "world", config: true, type: Boolean, default: true,
     onChange: (value) => {
       try {
-        const hasCombat = (game.combats?.size ?? 0) > 0;
-        if (game.paused || hasCombat) game.abouttime?.stopRealtime?.();
-        else if (value) game.abouttime?.startRealtime?.();
+        const hasActiveCombat = !!game.combat;
+        if (game.paused || hasActiveCombat) {
+          game.abouttime?.stopRealtime?.();
+        } else if (value) {
+          game.abouttime?.startRealtime?.();
+        }
       } catch (e) {
         console.warn(`${MODULE_ID} | rtLinkPause onChange failed`, e);
       }
