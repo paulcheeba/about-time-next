@@ -1,5 +1,5 @@
 // File: modules/about-time-next/module/ATEventManagerAppV2.js
-// v13.0.9.0.1 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
+// v13.1.2.0 — Starts fallback "in DD:HH:MM:SS"; window width 920px; row Stop wired.
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
@@ -74,6 +74,8 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
           startTxt: this.#fmtTimestamp(time),
           remainingTxt: this.#fmtDHMS(Math.max(0, Math.floor(time - now))),
           recurring: !!e?._recurring,
+          macroName: String(meta.__macroName || ""),
+          macroUuid: String(meta.__macroUuid || ""),
           incTxt: inc ? this.#fmtDHMS(inc) : ""
         });
       }
@@ -98,10 +100,27 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
     const meta = { __atName: name || (runMacro ? macroName : "(unnamed)"), __atMsg: message };
 
+    // Persist macro identity for reload: store both name and uuid when available
+    let macroUuid = "";
+    if (runMacro && macroName) {
+      try {
+        const m = game.macros?.getName?.(macroName) ?? game.macros?.find?.(mm => mm.name === macroName);
+        if (m?.uuid) { macroUuid = m.uuid; }
+      } catch(_) {}
+      meta.__macroName = macroName;
+      if (macroUuid) meta.__macroUuid = macroUuid;
+    }
+
     const handler = async (metaArg) => {
       try {
         if (runMacro && macroName) {
-          const macro = game.macros.getName?.(macroName) ?? game.macros.find?.(m => m.name === macroName);
+          let macro = null;
+          try {
+            const uu = metaArg?.__macroUuid || macroUuid;
+            if (uu && typeof fromUuid === "function") macro = await fromUuid(uu);
+          } catch(_) {}
+          if (!macro) macro = game.macros.getName?.(macroName) ?? game.macros.find?.(m => m.name === macroName);
+  
           if (macro) {
             if (foundry.utils.isNewerVersion(game.version, "11.0")) await macro.execute({ args: [metaArg] });
             else {
