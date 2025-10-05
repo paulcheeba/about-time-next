@@ -1,5 +1,5 @@
-+// File: modules/about-time-next/module/ATEventManagerAppV2.js
-+// v13.1.3.1 — Add macro datalist + refresh; no behavior changes
+// File: modules/about-time-next/module/ATEventManagerAppV2.js
+// v13.1.3.1 — Add macro datalist + refresh; no behavior changes
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
