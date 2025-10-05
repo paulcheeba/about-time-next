@@ -82,7 +82,7 @@ jobs:
           fi
           echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Read current module.json version from ref (ignored if we enforce v-tag as version)
+      - name: Read current module.json version from ref (informational)
         id: readver
         run: |
           if [[ ! -f module.json ]]; then
@@ -144,13 +144,33 @@ jobs:
           zip -r "${ZIP}" . -x ".git/*" -x ".github/*"
           echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
 
+      - name: Build release notes (include manifest URL code block)
+        run: |
+          OWNER="${{ steps.meta.outputs.owner }}"
+          REPO="${{ steps.meta.outputs.repo }}"
+          TAG="${{ steps.ensuretag.outputs.tag_name }}"
+          MANIFEST_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
+
+          {
+            echo "Automated prerelease for testing."
+            echo
+            echo "Ref: \`${{ steps.meta.outputs.ref_name }}\`"
+            echo "Version: \`${TAG}\`"
+            echo
+            echo "### Pre-release manifest URL"
+            echo
+            echo '```txt'
+            echo "${MANIFEST_URL}"
+            echo '```'
+          } > release_body.md
+
       - name: Create/Update prerelease (tag includes leading 'v')
         id: ghrel
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ensuretag.outputs.tag_name }}
           name: ${{ steps.ensuretag.outputs.tag_name }}
-          body: "Automated prerelease for testing.\n\nRef: `${{ steps.meta.outputs.ref_name }}`\nVersion: `${{ steps.ensuretag.outputs.tag_name }}`"
+          body_path: release_body.md
           prerelease: true
           draft: false
           generate_release_notes: false
