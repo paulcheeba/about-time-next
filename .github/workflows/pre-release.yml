@@ -1,38 +1,29 @@
-name: Pre-Release (Pinned URLs to Release Assets)
+name: Pre-Release (Pinned Asset URLs, Enforce leading 'v')
 
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Tag or branch to build from (e.g., v13.1.1.1.0 or feature/my-branch)"
-        required: true
-        type: string
-      tag_name:
-        description: "Optional tag name for the prerelease (if omitted and ref is a branch, we'll use pre-<branch>-<shortsha>)"
-        required: false
-        type: string
-      module_version:
-        description: "Optional override for module.json version (defaults to version in selected ref)"
+      tag:
+        description: "Release tag (no leading 'v' in UI). Defaults from selected branch name with 'v' stripped, e.g. 13.1.3.0 or 13.1.3.0-beta"
         required: false
         type: string
 
 jobs:
   prerelease:
-    name: Build & publish prerelease (with pinned asset URLs)
+    name: Build & publish prerelease
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to create releases & upload assets
+      contents: write
 
     env:
-      REF: ${{ inputs.ref }}
-      OVERRIDE_VERSION: ${{ inputs.module_version }}
-      INPUT_TAG_NAME: ${{ inputs.tag_name }}
+      # Branch selected via the GitHub UI “Use workflow from” dropdown, e.g. v13.1.3.0
+      REF: ${{ github.ref_name }}
 
     steps:
-      - name: Checkout selected ref
+      - name: Checkout selected ref (from UI)
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.REF }}
+          fetch-depth: 0
 
       - name: Install tooling
         run: |
@@ -48,28 +39,50 @@ jobs:
           echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
           echo "repo=${REPO}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Determine ref type (tag vs branch) and tag name to use
-        id: reftype
+      - name: Resolve tag (UI has no 'v', outputs enforce single leading 'v')
+        id: tag
         shell: bash
         run: |
           set -euo pipefail
-          REF="${REF}"
+          BRANCH="${{ steps.meta.outputs.ref_name }}"
+          INPUT_TAG="${{ inputs.tag }}"
 
-          if git show-ref --tags --verify --quiet "refs/tags/${REF}"; then
-            TYPE="tag"
-            TAG_NAME="${INPUT_TAG_NAME:-$REF}"
-          else
-            TYPE="branch"
-            # sanitize branch for a tag name when none provided
-            SAFE_BRANCH="$(echo "${REF}" | tr '/ ' '-' )"
-            TAG_NAME="${INPUT_TAG_NAME:-pre-${SAFE_BRANCH}-${{ steps.meta.outputs.short_sha }}}"
+          # Derive a base tag WITHOUT leading v from the selected branch if input empty
+          # Example: branch v13.1.3.0 -> BASE=13.1.3.0
+          DEFAULT_BASE="${BRANCH#v}"
+          BASE="${INPUT_TAG:-$DEFAULT_BASE}"
+
+          if [[ -z "${BASE}" ]]; then
+            echo "ERROR: Could not derive a tag base." >&2
+            exit 1
           fi
 
-          echo "type=${TYPE}"       >> "$GITHUB_OUTPUT"
-          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          # Enforce exactly one leading v in the final tag
+          # Example: BASE=13.1.3.0      -> FINAL=v13.1.3.0
+          #          BASE=13.1.3.0-beta -> FINAL=v13.1.3.0-beta
+          FINAL="v${BASE#v}"
 
-      - name: Read current module.json version from ref
+          echo "base=${BASE}"   >> "$GITHUB_OUTPUT"
+          echo "final=${FINAL}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag exists at current commit (final tag with leading 'v')
+        id: ensuretag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.final }}"
+          if git show-ref --tags --verify --quiet "refs/tags/${TAG}"; then
+            echo "Tag '${TAG}' already exists; will use it as-is."
+          else
+            echo "Creating tag '${TAG}' at HEAD..."
+            git tag -a "${TAG}" -m "Prerelease tag '${TAG}' created by workflow"
+            git push origin "refs/tags/${TAG}"
+          fi
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Read current module.json version from ref (informational)
         id: readver
         run: |
           if [[ ! -f module.json ]]; then
@@ -77,10 +90,6 @@ jobs:
             exit 1
           fi
           CUR_VER="$(jq -r '.version // empty' module.json)"
-          if [[ -z "${CUR_VER}" ]]; then
-            echo "ERROR: 'version' not found in module.json." >&2
-            exit 1
-          fi
           echo "current=${CUR_VER}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare dist
@@ -92,43 +101,35 @@ jobs:
             --exclude ".github" \
             ./ dist/
 
-      - name: Set target version and release asset URLs
+      - name: Compute prerelease asset URLs (leading 'v' in path)
         id: urls
         run: |
           OWNER="${{ steps.meta.outputs.owner }}"
           REPO="${{ steps.meta.outputs.repo }}"
-          TAG="${{ steps.reftype.outputs.tag_name }}"
-
-          # Version selection
-          if [[ -n "${OVERRIDE_VERSION}" ]]; then
-            TARGET_VER="${OVERRIDE_VERSION}"
-          else
-            TARGET_VER="${{ steps.readver.outputs.current }}"
-          fi
+          TAG="${{ steps.ensuretag.outputs.tag_name }}"
 
           MODULE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
           ZIP_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/about-time-next.zip"
 
-          echo "target_ver=${TARGET_VER}" >> "$GITHUB_OUTPUT"
           echo "module_url=${MODULE_URL}" >> "$GITHUB_OUTPUT"
           echo "zip_url=${ZIP_URL}" >> "$GITHUB_OUTPUT"
 
-      - name: Rewrite module.json (pin to release asset URLs)
+      - name: Rewrite module.json (pin to prerelease assets, set version to leading-v tag)
         working-directory: dist
         run: |
           set -euo pipefail
-          TARGET_VER="${{ steps.urls.outputs.target_ver }}"
           MODULE_URL="${{ steps.urls.outputs.module_url }}"
           ZIP_URL="${{ steps.urls.outputs.zip_url }}"
+          VERSION="${{ steps.ensuretag.outputs.tag_name }}"
 
           jq \
-            --arg version   "${TARGET_VER}" \
             --arg manifest  "${MODULE_URL}" \
             --arg download  "${ZIP_URL}" \
+            --arg version   "${VERSION}" \
             '
-              .version  = $version
-            | .manifest = $manifest
+              .manifest = $manifest
             | .download = $download
+            | .version  = $version
             ' module.json > module.json.tmp
 
           mv module.json.tmp module.json
@@ -140,17 +141,36 @@ jobs:
         working-directory: dist
         run: |
           ZIP="about-time-next.zip"
-          # Zip the contents of dist (not the folder itself)
           zip -r "${ZIP}" . -x ".git/*" -x ".github/*"
           echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
 
-      - name: Create (or update) prerelease
+      - name: Build release notes (include manifest URL code block)
+        run: |
+          OWNER="${{ steps.meta.outputs.owner }}"
+          REPO="${{ steps.meta.outputs.repo }}"
+          TAG="${{ steps.ensuretag.outputs.tag_name }}"
+          MANIFEST_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
+
+          {
+            echo "Automated prerelease for testing."
+            echo
+            echo "Ref: \`${{ steps.meta.outputs.ref_name }}\`"
+            echo "Version: \`${TAG}\`"
+            echo
+            echo "### Pre-release manifest URL"
+            echo
+            echo '```txt'
+            echo "${MANIFEST_URL}"
+            echo '```'
+          } > release_body.md
+
+      - name: Create/Update prerelease (tag includes leading 'v')
         id: ghrel
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.reftype.outputs.tag_name }}
-          name: ${{ steps.reftype.outputs.tag_name }}
-          body: "Automated prerelease for testing.\n\nRef: `${{ env.REF }}`\nVersion: `${{ steps.urls.outputs.target_ver }}`"
+          tag_name: ${{ steps.ensuretag.outputs.tag_name }}
+          name: ${{ steps.ensuretag.outputs.tag_name }}
+          body_path: release_body.md
           prerelease: true
           draft: false
           generate_release_notes: false
