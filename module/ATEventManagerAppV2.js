@@ -1,5 +1,5 @@
 +// File: modules/about-time-next/module/ATEventManagerAppV2.js
-+// v13.1.3.0 — Add macro datalist + refresh; no behavior changes
++// v13.1.3.1 — Add macro datalist + refresh; no behavior changes
 // NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
@@ -358,6 +358,10 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 }
 
 // Convenience export for macro users
+// v13.1.3.0 — Return the instance (not the render Promise) so callers can manage it.
 export function openATEventManagerV2(options = {}) {
-  return new ATEventManagerAppV2(options).render(true);
+  const app = new ATEventManagerAppV2(options);
+  // Fire and forget; callers can still await app.render(true) if they want.
+  app.render(true);
+  return app;
 }
