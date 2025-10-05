@@ -1,160 +1,96 @@
-name: Pre-Release for Test v
+name: Publish Pre-Release (About Time)
 
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag (no leading 'v' in UI). Defaults from selected branch name with 'v' stripped, e.g. 13.1.3.0 or 13.1.3.0-beta"
-        required: false
+      version:
+        description: "Module version (e.g. 13.0.5)"
+        required: true
         type: string
 
-jobs:
-  prerelease:
-    name: Build & publish prerelease
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+permissions:
+  contents: write
 
-    env:
-      # Branch selected via the GitHub UI “Use workflow from” dropdown, e.g. v13.1.3.0
-      REF: ${{ github.ref_name }}
+jobs:
+  build-and-pre-release:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout selected ref (from UI)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install tooling
+      # removed noisy context echo step
+
+      - name: Ensure jq & zip are available
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq rsync zip
+          sudo apt-get install -y jq zip
 
-      - name: Repo metadata
-        id: meta
+      - name: Validate module.json presence
         run: |
-          OWNER="${GITHUB_REPOSITORY%/*}"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          SHORT_SHA="$(git rev-parse --short HEAD)"
-          echo "owner=${OWNER}" >> "$GITHUB_OUTPUT"
-          echo "repo=${REPO}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "ref_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          test -f module.json || (echo "module.json not found at repo root." && exit 1)
 
-      - name: Resolve tag (UI has no 'v', outputs enforce single leading 'v')
-        id: tag
+      - name: Rewrite module.json (version, manifest, download)
         shell: bash
         run: |
           set -euo pipefail
-          BRANCH="${{ steps.meta.outputs.ref_name }}"
-          INPUT_TAG="${{ inputs.tag }}"
+          REPO="${GITHUB_REPOSITORY}"                 # owner/repo
+          VERSION="${{ inputs.version }}"             # e.g. 13.0.5
+          TAG="v${{ inputs.version }}"                # prerelease tag includes leading 'v'
 
-          # Derive a base tag WITHOUT leading v from the selected branch if input empty
-          # Example: branch v13.1.3.0 -> BASE=13.1.3.0
-          DEFAULT_BASE="${BRANCH#v}"
-          BASE="${INPUT_TAG:-$DEFAULT_BASE}"
+          MANIFEST_URL="https://github.com/${REPO}/releases/download/${TAG}/module.json"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/about-time-next.zip"
 
-          if [[ -z "${BASE}" ]]; then
-            echo "ERROR: Could not derive a tag base." >&2
-            exit 1
-          fi
+          cp module.json module.json.bak
 
-          # Enforce exactly one leading v in the final tag
-          # Example: BASE=13.1.3.0      -> FINAL=v13.1.3.0
-          #          BASE=13.1.3.0-beta -> FINAL=v13.1.3.0-beta
-          FINAL="v${BASE#v}"
-
-          echo "base=${BASE}"   >> "$GITHUB_OUTPUT"
-          echo "final=${FINAL}" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure tag exists at current commit (final tag with leading 'v')
-        id: ensuretag
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.tag.outputs.final }}"
-          if git show-ref --tags --verify --quiet "refs/tags/${TAG}"; then
-            echo "Tag '${TAG}' already exists; will use it as-is."
-          else
-            echo "Creating tag '${TAG}' at HEAD..."
-            git tag -a "${TAG}" -m "Prerelease tag '${TAG}' created by workflow"
-            git push origin "refs/tags/${TAG}"
-          fi
-          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Read current module.json version from ref (informational)
-        id: readver
-        run: |
-          if [[ ! -f module.json ]]; then
-            echo "ERROR: module.json not found at repo root." >&2
-            exit 1
-          fi
-          CUR_VER="$(jq -r '.version // empty' module.json)"
-          echo "current=${CUR_VER}" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare dist
-        run: |
-          rm -rf dist
-          mkdir -p dist
-          rsync -a --delete \
-            --exclude ".git" \
-            --exclude ".github" \
-            ./ dist/
-
-      - name: Compute prerelease asset URLs (leading 'v' in path)
-        id: urls
-        run: |
-          OWNER="${{ steps.meta.outputs.owner }}"
-          REPO="${{ steps.meta.outputs.repo }}"
-          TAG="${{ steps.ensuretag.outputs.tag_name }}"
-
-          MODULE_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
-          ZIP_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/about-time-next.zip"
-
-          echo "module_url=${MODULE_URL}" >> "$GITHUB_OUTPUT"
-          echo "zip_url=${ZIP_URL}" >> "$GITHUB_OUTPUT"
-
-      - name: Rewrite module.json (pin to prerelease assets, set version to leading-v tag)
-        working-directory: dist
-        run: |
-          set -euo pipefail
-          MODULE_URL="${{ steps.urls.outputs.module_url }}"
-          ZIP_URL="${{ steps.urls.outputs.zip_url }}"
-          VERSION="${{ steps.ensuretag.outputs.tag_name }}"
-
-          jq \
-            --arg manifest  "${MODULE_URL}" \
-            --arg download  "${ZIP_URL}" \
-            --arg version   "${VERSION}" \
-            '
-              .manifest = $manifest
-            | .download = $download
-            | .version  = $version
-            ' module.json > module.json.tmp
+          jq --arg v "$VERSION" \
+             --arg manifest "$MANIFEST_URL" \
+             --arg download "$DOWNLOAD_URL" \
+             '
+             .version = $v
+             | .manifest = $manifest
+             | .download = $download
+             ' module.json > module.json.tmp
 
           mv module.json.tmp module.json
-          echo "Updated module.json:"
-          jq '.' module.json
 
-      - name: Create about-time-next.zip (includes rewritten module.json)
-        id: zip
-        working-directory: dist
+          echo "Updated module.json to version ${VERSION}:"
+          cat module.json
+
+      # removed committing back to main; prerelease artifacts only
+
+      - name: Build ZIP (about-time-next.zip)
+        shell: bash
         run: |
-          ZIP="about-time-next.zip"
-          zip -r "${ZIP}" . -x ".git/*" -x ".github/*"
-          echo "zip=${ZIP}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          ZIPNAME="about-time-next.zip"
+          rm -f "$ZIPNAME"
+          # Create a clean ZIP with module files at the root.
+          zip -r "$ZIPNAME" . \
+            -x ".git/*" \
+               ".github/*" \
+               ".gitignore" \
+               "docs/*" \
+               ".DS_Store"
+          [ -f "$ZIPNAME" ] || (echo "ZIP was not produced." && exit 1)
+          echo "ZIP contents:"
+          unzip -l "$ZIPNAME"
+
+      - name: Verify release assets exist
+        run: |
+          test -f about-time-next.zip || (echo "about-time-next.zip missing"; exit 1)
+          test -f module.json || (echo "module.json missing"; exit 1)
 
       - name: Build release notes (include manifest URL code block)
         run: |
-          OWNER="${{ steps.meta.outputs.owner }}"
-          REPO="${{ steps.meta.outputs.repo }}"
-          TAG="${{ steps.ensuretag.outputs.tag_name }}"
-          MANIFEST_URL="https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/module.json"
-
+          REPO="${GITHUB_REPOSITORY}"
+          TAG="v${{ inputs.version }}"
+          MANIFEST_URL="https://github.com/${REPO}/releases/download/${TAG}/module.json"
           {
-            echo "Automated prerelease for testing."
+            echo "Automated pre-release for testing."
             echo
-            echo "Ref: \`${{ steps.meta.outputs.ref_name }}\`"
             echo "Version: \`${TAG}\`"
             echo
             echo "### Pre-release manifest URL"
@@ -164,18 +100,18 @@ jobs:
             echo '```'
           } > release_body.md
 
-      - name: Create/Update prerelease (tag includes leading 'v')
-        id: ghrel
+      - name: Create/Update GitHub Pre-Release & Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.ensuretag.outputs.tag_name }}
-          name: ${{ steps.ensuretag.outputs.tag_name }}
-          body_path: release_body.md
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           draft: false
           generate_release_notes: false
+          body_path: release_body.md
           files: |
-            dist/module.json
-            dist/${{ steps.zip.outputs.zip }}
+            about-time-next.zip
+            module.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
