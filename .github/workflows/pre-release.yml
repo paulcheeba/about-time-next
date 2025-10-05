@@ -1,4 +1,4 @@
-name: Pre-Release (Pinned Asset URLs, Enforce leading 'v')
+name: Pre-Release for Test v
 
 on:
   workflow_dispatch:
