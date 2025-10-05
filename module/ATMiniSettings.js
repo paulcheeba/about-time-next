@@ -1,5 +1,6 @@
 // module/ATMiniSettings.js
-// v13.0.6.3 — Client settings for the AT Mini Time Panel (reload prompt on enable; live label updates)
+// v13.1.1.1 — Client settings for the AT Mini Time Panel (reload prompt on enable; live label updates; active-combat reconcile)
+
 
 import { MODULE_ID } from "./settings.js";
 
@@ -73,10 +74,27 @@ export function registerMiniSettings() {
     name: "Safety lock (confirm big jumps)", scope: "client", config: true, type: Boolean, default: false
   });
   if (!hasSetting("rtAutoPauseCombat")) game.settings.register(MODULE_ID, "rtAutoPauseCombat", {
-    name: "Auto-pause during combat", scope: "world", config: true, type: Boolean, default: true
+    name: "Auto Pause at Combat Start/End",
+    hint: "When enabled, the game UI is automatically paused when combat begins and when combat ends.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
   });
   if (!hasSetting("rtLinkPause")) game.settings.register(MODULE_ID, "rtLinkPause", {
-    name: "Link realtime to pause", scope: "world", config: true, type: Boolean, default: true
+    name: "Link realtime to pause", scope: "world", config: true, type: Boolean, default: true,
+    onChange: (value) => {
+      try {
+        const hasActiveCombat = !!game.combat;
+        if (game.paused || hasActiveCombat) {
+          game.abouttime?.stopRealtime?.();
+        } else if (value) {
+          game.abouttime?.startRealtime?.();
+        }
+      } catch (e) {
+        console.warn(`${MODULE_ID} | rtLinkPause onChange failed`, e);
+      }
+    }
   });
 
 }

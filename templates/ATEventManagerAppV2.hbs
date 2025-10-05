@@ -1,5 +1,5 @@
 <!-- File: modules/about-time-v13/templates/ATEventManagerAppV2.hbs -->
-<!-- v13.0.8.1.0 — Remove "Copy UID" button; add bordered board + header; keep everything else the same. -->
+<!-- v13.1.3.1 — Light mode accents (auto-only, filled buttons) + button order -->
 
 <section class="at-emv2 at-dracula">
   <style>
@@ -27,9 +27,50 @@
     .at-btn.danger{border-color:var(--atd-red);box-shadow:0 0 0 1px var(--atd-red) inset}
 
     /* Event Status Board framing */
-    .board { border:1px solid var(--atd-accent); border-radius:8px; padding:.5rem; }
+    .board { border:1px solid var(--atd-accent); border-radius:8px; padding:.5rem; overflow-x:auto; }
     .board-title { margin: .25rem .25rem .5rem; color: var(--atd-yellow); font-weight: 600; }
-  </style>
+    /* v13.1.3.1 — Light theme (auto): filled accents + queue/table readability */
+    .theme-light .at-emv2 .at-btn.primary {
+      background:#2e7d32; border-color:#2e7d32; color:#fff;
+      box-shadow:0 0 0 1px rgba(0,0,0,.05) inset;
+    }
+    .theme-light .at-emv2 .at-btn.warn {
+      background:#ef6c00; border-color:#ef6c00; color:#fff;
+      box-shadow:0 0 0 1px rgba(0,0,0,.05) inset;
+    }
+    .theme-light .at-emv2 .at-btn.danger {
+      background:#b71c1c; border-color:#b71c1c; color:#fff;
+      box-shadow:0 0 0 1px rgba(0,0,0,.05) inset;
+    }
+    /* Keep "Send Queue to Chat" unaccented (inherit) */
+    .theme-light .at-emv2 .board { border-color: var(--color-border, #bbb); }
+    .theme-light .at-emv2 .muted {color:#6c568a}
+    .theme-light .at-emv2 .board-title,
+    .theme-light .at-emv2 thead th { color:#5d4037; }
+    .theme-light .at-emv2 .queue { background: var(--color-bg-alt, #f6f6f6); color: #332c2c;}
+    .theme-light .at-emv2 table   { background: transparent;}
+    .theme-light .at-emv2 th, .theme-light .at-emv2 td { border-bottom-color: var(--color-border, #bbb); }
+    /* Inputs/labels: inherit Theme V2; ensure readable text */
+    .theme-light .at-emv2 label { color: var(--color-text-primary, #222); }
+    .theme-light .at-emv2 input,
+    .theme-light .at-emv2 select,
+    .theme-light .at-emv2 textarea {
+      background: var(--input-background, #fff);
+      color: var(--input-text-color, #222);
+      border-color: var(--input-border-color, #999);
+    /* v13.1.3.1 — Datalist chevron replacement on macro input */
+    .at-emv2 .macro-name {
+      padding-right: 1.6rem;
+      background-repeat: no-repeat;
+      background-position: right .45rem center;
+      background-size: 12px 12px;
+      /* simple chevron-down SVG (currentColor) */
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+    }
+    /* Try to hide native indicator in WebKit to avoid double icon (best effort) */
+    .at-emv2 .macro-name::-webkit-calendar-picker-indicator { opacity: 0; display: none; }
+
+    }  </style>
 
   <div class="controls">
     <div class="row">
@@ -49,17 +90,19 @@
       <label>Options</label>
       <label><input type="checkbox" name="repeat" /> Repeat</label>
       <label><input type="checkbox" name="runMacro" /> Run Macro</label>
-      <input type="text" name="macroName" placeholder="Macro Name" />
+      <input type="text"  class="macro-name" name="macroName" placeholder="Macro Name" list="atn-em-macro-list" />
+      <datalist id="atn-em-macro-list"></datalist>
+      <button type="button" class="at-emv2-btn icon at-emv2-macro-refresh" title="Refresh macros" aria-label="Refresh macros">⟳</button>
     </div>
     <div class="row buttons">
       {{#if isGM}}
-      <button type="button" class="at-btn primary" data-action="create">Create</button>
+      <button type="button" class="at-btn danger" data-action="flush">Stop all Events</button>
+      <button type="button" class="at-btn danger" data-action="flush-rem">Stop all + 1h reminder</button>
       <input type="text" name="stopKey" placeholder="Stop → enter Name or UID" />
       <button type="button" class="at-btn warn" data-action="stop-by-name">Stop by Name</button>
       <button type="button" class="at-btn warn" data-action="stop-by-uid">Stop by UID</button>
       <button type="button" class="at-btn" data-action="list">Send Queue to Chat</button>
-      <button type="button" class="at-btn danger" data-action="flush">Stop all Events</button>
-      <button type="button" class="at-btn danger" data-action="flush-rem">Stop all + 1h reminder</button>
+      <button type="button" class="at-btn primary" data-action="create">Create</button>
       {{else}}
       <span class="muted">Players can view the queue only.</span>
       {{/if}}
@@ -78,6 +121,7 @@
             <th>Starts</th>
             <th>Remaining</th>
             <th>Repeat</th>
+            <th>Macro</th>
             <th>Message</th>
             <th>UID</th>
             <th>Actions</th>
@@ -91,6 +135,7 @@
               <td class="start">{{e.startTxt}}</td>
               <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
               <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
+              <td class="macro" title="{{e.macroUuid}}">{{#if e.macroName}}{{e.macroName}}{{else}}NA{{/if}}</td>
               <td class="msg">{{e.msg}}</td>
               <td class="uid"><code>{{e.uid}}</code></td>
               <td class="actions">
@@ -100,7 +145,7 @@
             </tr>
             {{/each}}
           {{else}}
-            <tr><td colspan="7" class="muted">- (empty queue) -</td></tr>
+            <tr><td colspan="8" class="muted">- (empty queue) -</td></tr>
           {{/if}}
         </tbody>
       </table>

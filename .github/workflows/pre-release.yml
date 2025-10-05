@@ -1,4 +1,4 @@
-name: Publish Release (About Time)
+name: Publish Pre-Release (About Time)
 
 on:
   workflow_dispatch:
@@ -7,28 +7,12 @@ on:
         description: "Module version (e.g. 13.0.5)"
         required: true
         type: string
-      prerelease:
-        description: "Mark as pre-release?"
-        required: false
-        default: false
-        type: boolean
-      draft:
-        description: "Create as draft?"
-        required: false
-        default: false
-        type: boolean
-      make_latest:
-        description: "Make this the 'latest' release? (true | false | legacy)"
-        required: false
-        default: "true"
-        type: choice
-        options: [ "true", "false", "legacy" ]
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-and-pre-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -37,13 +21,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show context
-        run: |
-          echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"
-          echo "github.ref=${{ github.ref }}"
-          echo "github.ref_name=${{ github.ref_name }}"
-          echo "github.ref_type=${{ github.ref_type }}"
-          echo "inputs.version=${{ inputs.version }}"
+      # removed noisy context echo step
 
       - name: Ensure jq & zip are available
         run: |
@@ -58,11 +36,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REPO="${GITHUB_REPOSITORY}"
-          VERSION="${{ inputs.version }}"
+          REPO="${GITHUB_REPOSITORY}"                 # owner/repo
+          VERSION="${{ inputs.version }}"             # e.g. 13.0.5
+          TAG="v${{ inputs.version }}"                # prerelease tag includes leading 'v'
 
-          MANIFEST_URL="https://github.com/${REPO}/releases/latest/download/module.json"
-          DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/about-time-next.zip"
+          MANIFEST_URL="https://github.com/${REPO}/releases/download/${TAG}/module.json"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/about-time-next.zip"
 
           cp module.json module.json.bak
 
@@ -80,19 +59,7 @@ jobs:
           echo "Updated module.json to version ${VERSION}:"
           cat module.json
 
-      - name: Commit updated module.json to main (if on main)
-        if: ${{ endsWith(github.ref, '/main') }}
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add module.json
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Release v${{ inputs.version }}: update module.json"
-            git push origin HEAD:main
-          fi
+      # removed committing back to main; prerelease artifacts only
 
       - name: Build ZIP (about-time-next.zip)
         shell: bash
@@ -116,15 +83,33 @@ jobs:
           test -f about-time-next.zip || (echo "about-time-next.zip missing"; exit 1)
           test -f module.json || (echo "module.json missing"; exit 1)
 
-      - name: Create/Update GitHub Release & Upload Assets
+      - name: Build release notes (include manifest URL code block)
+        run: |
+          REPO="${GITHUB_REPOSITORY}"
+          TAG="v${{ inputs.version }}"
+          MANIFEST_URL="https://github.com/${REPO}/releases/download/${TAG}/module.json"
+          {
+            echo "Automated pre-release for testing."
+            echo
+            echo "Version: \`${TAG}\`"
+            echo
+            echo "### Pre-release manifest URL"
+            echo
+            echo '```txt'
+            echo "${MANIFEST_URL}"
+            echo '```'
+          } > release_body.md
+
+      - name: Create/Update GitHub Pre-Release & Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
-          draft: ${{ inputs.draft }}
-          prerelease: ${{ inputs.prerelease }}
-          make_latest: ${{ inputs.make_latest }}
-          generate_release_notes: true
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          draft: false
+          generate_release_notes: false
+          body_path: release_body.md
           files: |
             about-time-next.zip
             module.json

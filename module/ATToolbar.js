@@ -1,8 +1,11 @@
-// About Time v13.0.8.1.3 — Toolbar tool (Journal/Notes subtool) + AppV2 Event Manager + AppV2 Time Manager
+// v13.1.3.0 — Event Manager toolbar toggle (single instance)
 
 const MOD = "about-time-next";
 
 import { openATEventManagerV2 } from "./ATEventManagerAppV2.js";
+
+// v13.1.3.0 — Event Manager toolbar toggle (single instance)
+let _emAppV2 = null;
 
 /** Normalize controls (v13 provides Record<string, SceneControl>) */
 function normalizeControls(controlsArg) {
@@ -49,7 +52,18 @@ Hooks.on("getSceneControlButtons", (controlsArg) => {
     order: Number.isFinite(ctl.order) ? ctl.order + 1 : 999,
     button: true,
     visible: true,
-    onClick: () => openATEventManagerV2()
+    onClick: () => {
+      // Toggle single-instance Event Manager (v13.1.3.0)
+      if (_emAppV2?.rendered) return _emAppV2.close();
+      const app = openATEventManagerV2();
+      // Ensure handle clears when closed by any means
+      const _origClose = app.close?.bind(app);
+      app.close = async (...args) => {
+        try { return await _origClose?.(...args); }
+        finally { _emAppV2 = null; }
+      };
+      _emAppV2 = app;
+    }
   });
 });
 
