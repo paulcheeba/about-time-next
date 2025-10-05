@@ -1,0 +1,147 @@
+name: Release Foundry Package (API-simple)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "GitHub release tag to publish (e.g. v13.1.1.1.0)"
+        type: string
+        required: true
+      manifest_asset_name:
+        description: "Manifest asset filename in that release"
+        type: string
+        required: true
+        default: module.json
+      notes_url:
+        description: "Optional: Release notes URL (defaults to the release page)"
+        type: string
+        required: false
+      dry_run:
+        description: "Validate only (uses API dry-run)"
+        type: boolean
+        required: true
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Resolve release + manifest URL
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = core.getInput('release_tag', { required: true });
+            const manifestName = core.getInput('manifest_asset_name', { required: true });
+
+            const { data: rel } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag
+            });
+
+            const asset = rel.assets.find(a => a.name === manifestName);
+            if (!asset) {
+              core.setFailed(`Manifest asset "${manifestName}" not found in release "${tag}". Assets: ${rel.assets.map(a=>a.name).join(', ') || 'none'}`);
+              return;
+            }
+
+            core.setOutput('manifest_url', asset.browser_download_url);
+            core.setOutput('release_html_url', rel.html_url);
+
+      - name: Fetch manifest and extract fields
+        id: manifest
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq curl
+          curl -fsSL "${{ steps.resolve.outputs.manifest_url }}" -o manifest.json
+
+          # Required by Foundry API body:
+          ID=$(jq -r '.id' manifest.json)
+          VERSION=$(jq -r '.version' manifest.json)
+          MIN=$(jq -r '.compatibility.minimum' manifest.json)
+          VER=$(jq -r '.compatibility.verified' manifest.json)
+          MAX=$(jq -r '.compatibility.maximum // empty' manifest.json)
+
+          test -n "$ID" && test -n "$VERSION" && test -n "$MIN" && test -n "$VER" || {
+            echo "Manifest missing required fields (id, version, compatibility.minimum, compatibility.verified)."
+            exit 1
+          }
+
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "minimum=$MIN" >> "$GITHUB_OUTPUT"
+          echo "verified=$VER" >> "$GITHUB_OUTPUT"
+          echo "maximum=$MAX" >> "$GITHUB_OUTPUT"
+
+      - name: Determine notes URL
+        id: notes
+        run: |
+          if [ -n "${{ inputs.notes_url }}" ]; then
+            echo "url=${{ inputs.notes_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=${{ steps.resolve.outputs.release_html_url }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish via Foundry Package Release API
+        env:
+          TOKEN: ${{ secrets.FOUNDRY_PACKAGE_TOKEN }}
+          ID: ${{ steps.manifest.outputs.id }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+          MANIFEST_URL: ${{ steps.resolve.outputs.manifest_url }}
+          NOTES_URL: ${{ steps.notes.outputs.url }}
+          MIN: ${{ steps.manifest.outputs.minimum }}
+          VER: ${{ steps.manifest.outputs.verified }}
+          MAX: ${{ steps.manifest.outputs.maximum }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "Missing secret FOUNDRY_PACKAGE_TOKEN"
+            exit 1
+          fi
+
+          body=$(jq -n --arg id "$ID" \
+                       --arg version "$VERSION" \
+                       --arg manifest "$MANIFEST_URL" \
+                       --arg notes "$NOTES_URL" \
+                       --arg minimum "$MIN" \
+                       --arg verified "$VER" \
+                       --arg maximum "${MAX:-}" \
+                       --argjson dry ${DRY:-true} \
+            '{
+              id: $id,
+              "dry-run": $dry,
+              release: {
+                version: $version,
+                manifest: $manifest,
+                notes: $notes,
+                compatibility: {
+                  minimum: $minimum,
+                  verified: $verified,
+                  maximum: $maximum
+                }
+              }
+            }')
+
+          echo "$body" | jq .
+
+          curl -fsSL -X POST "https://foundryvtt.com/_api/packages/release_version/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: ${TOKEN}" \
+            --data "$body" \
+            -o response.json
+
+          echo "API response:"
+          cat response.json | jq .
+
+      - name: Summary
+        run: |
+          echo "Package id: ${{ steps.manifest.outputs.id }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ steps.manifest.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Manifest: ${{ steps.resolve.outputs.manifest_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "Notes: ${{ steps.notes.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "Dry run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
