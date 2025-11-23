@@ -4,7 +4,7 @@
 <img width="512" height="512" alt="ATN Logo" src="https://github.com/paulcheeba/about-time-next/blob/v13.2.1.0/assets/images/about-time-next_cartoon_logo_w-ATN.png?raw=true" />
 
 
-# About Time Next (v13.1.3.2)
+# About Time Next (v13.2.1.0)
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
 It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
