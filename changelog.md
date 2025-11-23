@@ -1,3 +1,22 @@
+# Changelog (v13.2.1.0)
+
+- **Standardized Event Chat Cards**  
+  All Event Manager events now display detailed, consistently formatted notification cards with clear visual styling. Cards include event name, message, duration (DD:HH:MM:SS), repeating status, macro name, and event UID. Format persists through Foundry reloads with all metadata intact.
+
+- **Event Card Persistence Fix**  
+  Fixed critical bug where event metadata was lost after Foundry reload, causing empty or malformed chat messages. Implemented deep cloning for proper serialization through Foundry's settings system, ensuring all event details survive reload cycles.
+
+- **[about-time-next] Prefix Integration**  
+  Event cards now always include the `[about-time-next]` prefix, ensuring notification sounds trigger correctly for both fresh events and after reload. Both fresh handlers and reconstructed handlers use the same standardized format for consistency.
+
+- **Macro Integration Enhancement**  
+  Events with macros now display the event notification card *before* executing the macro, providing clear context about what triggered the macro execution. Both card and macro output appear in sequence.
+
+- **UID Display Fix**  
+  Corrected issue where event UID displayed as "null" in fresh event cards. UIDs now display correctly in both pre-reload and post-reload scenarios.
+
+---
+
 # Changelog (v13.2.0.0)
 
 - **Event Notification Sounds**  

@@ -1,4 +1,5 @@
 // About Time v13.1.2.0 — FastPriorityQueue & Quentry (unchanged logic with safe UID)
+// v13.2.1.0 — Added standardized event card formatter
 
 'use strict';
 
@@ -6,6 +7,48 @@ const defaultcomparator = function (a, b) {
   if (a._time !== b._time) return a._time < b._time;
   return a._uid < b._uid;
 };
+
+/**
+ * Format standardized event notification card
+ * Used by both fresh handlers and reconstructed handlers after reload
+ * @param {object} meta - Metadata object with __atName, __atMsg, __macroName, __macroUuid, __duration
+ * @param {string} uid - Event UID
+ * @param {boolean} recurring - Whether event repeats
+ * @param {number} increment - Seconds between repeats (for duration display)
+ * @returns {string} Formatted HTML for chat card
+ */
+function formatEventChatCard(meta, uid, recurring, increment) {
+  const escape = (str) => globalThis.foundry?.utils?.escapeHTML?.(str) ?? String(str);
+  
+  const name = escape(meta?.__atName || "NA");
+  const message = escape(meta?.__atMsg || "NA");
+  const macroName = escape(meta?.__macroName || "NA");
+  const recurringText = recurring ? "Yes" : "No";
+  
+  // Format duration from increment or stored __duration
+  let durationText = "NA";
+  const durationSeconds = meta?.__duration || (recurring ? increment : 0);
+  if (durationSeconds > 0) {
+    const d = Math.floor(durationSeconds / 86400);
+    const h = Math.floor((durationSeconds % 86400) / 3600);
+    const m = Math.floor((durationSeconds % 3600) / 60);
+    const s = Math.floor(durationSeconds % 60);
+    const pad = (n) => String(n).padStart(2, '0');
+    durationText = `${pad(d)}:${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+  
+  return `<div style="border-left: 3px solid #50fa7b; padding-left: 8px; font-family: monospace;">
+<p style="margin: 4px 0;"><strong>[about-time-next]</strong></p>
+<p style="margin: 2px 0;"><strong>Event Name:</strong> ${name}</p>
+<p style="margin: 2px 0;"><strong>Message:</strong> ${message}</p>
+<p style="margin: 2px 0;"><strong>Duration:</strong> ${durationText}</p>
+<p style="margin: 2px 0;"><strong>Repeating:</strong> ${recurringText}</p>
+<p style="margin: 2px 0;"><strong>Macro:</strong> ${macroName}</p>
+<p style="margin: 2px 0;"><strong>Event UID:</strong> <code>${escape(uid)}</code></p>
+</div>`;
+}
+
+export { formatEventChatCard };
 
 export class Quentry {
   constructor(time, recurring, increment, handler, uid, originator, ...args) {
@@ -32,6 +75,22 @@ export class Quentry {
 } else {
  handler = { type: "string", val: this._handler };
 }
+
+    // Deep clone args to ensure proper serialization through Foundry's settings system
+    // Without this, nested objects in _args may be lost on reload
+    let serializedArgs;
+    try {
+      if (globalThis.foundry?.utils?.deepClone) {
+        serializedArgs = globalThis.foundry.utils.deepClone(this._args);
+      } else {
+        // Fallback: JSON round-trip to ensure serializability
+        serializedArgs = JSON.parse(JSON.stringify(this._args));
+      }
+    } catch (e) {
+      console.warn("about-time | Failed to serialize args, using empty array", e);
+      serializedArgs = [];
+    }
+
     return {
       time: this._time,
       recurring: this._recurring,
@@ -39,7 +98,7 @@ export class Quentry {
       handler: handler,
       uid: this._uid,
       originator: this._originator,
-      args: this._args
+      args: serializedArgs
     };
   }
 
@@ -64,12 +123,11 @@ export class Quentry {
                   if (!md && meta.__macroName) md = game.macros?.getName?.(meta.__macroName) ?? game.macros?.find?.(m => m.name === meta.__macroName);
                   if (md?.execute) await md.execute({ args });
                 }
-              } catch (mx) { console.warn("about-time | macro exec via UUID failed", mx); }              
-              let text = "(event)";
-              if (typeof meta === "string") text = meta;
-              else if (meta && typeof meta === "object") text = meta.__atMsg ?? meta.__atName ?? "(event)";
-              const safe = (globalThis.foundry?.utils?.escapeHTML?.(text)) ?? String(text);
-              await ChatMessage.create({ content: `<p>${safe}</p>`, whisper: ids });
+              } catch (mx) { console.warn("about-time | macro exec via UUID failed", mx); }
+              
+              // Always show standardized event card (even when macro runs)
+              const cardHtml = formatEventChatCard(meta, data.uid, data.recurring, data.increment);
+              await ChatMessage.create({ content: cardHtml, whisper: ids });
             } catch (e) {
               console.warn("about-time | gmWhisper fallback failed", e);
             }
@@ -87,6 +145,10 @@ export class Quentry {
         try { const ids = ChatMessage.getWhisperRecipients("GM").map((u)=>u.id); await ChatMessage.create({content:"<p>(event)</p>", whisper: ids}); } catch(e) { console.warn("about-time | fallback whisper failed", e); }
       };
     }
+
+    // Ensure args is properly deserialized as an array
+    const args = Array.isArray(data.args) ? data.args : [];
+
     return new Quentry(
       data.time,
       data.recurring,
@@ -94,7 +156,7 @@ export class Quentry {
       handler,
       data.uid,
       data.originator,
-      ...data.args
+      ...args
     );
   }
 }

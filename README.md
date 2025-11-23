@@ -132,7 +132,27 @@ Actions (top buttons):
 - **Send Queue to Chat** (GM-whisper)  
 - **Stop all Events** / **Stop all + 1h reminder**
 
-> With **Simple Calendar** installed, About-Time uses SC’s formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+> With **Simple Calendar** installed, About-Time uses SC's formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+
+### Event Notification Cards (v13.2.1.0)
+When events trigger, they display standardized notification cards with detailed information:
+
+```
+[about-time-next]
+Event Name: <name or NA>
+Message: <message or NA>
+Duration: DD:HH:MM:SS (or NA)
+Repeating: Yes/No
+Macro: <macro name or NA>
+Event UID: <unique identifier>
+```
+
+- **Consistent Format**: All Event Manager events use the same card layout
+- **Persistence**: Format maintained through Foundry reloads
+- **Macro Integration**: Events with macros show the card *before* executing the macro
+- **Sound Support**: `[about-time-next]` prefix ensures notification sounds trigger correctly
+
+_Note: `/at` chat commands currently use legacy format. Standardization planned for future release._
 
 ---
 
