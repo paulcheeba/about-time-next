@@ -4,7 +4,7 @@
 <img width="512" height="512" alt="ATN Logo" src="https://github.com/paulcheeba/about-time-next/blob/v13.2.1.0/assets/images/about-time-next_cartoon_logo_w-ATN.png?raw=true" />
 
 
-# About Time Next (v13.2.1.0)
+# About Time Next
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
 It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
@@ -136,7 +136,7 @@ Actions (top buttons):
 
 > With **Simple Calendar** installed, About-Time uses SC's formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
 
-### Event Notification Cards (v13.2.1.0)
+### Event Notification Cards
 When events trigger, they display standardized notification cards with detailed information:
 
 <img width="293" height="365" alt="image" src="https://github.com/user-attachments/assets/0bbc2efb-e1a4-408c-9b54-1865c1e4d457" />
