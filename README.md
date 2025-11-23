@@ -9,7 +9,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 📦 Installation
+## Installation
 
 1. Download and install via Foundry’s module browser  
 
@@ -28,7 +28,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 - **EM (Event Manager V2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (GM-only).  
   Use it to create one-shots or repeating events, stop items by name/UID, view the queue, or flush all.
@@ -40,7 +40,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 🧰 Toolbars
+## Toolbars
 
 <img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
 
@@ -73,7 +73,7 @@ Enable **“Enable AT Time Manager”** to show a compact panel:
 
 ---
 
-## ⌛ Realtime & Clock
+## Realtime & Clock
 
 About-Time provides a simple **realtime worldTime runner** (GM-only, single-owner) with:
 - **Rate** (default 1.0×) and **Tick Hz** settings (safe minimums enforced)
@@ -82,7 +82,7 @@ About-Time provides a simple **realtime worldTime runner** (GM-only, single-owne
 
 ---
 
-## 💬 Chat Commands (GM-only output)
+## Chat Commands (GM-only output)
 
 All commands are handled by `/at` (see `module/ATChat.js`).  
 Durations accept mixed units: days (**d**), hours (**h**), minutes (**m**), seconds (**s**).  
@@ -113,7 +113,7 @@ Examples: `1h30m`, `2d 4h`, `45m10s`, or `5400` (seconds).
 
 ---
 
-## 🗓 Event Manager (details)
+## Event Manager (details)
 
 The EM V2 lists every queued item with:
 
@@ -136,7 +136,7 @@ Actions (top buttons):
 
 ---
 
-## 🧩 Macros
+## Macros
 
 **Advance by 30 seconds (core FVTT v13):**
 ```js
@@ -172,7 +172,7 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## 🧪 Example Scenarios
+## Example Scenarios
 
 - **Short Rest timer (one-shot):**  
   “Wake the party in 1 hour.”  
@@ -191,7 +191,7 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## ⚙ Settings (high-level)
+## Settings (high-level)
 
 - **Enable AT Time Manager (client)** — Shows the mini panel for this user.  
 - **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
@@ -213,7 +213,7 @@ Event notifications play automatically when scheduled events fire, helping GMs t
 
 ---
 
-## ❗ Notes & Limitations
+## Notes & Limitations
 
 - The module **does not** override combat round/initiative time.  
 - Complex SC calendars (non-365-day years, custom months) are supported via SC’s own conversions, while raw seconds math remains conservative in fallback mode.  
@@ -222,12 +222,12 @@ Event notifications play automatically when scheduled events fire, helping GMs t
 
 ---
 
-## 📝 Credits
+## Credits
 
 Originally created by **Tim Posney**, updated and maintained for FVTT v13+ by **paulcheeba** with community input and ChatGPT-assisted refactoring.
 
 **Event notification sound effects** by [Notification_Message](https://pixabay.com/users/notification_message-47259947/) from [Pixabay](https://pixabay.com/sound-effects/).
 
-## 📝 License
+## License
 
 MIT — see LICENSE file.
