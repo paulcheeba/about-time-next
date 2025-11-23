@@ -154,7 +154,7 @@ Event UID: <unique identifier>
 
 - **Consistent Format**: All Event Manager events use the same card layout
 - **Persistence**: Format maintained through Foundry reloads
-- **Macro Integration**: Events with macros show the card *before* executing the macro
+- **Macro Integration**: Events with macros show the event card *and* executes the macro
 - **Sound Support**: `[about-time-next]` prefix ensures notification sounds trigger correctly
 
 _Note: `/at` chat commands currently use legacy format. Standardization planned for future release._
