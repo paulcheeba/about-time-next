@@ -197,6 +197,18 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 - **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
 - **Link Pause / Auto-Pause Combat (client)** — How the mini panel reacts to world/game state.
 
+### Event Notification Sounds (client, v13.2.0.0)
+
+Configure audible alerts when events trigger (GM-only feature):
+
+- **Enable Event Notification Sound** — Toggle notification sounds on/off
+- **Sound Source** — Choose between built-in sound or custom audio file
+- **Custom Sound Path** — File picker to select your own audio (defaults to module's sounds folder)
+- **Notification Volume** — Adjust volume from 0-100% (affects only ATN notifications)
+- **Test Sound** — Preview button to hear current selection before saving
+
+Event notifications play automatically when scheduled events fire, helping GMs track timers without constantly watching the Event Manager. Settings apply immediately after saving, so you can adjust volume mid-session without reloading.
+
 > Where SC is present, date/time formatting in the mini panel and EM uses SC helpers.
 
 ---
