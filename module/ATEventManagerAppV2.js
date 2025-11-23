@@ -5,6 +5,7 @@
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
 import { MODULE_ID } from "./settings.js";
+import { formatEventChatCard } from "./FastPriorityQueue.js";
 // Minimal helper for GM whisper used inside scheduled handlers (no private fields)
 const gmWhisper = (html) => {
   try {
@@ -137,7 +138,11 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     const seconds = this.#parseMixedDuration(durStr);
     if (!seconds || seconds <= 0) return gmWhisper(`<p>[${MODULE_ID}] Enter a valid duration.</p>`);
 
-    const meta = { __atName: name || (runMacro ? macroName : "(unnamed)"), __atMsg: message };
+    const meta = { 
+      __atName: name || (runMacro ? macroName : "(unnamed)"), 
+      __atMsg: message,
+      __duration: seconds  // Store for card display
+    };
 
     // Persist macro identity for reload: store both name and uuid when available
     let macroUuid = "";
@@ -152,6 +157,12 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
     const handler = async (metaArg) => {
       try {
+        // Always show standardized event card first
+        // Use __uid from metadata which gets set by doIn/doEvery
+        const cardHtml = formatEventChatCard(metaArg, metaArg?.__uid, repeat, seconds);
+        await gmWhisper(cardHtml);
+        
+        // Then execute macro if configured
         if (runMacro && macroName) {
           let macro = null;
           try {
@@ -168,8 +179,6 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
               await fn.call(this, { speaker: {}, args: [metaArg] });
             }
           } else ui.notifications?.warn?.(`[${MODULE_ID}] Macro not found: ${macroName}`);
-        } else {
-          await gmWhisper(`<p>[${MODULE_ID}] ${foundry.utils.escapeHTML(metaArg.__atMsg || metaArg.__atName || "(event)")}</p>`);
         }
       } catch (err) {
         console.error(`${MODULE_ID} | handler failed`, err);
@@ -182,6 +191,9 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
     const AT = game.abouttime ?? game.Gametime;
     const uid = repeat ? AT.doEvery({ seconds }, handler, meta) : AT.doIn({ seconds }, handler, meta);
+    
+    // Store UID in metadata for handler to use
+    meta.__uid = uid;
     if (name) await game.user.setFlag(MODULE_ID, name, uid);
 
     await gmWhisper(

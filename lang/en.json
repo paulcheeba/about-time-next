@@ -37,5 +37,19 @@
   "about-time.display.advanceMidDay": "Advance to mid day",
   "about-time.display.advanceMidnight": "Advance to midnight",
 
-  "about-time.countDown.startStop": "Start/Stop pseudoclock."
+  "about-time.countDown.startStop": "Start/Stop pseudoclock.",
+
+  "ATN.SETTINGS.EnableEventNotificationSound": "Enable Event Notification Sounds",
+  "ATN.SETTINGS.EnableEventNotificationSoundHint": "Play a sound when an event fires and sends a chat message.",
+  "ATN.SETTINGS.EventNotificationSoundSource": "Notification Sound Source",
+  "ATN.SETTINGS.EventNotificationSoundSourceHint": "Choose between the built-in notification sound or a custom audio file.",
+  "ATN.SETTINGS.SoundSourceBuiltin": "Built-in notification sound",
+  "ATN.SETTINGS.SoundSourceCustom": "Custom file path",
+  "ATN.SETTINGS.EventNotificationSoundPath": "Custom Sound File Path",
+  "ATN.SETTINGS.EventNotificationSoundPathHint": "Path to a custom notification sound (only used when 'Custom file path' is selected). Defaults to ATN's included sounds.",
+  "ATN.SETTINGS.EventNotificationVolume": "Notification Volume",
+  "ATN.SETTINGS.EventNotificationVolumeHint": "Volume level for event notification sounds (0-100%).",
+  "ATN.SETTINGS.TestNotificationSound": "Test Notification Sound",
+  "ATN.SETTINGS.TestNotificationSoundButton": "Test Sound",
+  "ATN.SETTINGS.TestNotificationSoundHint": "Play a test notification sound using your current settings."
 }

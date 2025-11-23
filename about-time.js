@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.1.1.1  (Hotfix: use active-combat signal and reconcile on updateCombat)
+// v13.2.0.0 — Added event notification sound system
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -13,6 +13,7 @@ import { registerMiniSettings } from './module/ATMiniSettings.js';
 import { showMiniPanel, hideMiniPanel, toggleMiniPanel } from './module/ATMiniPanel.js';
 import { startRealtime, stopRealtime, isRealtimeRunning, setRealtimeRate } from './module/ATRealtimeClock.js';
 import './module/ATMiniToolbar.js'; // only adds tool when enabled & GM
+import { ATNotificationSound } from './module/ATNotificationSound.js'; // v13.2.0.0 - event notifications
 
 // Side-effect imports (existing)
 import './module/ATChat.js'; // /at chat command
@@ -144,6 +145,9 @@ Hooks.once('ready', () => {
   }
   PseudoClock.init();
   ElapsedTime.init();
+
+  // Initialize event notification sound system (v13.2.0.0)
+  ATNotificationSound.init();
 
   // Auto-open the mini panel per user setting
   try {

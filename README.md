@@ -1,6 +1,8 @@
 <!-- Latest release (semantic version) -->
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/paulcheeba/about-time-next?sort=semver) <!-- Total downloads across all releases -->![Downloads](https://img.shields.io/github/downloads/paulcheeba/about-time-next/total) <!-- Downloads of latest release only -->![Downloads (latest)](https://img.shields.io/github/downloads/paulcheeba/about-time-next/latest/total)
 
+<img width="512" height="512" alt="ATN Logo" src="https://github.com/paulcheeba/about-time-next/blob/v13.2.1.0/assets/images/about-time-next_cartoon_logo_w-ATN.png?raw=true" />
+
 
 # About Time Next (v13.1.3.2)
 
@@ -9,7 +11,7 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 📦 Installation
+## Installation
 
 1. Download and install via Foundry’s module browser  
 
@@ -28,9 +30,9 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-- **EM (Event Manager V2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (GM-only).  
+- **Event Manager (applicationV2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (GM-only).  
   Use it to create one-shots or repeating events, stop items by name/UID, view the queue, or flush all.
 
 - **Mini Time Manager (optional):** Enable in **Configure Settings → About-Time** to show a compact panel with **Play/Pause**, current time, and tiny toggles for realtime behavior (GM sees controls; players see time).
@@ -40,11 +42,11 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ---
 
-## 🧰 Toolbars
+### Toolbar Buttons
 
 <img width="281" height="200" alt="image" src="https://github.com/user-attachments/assets/8f3c06f8-d511-4e0c-9528-9c2b67d1c8a3" />
 
-### Event Manager (V2, ApplicationV2)
+### Event Manager (ApplicationV2)
 
 <img width="923" height="437" alt="image" src="https://github.com/user-attachments/assets/6e72b4b3-477a-417e-bb5b-789698696a46" />
 
@@ -57,7 +59,7 @@ Opened via the **Journal/Notes** toolbar sub-button (GM-only).
 - **Stop all Events**: Flush the queue.  
 - **Stop all + 1h reminder**: Flush and schedule a “Resume in 1h” reminder.
 
-The V2 view auto-updates countdowns and refreshes itself if an event fires or is rescheduled, keeping “Remaining” correct for repeating items.
+The Event Manager auto-updates countdowns and refreshes itself if an event fires or is rescheduled, keeping “Remaining” correct for repeating items.
 
 ### Mini Time Manager (optional, client setting)
 Enable **“Enable AT Time Manager”** to show a compact panel:
@@ -73,7 +75,7 @@ Enable **“Enable AT Time Manager”** to show a compact panel:
 
 ---
 
-## ⌛ Realtime & Clock
+## Realtime & Clock
 
 About-Time provides a simple **realtime worldTime runner** (GM-only, single-owner) with:
 - **Rate** (default 1.0×) and **Tick Hz** settings (safe minimums enforced)
@@ -82,7 +84,7 @@ About-Time provides a simple **realtime worldTime runner** (GM-only, single-owne
 
 ---
 
-## 💬 Chat Commands (GM-only output)
+## Chat Commands (GM-only output)
 
 All commands are handled by `/at` (see `module/ATChat.js`).  
 Durations accept mixed units: days (**d**), hours (**h**), minutes (**m**), seconds (**s**).  
@@ -113,9 +115,9 @@ Examples: `1h30m`, `2d 4h`, `45m10s`, or `5400` (seconds).
 
 ---
 
-## 🗓 Event Manager (details)
+## Event Manager (details)
 
-The EM V2 lists every queued item with:
+The Event Manager lists every queued item with:
 
 - **Name** (friendly name you provided when scheduling)
 - **UID** (unique identifier; safe to copy)
@@ -132,11 +134,34 @@ Actions (top buttons):
 - **Send Queue to Chat** (GM-whisper)  
 - **Stop all Events** / **Stop all + 1h reminder**
 
-> With **Simple Calendar** installed, About-Time uses SC’s formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+> With **Simple Calendar** installed, About-Time uses SC's formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+
+### Event Notification Cards (v13.2.1.0)
+When events trigger, they display standardized notification cards with detailed information:
+
+<img width="293" height="365" alt="image" src="https://github.com/user-attachments/assets/0bbc2efb-e1a4-408c-9b54-1865c1e4d457" />
+
+
+```
+[about-time-next]
+Event Name: <name or NA>
+Message: <message or NA>
+Duration: DD:HH:MM:SS (or NA)
+Repeating: Yes/No
+Macro: <macro name or NA>
+Event UID: <unique identifier>
+```
+
+- **Consistent Format**: All Event Manager events use the same card layout
+- **Persistence**: Format maintained through Foundry reloads
+- **Macro Integration**: Events with macros show the event card *and* executes the macro
+- **Sound Support**: `[about-time-next]` prefix ensures notification sounds trigger correctly
+
+_Note: `/at` chat commands currently use legacy format. Standardization planned for future release._
 
 ---
 
-## 🧩 Macros
+## Macros
 
 **Advance by 30 seconds (core FVTT v13):**
 ```js
@@ -172,7 +197,7 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## 🧪 Example Scenarios
+## Example Scenarios
 
 - **Short Rest timer (one-shot):**  
   “Wake the party in 1 hour.”  
@@ -191,17 +216,36 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## ⚙ Settings (high-level)
+## Settings (high-level)
 
 - **Enable AT Time Manager (client)** — Shows the mini panel for this user.  
 - **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
 - **Link Pause / Auto-Pause Combat (client)** — How the mini panel reacts to world/game state.
 
+### Event Notification Sounds (client, v13.2.0.0)
+
+Configure audible alerts when events trigger (GM-only feature):
+
+- **Enable Event Notification Sound** — Toggle notification sounds on/off
+- **Sound Source** — Choose between built-in sound or custom audio file
+- **Custom Sound Path** — File picker to select your own audio (defaults to module's sounds folder)
+- **Notification Volume** — Adjust volume from 0-100% (affects only ATN notifications)
+- **Test Sound** — Preview button to hear current selection before saving
+
+Event notifications play automatically when scheduled events fire, helping GMs track timers without constantly watching the Event Manager. Settings apply immediately after saving, so you can adjust volume mid-session without reloading. Included are 3 royalty free notification sounds.
+- Supported file types:
+  - MP3 (.mp3) - Most widely supported, best compatibility
+  - OGG (.ogg) - Good compression, well-supported
+  - WAV (.wav) - Uncompressed, larger files
+  - WebM (.webm) - Modern format with good compression
+  - M4A (.m4a) - AAC audio, good quality
+Best practice: MP3 is the safest choice for maximum browser compatibility across all platforms (which is why we used it for the notification sounds in v13.2.0.0+).
+
 > Where SC is present, date/time formatting in the mini panel and EM uses SC helpers.
 
 ---
 
-## ❗ Notes & Limitations
+## Notes & Limitations
 
 - The module **does not** override combat round/initiative time.  
 - Complex SC calendars (non-365-day years, custom months) are supported via SC’s own conversions, while raw seconds math remains conservative in fallback mode.  
@@ -210,10 +254,12 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 ---
 
-## 📝 Credits
+## Credits
 
 Originally created by **Tim Posney**, updated and maintained for FVTT v13+ by **paulcheeba** with community input and ChatGPT-assisted refactoring.
 
-## 📝 License
+**Event notification sound effects** by [Notification_Message](https://pixabay.com/users/notification_message-47259947/) from [Pixabay](https://pixabay.com/sound-effects/).
+
+## License
 
 MIT — see LICENSE file.
