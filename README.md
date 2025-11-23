@@ -214,6 +214,8 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 
 Originally created by **Tim Posney**, updated and maintained for FVTT v13+ by **paulcheeba** with community input and ChatGPT-assisted refactoring.
 
+**Event notification sound effects** by [Notification_Message](https://pixabay.com/users/notification_message-47259947/) from [Pixabay](https://pixabay.com/sound-effects/).
+
 ## 📝 License
 
 MIT — see LICENSE file.
