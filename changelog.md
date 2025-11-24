@@ -1,3 +1,27 @@
+# Changelog (v13.3.2.0)
+
+**Phase 2: Calendar Settings & Migration (Non-Breaking)**
+
+- **New Calendar System Setting**  
+  Added world-scope `calendar-system` setting with choices: "Auto-detect", "None (Foundry Core Time)", "Simple Calendar", "Seasons & Stars". Replaces legacy boolean `use-simple-calendar` setting. Includes dynamic detection hints showing which calendar modules are currently installed.
+
+- **Settings Migration Logic**  
+  Automatic one-time migration from legacy `use-simple-calendar` boolean to new `calendar-system` string setting. Runs on first GM login after upgrade. Respects user preferences: disabled SC → "none", enabled SC + available → "simple-calendar", SC unavailable + S&S available → "seasons-and-stars". Shows notification to GM on successful migration.
+
+- **Settings UI Enhancements**  
+  Reorganized settings into logical sections: Internal Settings (hidden), General Settings, Calendar Integration, Event Notifications. Added real-time calendar detection display in settings UI showing "✓ Available" or "✗ Not detected" for each calendar module. Enhanced console logging for all setting changes.
+
+- **Legacy Setting Preservation**  
+  Old `use-simple-calendar` setting hidden from UI (`config: false`) but preserved in database for migration logic. Prevents loss of user preferences during upgrade. Can be safely removed in future major version after migration period.
+
+- **Adapter Refresh on Change**  
+  Calendar system setting change triggers automatic adapter cache refresh (`CalendarAdapter.refresh()`). Requires world reload to take full effect (`requiresReload: true`). Ensures adapter state matches new setting immediately.
+
+- **Console Logging Enhancement**  
+  Comprehensive logging throughout settings registration, migration logic (detection results, old/new values, migration decisions), UI rendering (detection info injection), and setting changes (onChange callbacks with values).
+
+---
+
 # Changelog (v13.3.1.0)
 
 **Phase 1: Calendar Adapter Foundation (Non-Breaking)**

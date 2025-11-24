@@ -2,7 +2,7 @@
   "id": "about-time-next",
   "title": "About Time Next (FVTT v13+ Edition)",
   "description": "Time and event scheduling management utility for Foundry VTT, updated for v13 compatibility.",
-  "version": "13.2.1.0",
+  "version": "13.3.2.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13",

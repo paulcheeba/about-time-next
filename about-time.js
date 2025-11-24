@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.3.1.0 — Added calendar adapter system (Phase 1)
+// v13.3.2.0 — Added calendar settings & migration (Phase 2)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -50,7 +50,7 @@ try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 export function DTNow() { return game.time.worldTime; }
 
 Hooks.once('init', () => {
-  console.log(`${MODULE_ID} | Initializing v13.3.1.0`);
+  console.log(`${MODULE_ID} | Initializing v13.3.2.0`);
   registerSettings();
   registerMiniSettings(); // <- new mini settings
 
@@ -153,6 +153,66 @@ Hooks.once('setup', () => {
 });
 
 Hooks.once('ready', () => {
+  // ============================================================================
+  // CALENDAR SETTINGS MIGRATION (v13.3.2.0 - Phase 2)
+  // ============================================================================
+  // Migrate from old use-simple-calendar boolean to new calendar-system string
+  if (game.user.isGM) {
+    try {
+      const currentSystem = game.settings.get(MODULE_ID, "calendar-system");
+      const legacySetting = game.settings.get(MODULE_ID, "use-simple-calendar");
+      
+      console.log(`${MODULE_ID} | [Migration] Current calendar-system: "${currentSystem}"`);
+      console.log(`${MODULE_ID} | [Migration] Legacy use-simple-calendar: ${legacySetting}`);
+      
+      // Only migrate if still on default "auto" setting (first time setup or upgrade)
+      if (currentSystem === "auto") {
+        const detected = CalendarAdapter.detectAvailable();
+        console.log(`${MODULE_ID} | [Migration] Detected calendars:`, detected);
+        
+        let newSystem = "auto"; // Keep auto as default
+        
+        // If user had explicitly disabled SC, respect that
+        if (legacySetting === false) {
+          newSystem = "none";
+          console.log(`${MODULE_ID} | [Migration] User had disabled SC → setting to "none"`);
+        }
+        // If user had SC enabled and it's still available, use it explicitly
+        else if (legacySetting === true && detected.simpleCalendar) {
+          newSystem = "simple-calendar";
+          console.log(`${MODULE_ID} | [Migration] SC was enabled and is available → setting to "simple-calendar"`);
+        }
+        // If SC was enabled but no longer available, check for S&S
+        else if (legacySetting === true && !detected.simpleCalendar && detected.seasonsStars) {
+          newSystem = "seasons-and-stars";
+          console.log(`${MODULE_ID} | [Migration] SC unavailable but S&S detected → setting to "seasons-and-stars"`);
+        }
+        
+        // Save migrated setting
+        if (newSystem !== "auto") {
+          game.settings.set(MODULE_ID, "calendar-system", newSystem);
+          console.log(`${MODULE_ID} | [Migration] ✓ Migrated calendar-system to: "${newSystem}"`);
+          
+          // Show one-time notice to GM
+          ui.notifications.info(
+            `About Time Next: Calendar settings migrated. Now using: ${newSystem.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`,
+            { permanent: false }
+          );
+        } else {
+          console.log(`${MODULE_ID} | [Migration] Keeping auto-detect mode`);
+        }
+      } else {
+        console.log(`${MODULE_ID} | [Migration] Already configured, skipping migration`);
+      }
+    } catch (err) {
+      console.error(`${MODULE_ID} | [Migration] Failed:`, err);
+    }
+  }
+  
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+  
   if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
     console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
   }

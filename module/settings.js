@@ -1,9 +1,15 @@
 // module/settings.js
-// v13.2.0.0 — Added event notification sound settings
+// v13.3.2.0 — Added calendar-system setting and migration from use-simple-calendar
 
 export const MODULE_ID = "about-time-next";
 
 export const registerSettings = function () {
+  console.log(`${MODULE_ID} | Registering settings...`);
+  
+  // ============================================================================
+  // INTERNAL SETTINGS (hidden from UI)
+  // ============================================================================
+  
   game.settings.register(MODULE_ID, "store", {
     name: "Elapsed Time event queue",
     hint: "Internal storage for About Time. Do not edit.",
@@ -11,25 +17,6 @@ export const registerSettings = function () {
     config: false,
     type: Object,
     default: {}
-  });
-
-  game.settings.register(MODULE_ID, "debug", {
-    name: "Debug output",
-    hint: "Enable verbose logging for About Time.",
-    scope: "client",
-    config: true,
-    type: Boolean,
-    default: false
-  });
-
-  // Optional SC integration toggle (some code already checks this)
-  game.settings.register(MODULE_ID, "use-simple-calendar", {
-    name: "Use Simple Calendar (if installed)",
-    hint: "When enabled and SC is active, About Time uses SC intervals/formatting. Otherwise uses Foundry core time.",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true
   });
 
   game.settings.register(MODULE_ID, "election-timeout", {
@@ -41,7 +28,60 @@ export const registerSettings = function () {
     default: 5
   });
 
-  // Event Notification Sound Settings (v13.2.0.0)
+  // Legacy setting - HIDDEN but kept for migration
+  game.settings.register(MODULE_ID, "use-simple-calendar", {
+    name: "Use Simple Calendar (DEPRECATED - DO NOT USE)",
+    hint: "This setting is deprecated. Use 'Calendar System' instead.",
+    scope: "world",
+    config: false, // Hidden from UI
+    type: Boolean,
+    default: true
+  });
+
+  // ============================================================================
+  // GENERAL SETTINGS
+  // ============================================================================
+
+  game.settings.register(MODULE_ID, "debug", {
+    name: "Debug output",
+    hint: "Enable verbose logging for About Time.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  // ============================================================================
+  // CALENDAR INTEGRATION (v13.3.2.0)
+  // ============================================================================
+
+  game.settings.register(MODULE_ID, "calendar-system", {
+    name: "Calendar System",
+    hint: "Choose which calendar system to use for time formatting and event scheduling. Auto-detect will choose the first available system.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      "auto": "Auto-detect",
+      "none": "None (Foundry Core Time)",
+      "simple-calendar": "Simple Calendar",
+      "seasons-and-stars": "Seasons & Stars"
+    },
+    default: "auto",
+    requiresReload: true,
+    onChange: value => {
+      console.log(`${MODULE_ID} | [Settings] Calendar system changed to: ${value}`);
+      // Force adapter refresh on next access
+      if (window.AboutTimeNext?.CalendarAdapter) {
+        window.AboutTimeNext.CalendarAdapter.refresh();
+      }
+    }
+  });
+
+  // ============================================================================
+  // EVENT NOTIFICATIONS (v13.2.0.0)
+  // ============================================================================
+
   game.settings.register(MODULE_ID, "enableEventNotificationSound", {
     name: "ATN.SETTINGS.EnableEventNotificationSound",
     hint: "ATN.SETTINGS.EnableEventNotificationSoundHint",
@@ -156,4 +196,42 @@ export const registerSettings = function () {
       testInput.replaceWith(button);
     }
   });
+
+  // Add calendar detection information to settings UI (v13.3.2.0)
+  Hooks.on('renderSettingsConfig', (app, html, data) => {
+    // Find the calendar-system setting
+    const calendarSetting = html.find(`[name="${MODULE_ID}.calendar-system"]`);
+    if (calendarSetting.length === 0) return;
+
+    // Get detection results
+    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailable() || { simpleCalendar: false, seasonsStars: false };
+    
+    // Build detection message
+    let detectionHTML = '<div style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';
+    detectionHTML += '<strong>Detected Calendar Modules:</strong><br>';
+    
+    if (detected.simpleCalendar) {
+      detectionHTML += '✓ Simple Calendar (available)<br>';
+    } else {
+      detectionHTML += '✗ Simple Calendar (not detected)<br>';
+    }
+    
+    if (detected.seasonsStars) {
+      detectionHTML += '✓ Seasons & Stars (available)';
+    } else {
+      detectionHTML += '✗ Seasons & Stars (not detected)';
+    }
+    
+    detectionHTML += '</div>';
+    
+    // Insert detection info after the hint
+    const formGroup = calendarSetting.closest('.form-group');
+    const hint = formGroup.find('.notes');
+    if (hint.length > 0) {
+      hint.after(detectionHTML);
+      console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info`);
+    }
+  });
+
+  console.log(`${MODULE_ID} | Settings registered successfully`);
 };
