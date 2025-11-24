@@ -158,12 +158,12 @@ export class CalendarAdapter {
       available.push("simple-calendar");
     }
 
-    // Check Seasons & Stars
+    // Check Seasons & Stars (API is at game.seasonsStars.api, not game.seasonsStars directly)
     const ssMod = game.modules.get("seasons-and-stars");
     const ssActive = ssMod?.active ?? false;
-    const ssApiAvailable = !!(game.seasonsStars?.getCurrentDate);
+    const ssApiAvailable = !!(game.seasonsStars?.api?.getCurrentDate);
     console.log(`${MODULE_ID} | [CalendarAdapter]   Seasons & Stars: module=${ssActive ? '✓' : '✗'}, api=${ssApiAvailable ? '✓' : '✗'}`);
-    if (ssMod?.active && game.seasonsStars?.getCurrentDate) {
+    if (ssMod?.active && game.seasonsStars?.api?.getCurrentDate) {
       available.push("seasons-and-stars");
     }
 

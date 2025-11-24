@@ -35,7 +35,7 @@ export class SandSAdapter extends CalendarAdapter {
    * @returns {object|null} S&S API object or null
    */
   #getAPI() {
-    return game.seasonsStars || null;
+    return game.seasonsStars?.api || null;
   }
 
   // ============================================================================
@@ -52,7 +52,7 @@ export class SandSAdapter extends CalendarAdapter {
 
   isAvailable() {
     const ssMod = game.modules.get("seasons-and-stars");
-    return !!(ssMod?.active && game.seasonsStars?.getCurrentDate);
+    return !!(ssMod?.active && game.seasonsStars?.api?.getCurrentDate);
   }
 
   formatTimestamp(timestamp) {
