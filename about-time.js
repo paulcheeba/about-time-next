@@ -167,7 +167,7 @@ Hooks.once('ready', () => {
       
       // Only migrate if still on default "auto" setting (first time setup or upgrade)
       if (currentSystem === "auto") {
-        const detected = CalendarAdapter.detectAvailable();
+        const detected = CalendarAdapter.detectAvailableAsObject();
         console.log(`${MODULE_ID} | [Migration] Detected calendars:`, detected);
         
         let newSystem = "auto"; // Keep auto as default

@@ -204,7 +204,7 @@ export const registerSettings = function () {
     if (calendarSetting.length === 0) return;
 
     // Get detection results
-    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailable() || { simpleCalendar: false, seasonsStars: false };
+    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { simpleCalendar: false, seasonsStars: false };
     
     // Build detection message
     let detectionHTML = '<div style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';

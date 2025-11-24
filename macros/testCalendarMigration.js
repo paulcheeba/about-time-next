@@ -52,8 +52,10 @@ try {
     return;
   }
   
-  const detected = CalendarAdapter.detectAvailable();
-  console.log("Detection results:", detected);
+  const available = CalendarAdapter.detectAvailable();
+  const detected = CalendarAdapter.detectAvailableAsObject();
+  console.log("Detection results (array):", available);
+  console.log("Detection results (object):", detected);
   console.log(`  Simple Calendar: ${detected.simpleCalendar ? '✓ Available' : '✗ Not detected'}`);
   console.log(`  Seasons & Stars: ${detected.seasonsStars ? '✓ Available' : '✗ Not detected'}`);
   
@@ -78,7 +80,7 @@ console.log("Current state will migrate to:");
 try {
   const calendarSystem = game.settings.get(MODULE_ID, "calendar-system");
   const useSC = game.settings.get(MODULE_ID, "use-simple-calendar");
-  const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailable();
+  const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject();
   
   if (calendarSystem !== "auto") {
     console.log(`  → No migration (already set to "${calendarSystem}")`);

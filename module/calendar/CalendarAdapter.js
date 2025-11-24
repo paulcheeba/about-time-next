@@ -172,6 +172,18 @@ export class CalendarAdapter {
   }
 
   /**
+   * Get detection results as an object with boolean properties (helper for UI/migration).
+   * @returns {{simpleCalendar: boolean, seasonsStars: boolean}}
+   */
+  static detectAvailableAsObject() {
+    const available = CalendarAdapter.detectAvailable();
+    return {
+      simpleCalendar: available.includes("simple-calendar"),
+      seasonsStars: available.includes("seasons-and-stars")
+    };
+  }
+
+  /**
    * Get human-readable name for a calendar system ID.
    * 
    * @param {string} systemId - Calendar system ID
