@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.2.0.0 — Added event notification sound system
+// v13.3.1.0 — Added calendar adapter system (Phase 1)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -7,6 +7,11 @@ import { ElapsedTime } from './module/ElapsedTime.js';
 import { PseudoClock } from './module/PseudoClock.js';
 import { DTMod } from './module/calendar/DTMod.js';
 import { DTCalc } from './module/calendar/DTCalc.js';
+
+// Calendar Adapter System (v13.3.1.0 - Phase 1)
+import { CalendarAdapter } from './module/calendar/CalendarAdapter.js';
+import './module/calendar/SimpleCalendarAdapter.js'; // Self-registers
+import './module/calendar/SandSAdapter.js'; // Self-registers
 
 // New (modular, non-destructive)
 import { registerMiniSettings } from './module/ATMiniSettings.js';
@@ -45,9 +50,14 @@ try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 export function DTNow() { return game.time.worldTime; }
 
 Hooks.once('init', () => {
-  console.log(`${MODULE_ID} | Initializing`);
+  console.log(`${MODULE_ID} | Initializing v13.3.1.0`);
   registerSettings();
   registerMiniSettings(); // <- new mini settings
+
+  // Expose CalendarAdapter to global namespace for macros and testing
+  if (!window.AboutTimeNext) window.AboutTimeNext = {};
+  window.AboutTimeNext.CalendarAdapter = CalendarAdapter;
+  console.log(`${MODULE_ID} | CalendarAdapter available at window.AboutTimeNext.CalendarAdapter`);
 
   // Optionally preload (only real template path is loaded)
   preloadTemplates().catch(() => { /* ignore */ });
@@ -117,7 +127,10 @@ Hooks.once('setup', () => {
     // New: Mini Time Panel controls
     showMiniPanel,
     hideMiniPanel,
-    toggleMiniPanel
+    toggleMiniPanel,
+
+    // Calendar Adapter System (v13.3.1.0)
+    CalendarAdapter
   };
 
   // Legacy/global shims
