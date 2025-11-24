@@ -20,9 +20,13 @@ export class SandSAdapter extends CalendarAdapter {
   constructor() {
     super();
     
+    console.log(`${MODULE_ID} | [SandSAdapter] Initializing...`);
+    
     // Verify S&S is available
     if (!this.isAvailable()) {
-      console.warn(`${MODULE_ID} | SandSAdapter instantiated but S&S not available`);
+      console.warn(`${MODULE_ID} | [SandSAdapter] ⚠ S&S not available at instantiation time`);
+    } else {
+      console.log(`${MODULE_ID} | [SandSAdapter] ✓ S&S API verified available`);
     }
   }
 
@@ -53,16 +57,23 @@ export class SandSAdapter extends CalendarAdapter {
 
   formatTimestamp(timestamp) {
     const api = this.#getAPI();
-    if (!api) return `t+${Math.round(timestamp)}s`;
+    if (!api) {
+      console.warn(`${MODULE_ID} | [SandSAdapter] formatTimestamp: API not available`);
+      return `t+${Math.round(timestamp)}s`;
+    }
 
     try {
       const date = api.worldTimeToDate?.(timestamp) || api.getCurrentDate?.();
-      if (!date) return `t+${Math.round(timestamp)}s`;
+      if (!date) {
+        console.warn(`${MODULE_ID} | [SandSAdapter] formatTimestamp: Could not get date from timestamp`);
+        return `t+${Math.round(timestamp)}s`;
+      }
 
       const formatted = api.formatDate?.(date) || this.#formatDateFallback(date);
+      console.log(`${MODULE_ID} | [SandSAdapter] formatTimestamp(${timestamp}) => "${formatted}"`);
       return formatted || `t+${Math.round(timestamp)}s`;
     } catch (e) {
-      console.error(`${MODULE_ID} | SandSAdapter.formatTimestamp error:`, e);
+      console.error(`${MODULE_ID} | [SandSAdapter] formatTimestamp error:`, e);
       return `t+${Math.round(timestamp)}s`;
     }
   }
@@ -107,17 +118,19 @@ export class SandSAdapter extends CalendarAdapter {
   timestampPlusInterval(timestamp, interval) {
     const api = this.#getAPI();
     if (!api) {
-      // Fallback: conservative calculation
+      console.warn(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval: API not available, using fallback`);
       return this.#fallbackIntervalAdd(timestamp, interval);
     }
 
     try {
       const normalized = this.normalizeInterval(interval);
+      console.log(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
       
       // S&S doesn't have a direct timestampPlusInterval method
       // We need to convert timestamp to date, add interval components, convert back
       const startDate = api.worldTimeToDate?.(timestamp) || api.getCurrentDate?.();
       if (!startDate) {
+        console.warn(`${MODULE_ID} | [SandSAdapter] Could not get start date, using fallback`);
         return this.#fallbackIntervalAdd(timestamp, interval);
       }
 
@@ -130,9 +143,10 @@ export class SandSAdapter extends CalendarAdapter {
       seconds += (normalized.month || 0) * 30 * 86400; // Conservative: 30-day months
       seconds += (normalized.year || 0) * 365 * 86400; // Conservative: 365-day years
       
+      console.log(`${MODULE_ID} | [SandSAdapter]   => ${seconds}`);
       return seconds;
     } catch (e) {
-      console.error(`${MODULE_ID} | SandSAdapter.timestampPlusInterval error:`, e);
+      console.error(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval error:`, e);
       return this.#fallbackIntervalAdd(timestamp, interval);
     }
   }
@@ -220,18 +234,21 @@ export class SandSAdapter extends CalendarAdapter {
   getCalendarData() {
     const api = this.#getAPI();
     if (!api) {
-      // Return fallback Gregorian structure
+      console.warn(`${MODULE_ID} | [SandSAdapter] getCalendarData: API not available, using fallback`);
       return this.#getFallbackCalendarData();
     }
 
     try {
+      console.log(`${MODULE_ID} | [SandSAdapter] getCalendarData: Querying S&S for calendar structure...`);
       // Query S&S for active calendar configuration
       // S&S exposes calendar data through game.seasonsStars.calendar
       const calendar = api.calendar;
       
       if (!calendar) {
+        console.warn(`${MODULE_ID} | [SandSAdapter] No calendar data from S&S, using fallback`);
         return this.#getFallbackCalendarData();
       }
+      console.log(`${MODULE_ID} | [SandSAdapter] Retrieved calendar: "${calendar.name}"`);
 
       // Extract calendar structure from S&S's calendar object
       // S&S structure: calendar.months = [{name, days, ...}], calendar.weekdays = [...]
@@ -239,7 +256,7 @@ export class SandSAdapter extends CalendarAdapter {
       const daysPerMonth = (calendar.months || []).map(m => m.days || 30);
       const weekdays = (calendar.weekdays || []).map(w => w.name || w);
       
-      return {
+      const calData = {
         name: calendar.name || "Unknown Calendar",
         months: months,
         monthsInYear: months.length,
@@ -248,6 +265,12 @@ export class SandSAdapter extends CalendarAdapter {
         daysPerWeek: weekdays.length,
         leapYearRule: calendar.leapYearRule || "None"
       };
+      console.log(`${MODULE_ID} | [SandSAdapter] Calendar data:`, {
+        name: calData.name,
+        monthsInYear: calData.monthsInYear,
+        daysPerWeek: calData.daysPerWeek
+      });
+      return calData;
     } catch (e) {
       console.error(`${MODULE_ID} | SandSAdapter.getCalendarData error:`, e);
       return this.#getFallbackCalendarData();

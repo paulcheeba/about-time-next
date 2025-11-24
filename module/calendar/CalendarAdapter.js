@@ -26,6 +26,7 @@ export class CalendarAdapter {
    * Useful after settings change or module activation.
    */
   static refresh() {
+    console.log(`${MODULE_ID} | [CalendarAdapter] Refreshing adapter cache`);
     CalendarAdapter.#activeAdapter = null;
   }
 
@@ -38,8 +39,12 @@ export class CalendarAdapter {
   static getActive() {
     // Return cached adapter if available
     if (CalendarAdapter.#activeAdapter !== null) {
+      console.log(`${MODULE_ID} | [CalendarAdapter] Returning cached adapter: ${CalendarAdapter.#activeAdapter.name}`);
       return CalendarAdapter.#activeAdapter;
     }
+
+    console.log(`${MODULE_ID} | [CalendarAdapter] No cached adapter, initializing...`);
+
 
     // Get user's calendar system preference
     let preference = "auto";
@@ -59,17 +64,21 @@ export class CalendarAdapter {
 
     // Detect available calendar systems
     const available = CalendarAdapter.detectAvailable();
+    console.log(`${MODULE_ID} | [CalendarAdapter] Detected available systems:`, available);
 
     // Resolve "auto" preference on first run
     let choice = preference;
+    console.log(`${MODULE_ID} | [CalendarAdapter] User preference: "${preference}"`);
     if (choice === "auto") {
       choice = available[0] || "none";
+      console.log(`${MODULE_ID} | [CalendarAdapter] Auto-detected choice: "${choice}"`);
       
       // Try to persist the auto-detected choice
       try {
         game.settings.set(MODULE_ID, "calendar-system", choice);
+        console.log(`${MODULE_ID} | [CalendarAdapter] Persisted auto-detected choice to settings`);
       } catch (e) {
-        // Setting may not be registered yet, ignore
+        console.warn(`${MODULE_ID} | [CalendarAdapter] Could not persist choice (setting not registered yet)`);
       }
     }
 
@@ -81,9 +90,13 @@ export class CalendarAdapter {
 
     // Instantiate appropriate adapter
     if (choice === "none") {
+      console.log(`${MODULE_ID} | [CalendarAdapter] Choice is "none", no adapter loaded`);
       CalendarAdapter.#activeAdapter = null;
       return null;
     }
+
+    console.log(`${MODULE_ID} | [CalendarAdapter] Attempting to instantiate adapter: "${choice}"`);
+
 
     // Import and instantiate adapters dynamically
     // Note: Actual adapter classes must be imported at top of file
@@ -93,19 +106,29 @@ export class CalendarAdapter {
         case "simple-calendar":
           // SimpleCalendarAdapter will register itself
           if (window.AboutTimeNext?.adapters?.SimpleCalendarAdapter) {
+            console.log(`${MODULE_ID} | [CalendarAdapter] Instantiating SimpleCalendarAdapter`);
             CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SimpleCalendarAdapter();
+            console.log(`${MODULE_ID} | [CalendarAdapter] ✓ SimpleCalendarAdapter instantiated successfully`);
+          } else {
+            console.warn(`${MODULE_ID} | [CalendarAdapter] SimpleCalendarAdapter class not found in window.AboutTimeNext.adapters`);
+            CalendarAdapter.#activeAdapter = null;
           }
           break;
         
         case "seasons-and-stars":
           // SandSAdapter will register itself
           if (window.AboutTimeNext?.adapters?.SandSAdapter) {
+            console.log(`${MODULE_ID} | [CalendarAdapter] Instantiating SandSAdapter`);
             CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SandSAdapter();
+            console.log(`${MODULE_ID} | [CalendarAdapter] ✓ SandSAdapter instantiated successfully`);
+          } else {
+            console.warn(`${MODULE_ID} | [CalendarAdapter] SandSAdapter class not found in window.AboutTimeNext.adapters`);
+            CalendarAdapter.#activeAdapter = null;
           }
           break;
         
         default:
-          console.warn(`${MODULE_ID} | Unknown calendar system: ${choice}`);
+          console.warn(`${MODULE_ID} | [CalendarAdapter] Unknown calendar system: ${choice}`);
           CalendarAdapter.#activeAdapter = null;
       }
     } catch (e) {
@@ -122,21 +145,29 @@ export class CalendarAdapter {
    * @returns {string[]} Array of available system IDs: ["simple-calendar", "seasons-and-stars"]
    */
   static detectAvailable() {
+    console.log(`${MODULE_ID} | [CalendarAdapter] Detecting available calendar systems...`);
     const available = [];
 
     // Check Simple Calendar (two possible module IDs)
     const scMod = game.modules.get("foundryvtt-simple-calendar") 
                ?? game.modules.get("simple-calendar");
+    const scActive = scMod?.active ?? false;
+    const scApiAvailable = !!(globalThis.SimpleCalendar?.api);
+    console.log(`${MODULE_ID} | [CalendarAdapter]   Simple Calendar: module=${scActive ? '✓' : '✗'}, api=${scApiAvailable ? '✓' : '✗'}`);
     if (scMod?.active && globalThis.SimpleCalendar?.api) {
       available.push("simple-calendar");
     }
 
     // Check Seasons & Stars
     const ssMod = game.modules.get("seasons-and-stars");
+    const ssActive = ssMod?.active ?? false;
+    const ssApiAvailable = !!(game.seasonsStars?.getCurrentDate);
+    console.log(`${MODULE_ID} | [CalendarAdapter]   Seasons & Stars: module=${ssActive ? '✓' : '✗'}, api=${ssApiAvailable ? '✓' : '✗'}`);
     if (ssMod?.active && game.seasonsStars?.getCurrentDate) {
       available.push("seasons-and-stars");
     }
 
+    console.log(`${MODULE_ID} | [CalendarAdapter] Detection complete. Available: [${available.join(', ')}]`);
     return available;
   }
 

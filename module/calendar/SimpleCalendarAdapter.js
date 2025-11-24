@@ -19,9 +19,13 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
   constructor() {
     super();
     
+    console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Initializing...`);
+    
     // Verify SC is available
     if (!this.isAvailable()) {
-      console.warn(`${MODULE_ID} | SimpleCalendarAdapter instantiated but SC not available`);
+      console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] ⚠ SC not available at instantiation time`);
+    } else {
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] ✓ SC API verified available`);
     }
   }
 
@@ -53,7 +57,10 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
 
   formatTimestamp(timestamp) {
     const api = this.#getAPI();
-    if (!api) return `t+${Math.round(timestamp)}s`;
+    if (!api) {
+      console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp: API not available`);
+      return `t+${Math.round(timestamp)}s`;
+    }
 
     try {
       const dt = api.timestampToDate(timestamp);
@@ -61,9 +68,11 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
       const date = formatted?.date ?? "";
       const time = formatted?.time ?? "";
       const separator = (date && time) ? " " : "";
-      return `${date}${separator}${time}`.trim() || `t+${Math.round(timestamp)}s`;
+      const result = `${date}${separator}${time}`.trim() || `t+${Math.round(timestamp)}s`;
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp(${timestamp}) => "${result}"`);
+      return result;
     } catch (e) {
-      console.error(`${MODULE_ID} | SimpleCalendarAdapter.formatTimestamp error:`, e);
+      console.error(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp error:`, e);
       return `t+${Math.round(timestamp)}s`;
     }
   }
@@ -90,16 +99,18 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
   timestampPlusInterval(timestamp, interval) {
     const api = this.#getAPI();
     if (!api) {
-      // Fallback: conservative calculation
+      console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval: API not available, using fallback`);
       return this.#fallbackIntervalAdd(timestamp, interval);
     }
 
     try {
       const normalized = this.normalizeInterval(interval);
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
       const result = api.timestampPlusInterval(timestamp, normalized);
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter]   => ${result}`);
       return result ?? timestamp;
     } catch (e) {
-      console.error(`${MODULE_ID} | SimpleCalendarAdapter.timestampPlusInterval error:`, e);
+      console.error(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval error:`, e);
       return this.#fallbackIntervalAdd(timestamp, interval);
     }
   }
@@ -184,18 +195,21 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
   getCalendarData() {
     const api = this.#getAPI();
     if (!api) {
-      // Return fallback Gregorian structure
+      console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] getCalendarData: API not available, using fallback`);
       return this.#getFallbackCalendarData();
     }
 
     try {
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] getCalendarData: Querying SC for calendar structure...`);
       // Query SC for active calendar configuration
       // SC API provides: currentCalendar, getAllCalendars, etc.
       const currentCal = api.getCurrentCalendar?.();
       
       if (!currentCal) {
+        console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] No current calendar from SC, using fallback`);
         return this.#getFallbackCalendarData();
       }
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Retrieved calendar: "${currentCal.name}"`);
 
       // Extract calendar structure from SC's calendar object
       // SC structure: calendar.months = [{name, numberOfDays, ...}], calendar.weekdays = [...]
@@ -203,7 +217,7 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
       const daysPerMonth = (currentCal.months || []).map(m => m.numberOfDays || 30);
       const weekdays = (currentCal.weekdays || []).map(w => w.name || "");
       
-      return {
+      const calData = {
         name: currentCal.name || "Unknown Calendar",
         months: months,
         monthsInYear: months.length,
@@ -212,6 +226,12 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
         daysPerWeek: weekdays.length,
         leapYearRule: currentCal.leapYearRule?.rule || "None"
       };
+      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Calendar data:`, {
+        name: calData.name,
+        monthsInYear: calData.monthsInYear,
+        daysPerWeek: calData.daysPerWeek
+      });
+      return calData;
     } catch (e) {
       console.error(`${MODULE_ID} | SimpleCalendarAdapter.getCalendarData error:`, e);
       return this.#getFallbackCalendarData();
