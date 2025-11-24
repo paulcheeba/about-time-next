@@ -1,3 +1,30 @@
+# Changelog (v13.3.1.0)
+
+**Phase 1: Calendar Adapter Foundation (Non-Breaking)**
+
+- **Calendar Adapter System**  
+  Added abstraction layer for calendar system integration. Implements factory pattern with CalendarAdapter base class providing unified interface for multiple calendar systems. Non-breaking addition - existing functionality unchanged.
+
+- **Simple Calendar Adapter**  
+  Full integration adapter for Simple Calendar with 0-based indexing support, calendar data extraction, fallback Gregorian calendar, and comprehensive error handling. Wraps all SC API calls with defensive coding patterns.
+
+- **Seasons & Stars Adapter**  
+  Complete integration adapter for Seasons & Stars with 1-based indexing conversion, async method support, modular calendar pack detection, and calendar structure extraction. Handles S&S's unique API patterns transparently.
+
+- **Auto-Detection & Factory Pattern**  
+  Automatic detection of installed calendar systems (SC and S&S), factory instantiation of appropriate adapter, graceful degradation when no calendar modules present, and settings-based adapter selection with auto-detection on first run.
+
+- **Comprehensive Logging**  
+  Development-focused console logging throughout adapter lifecycle: initialization tracking, detection results, method call tracing, calendar data extraction logs, and error reporting with context. All logs prefixed with `[CalendarAdapter]`, `[SimpleCalendarAdapter]`, or `[SandSAdapter]`.
+
+- **Test Infrastructure**  
+  Added `testCalendarAdapters.js` macro for validating adapter functionality, testing all adapter methods, detection verification, and cache refresh testing. Provides detailed console output for development validation.
+
+- **Global API Access**  
+  CalendarAdapter exposed via `window.AboutTimeNext.CalendarAdapter` and `game.abouttime.CalendarAdapter` for macro and console access. All adapters register in `window.AboutTimeNext.adapters` namespace.
+
+---
+
 # Changelog (v13.2.1.0)
 
 - **Standardized Event Chat Cards**  
