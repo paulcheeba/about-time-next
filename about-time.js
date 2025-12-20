@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.3.4.0 — Phase 3 complete: Core refactored to use CalendarAdapter
+// v13.4.0.0 — D&D 5e Calendar integration (native calendar support for D&D 5e v5.2+)
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -10,6 +10,7 @@ import { DTCalc } from './module/calendar/DTCalc.js';
 
 // Calendar Adapter System (v13.3.1.0 - Phase 1)
 import { CalendarAdapter } from './module/calendar/CalendarAdapter.js';
+import './module/calendar/Dnd5eAdapter.js'; // Self-registers (v13.3.5.0)
 import './module/calendar/SimpleCalendarAdapter.js'; // Self-registers
 import './module/calendar/SandSAdapter.js'; // Self-registers
 

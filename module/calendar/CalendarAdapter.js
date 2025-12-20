@@ -26,7 +26,6 @@ export class CalendarAdapter {
    * Useful after settings change or module activation.
    */
   static refresh() {
-    console.log(`${MODULE_ID} | [CalendarAdapter] Refreshing adapter cache`);
     CalendarAdapter.#activeAdapter = null;
   }
 
@@ -39,11 +38,8 @@ export class CalendarAdapter {
   static getActive() {
     // Return cached adapter if available
     if (CalendarAdapter.#activeAdapter !== null) {
-      console.log(`${MODULE_ID} | [CalendarAdapter] Returning cached adapter: ${CalendarAdapter.#activeAdapter.name}`);
       return CalendarAdapter.#activeAdapter;
     }
-
-    console.log(`${MODULE_ID} | [CalendarAdapter] No cached adapter, initializing...`);
 
 
     // Get user's calendar system preference
@@ -64,71 +60,69 @@ export class CalendarAdapter {
 
     // Detect available calendar systems
     const available = CalendarAdapter.detectAvailable();
-    console.log(`${MODULE_ID} | [CalendarAdapter] Detected available systems:`, available);
 
     // Resolve "auto" preference on first run
     let choice = preference;
-    console.log(`${MODULE_ID} | [CalendarAdapter] User preference: "${preference}"`);
     if (choice === "auto") {
       choice = available[0] || "none";
-      console.log(`${MODULE_ID} | [CalendarAdapter] Auto-detected choice: "${choice}"`);
       
       // Try to persist the auto-detected choice
       try {
         game.settings.set(MODULE_ID, "calendar-system", choice);
-        console.log(`${MODULE_ID} | [CalendarAdapter] Persisted auto-detected choice to settings`);
       } catch (e) {
-        console.warn(`${MODULE_ID} | [CalendarAdapter] Could not persist choice (setting not registered yet)`);
+        // Setting not registered yet
       }
     }
 
     // If user chose a system that's not available, fall back to first available
     if (choice !== "none" && !available.includes(choice)) {
-      console.warn(`${MODULE_ID} | Calendar system "${choice}" not available. Available: ${available.join(", ")}`);
+      console.warn(`${MODULE_ID} | Calendar system "${choice}" not available, using "${available[0] || "none"}"`);
       choice = available[0] || "none";
     }
 
     // Instantiate appropriate adapter
     if (choice === "none") {
-      console.log(`${MODULE_ID} | [CalendarAdapter] Choice is "none", no adapter loaded`);
       CalendarAdapter.#activeAdapter = null;
       return null;
     }
-
-    console.log(`${MODULE_ID} | [CalendarAdapter] Attempting to instantiate adapter: "${choice}"`);
-
 
     // Import and instantiate adapters dynamically
     // Note: Actual adapter classes must be imported at top of file
     // This factory pattern will be completed by adapter implementations
     try {
       switch (choice) {
-        case "simple-calendar":
-          // SimpleCalendarAdapter will register itself
-          if (window.AboutTimeNext?.adapters?.SimpleCalendarAdapter) {
-            console.log(`${MODULE_ID} | [CalendarAdapter] Instantiating SimpleCalendarAdapter`);
-            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SimpleCalendarAdapter();
-            console.log(`${MODULE_ID} | [CalendarAdapter] ✓ SimpleCalendarAdapter instantiated successfully`);
+        case "dnd5e":
+          if (window.AboutTimeNext?.adapters?.Dnd5eAdapter) {
+            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.Dnd5eAdapter();
+            console.log(`${MODULE_ID} | Loaded calendar adapter: D&D 5e Calendar`);
           } else {
-            console.warn(`${MODULE_ID} | [CalendarAdapter] SimpleCalendarAdapter class not found in window.AboutTimeNext.adapters`);
+            console.warn(`${MODULE_ID} | Dnd5eAdapter class not found`);
+            CalendarAdapter.#activeAdapter = null;
+          }
+          break;
+        
+        case "simple-calendar":
+          if (window.AboutTimeNext?.adapters?.SimpleCalendarAdapter) {
+            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SimpleCalendarAdapter();
+            console.log(`${MODULE_ID} | Loaded calendar adapter: Simple Calendar`);
+          } else {
+            console.warn(`${MODULE_ID} | SimpleCalendarAdapter class not found`);
             CalendarAdapter.#activeAdapter = null;
           }
           break;
         
         case "seasons-and-stars":
-          // SandSAdapter will register itself
           if (window.AboutTimeNext?.adapters?.SandSAdapter) {
-            console.log(`${MODULE_ID} | [CalendarAdapter] Instantiating SandSAdapter`);
             CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SandSAdapter();
-            console.log(`${MODULE_ID} | [CalendarAdapter] ✓ SandSAdapter instantiated successfully`);
+            console.log(`${MODULE_ID} | Loaded calendar adapter: Seasons & Stars`);
           } else {
-            console.warn(`${MODULE_ID} | [CalendarAdapter] SandSAdapter class not found in window.AboutTimeNext.adapters`);
+            console.warn(`${MODULE_ID} | SandSAdapter class not found`);
             CalendarAdapter.#activeAdapter = null;
           }
           break;
         
         default:
-          console.warn(`${MODULE_ID} | [CalendarAdapter] Unknown calendar system: ${choice}`);
+          console.warn(`${MODULE_ID} | Unknown calendar system: ${choice}`);
           CalendarAdapter.#activeAdapter = null;
       }
     } catch (e) {
@@ -142,42 +136,55 @@ export class CalendarAdapter {
   /**
    * Detect which calendar systems are currently available (installed & active).
    * 
-   * @returns {string[]} Array of available system IDs: ["simple-calendar", "seasons-and-stars"]
+   * @returns {string[]} Array of available system IDs: ["dnd5e", "simple-calendar", "seasons-and-stars"]
    */
   static detectAvailable() {
-    console.log(`${MODULE_ID} | [CalendarAdapter] Detecting available calendar systems...`);
     const available = [];
+
+    // Check D&D 5e Calendar (v5.2.0+) - PRIORITY: native system calendar
+    const isDnd5e = game.system?.id === "dnd5e";
+    let dnd5eCalendarAvailable = false;
+    if (isDnd5e) {
+      try {
+        // Check if calendar setting exists and is configured
+        const calendarSetting = game.settings.get("dnd5e", "calendar");
+        // Calendar is at game.time.calendar in Foundry v13+
+        dnd5eCalendarAvailable = !!(calendarSetting && game.time?.calendar);
+      } catch (e) {
+        // Setting doesn't exist, likely pre-5.2.0
+      }
+    }
+    if (isDnd5e && dnd5eCalendarAvailable) {
+      available.push("dnd5e");
+    }
 
     // Check Simple Calendar (two possible module IDs)
     const scMod = game.modules.get("foundryvtt-simple-calendar") 
                ?? game.modules.get("simple-calendar");
-    const scActive = scMod?.active ?? false;
-    const scApiAvailable = !!(globalThis.SimpleCalendar?.api);
-    console.log(`${MODULE_ID} | [CalendarAdapter]   Simple Calendar: module=${scActive ? '✓' : '✗'}, api=${scApiAvailable ? '✓' : '✗'}`);
     if (scMod?.active && globalThis.SimpleCalendar?.api) {
       available.push("simple-calendar");
     }
 
     // Check Seasons & Stars (API is at game.seasonsStars.api, not game.seasonsStars directly)
     const ssMod = game.modules.get("seasons-and-stars");
-    const ssActive = ssMod?.active ?? false;
-    const ssApiAvailable = !!(game.seasonsStars?.api?.getCurrentDate);
-    console.log(`${MODULE_ID} | [CalendarAdapter]   Seasons & Stars: module=${ssActive ? '✓' : '✗'}, api=${ssApiAvailable ? '✓' : '✗'}`);
     if (ssMod?.active && game.seasonsStars?.api?.getCurrentDate) {
       available.push("seasons-and-stars");
     }
 
-    console.log(`${MODULE_ID} | [CalendarAdapter] Detection complete. Available: [${available.join(', ')}]`);
+    if (available.length > 0) {
+      console.log(`${MODULE_ID} | Detected calendars: ${available.join(', ')}`);
+    }
     return available;
   }
 
   /**
    * Get detection results as an object with boolean properties (helper for UI/migration).
-   * @returns {{simpleCalendar: boolean, seasonsStars: boolean}}
+   * @returns {{dnd5e: boolean, simpleCalendar: boolean, seasonsStars: boolean}}
    */
   static detectAvailableAsObject() {
     const available = CalendarAdapter.detectAvailable();
     return {
+      dnd5e: available.includes("dnd5e"),
       simpleCalendar: available.includes("simple-calendar"),
       seasonsStars: available.includes("seasons-and-stars")
     };
@@ -192,6 +199,7 @@ export class CalendarAdapter {
   static getSystemName(systemId) {
     const names = {
       "none": "None (Foundry Core Time)",
+      "dnd5e": "D&D 5e Calendar (v5.2+)",
       "simple-calendar": "Simple Calendar",
       "seasons-and-stars": "Seasons & Stars",
       "auto": "Auto-detect"

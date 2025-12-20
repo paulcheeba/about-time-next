@@ -1,3 +1,24 @@
+# Changelog (v13.4.0.0)
+
+**D&D 5e Calendar Integration - Native Calendar Support**
+
+- **New Dnd5eAdapter Class**  
+  Added native support for D&D 5e v5.2.0+ calendar system via new `Dnd5eAdapter.js`. The adapter integrates with Foundry v13's core time API at `game.time.calendar`. Supports all four built-in D&D 5e calendars (Gregorian, Greyhawk, Harptos/Forgotten Realms, Khorvaire/Eberron). Time formatting displays localized month names with proper date structure (e.g., "24 Alturiak, 1790 15:14:10").
+
+- **Auto-Detection Priority**  
+  D&D 5e Calendar now has **priority in auto-detection** when available. The detection system checks: (1) D&D 5e Calendar (native system), (2) Simple Calendar (module), (3) Seasons & Stars (module). This ensures native system calendars are preferred over module-based calendars.
+
+- **Dynamic Settings UI**  
+  Settings dropdown now dynamically shows only detected calendar systems. "Auto-detect" and "None" always appear. Calendar-specific options (D&D 5e, Simple Calendar, Seasons & Stars) only appear when their respective system/module is active and functional. Detection display shows all systems with ✓/✗ status for visibility.
+
+- **Requirements**  
+  D&D 5e Calendar requires: (1) D&D 5e system v5.2.0 or higher, (2) Calendar configured in D&D 5e settings, (3) `game.time.calendar` initialized. The adapter gracefully degrades if requirements not met.
+
+- **Backward Compatibility**  
+  All existing calendar integrations (Simple Calendar, Seasons & Stars) remain fully functional. D&D 5e Calendar is purely additive and optional. Systems without D&D 5e v5.2+ continue using existing calendar preferences.
+
+---
+
 # Changelog (v13.3.4.0)
 
 **Phase 3: Core Refactor - Use CalendarAdapter System (Non-Breaking)**

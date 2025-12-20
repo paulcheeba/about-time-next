@@ -64,6 +64,7 @@ export const registerSettings = function () {
     choices: {
       "auto": "Auto-detect",
       "none": "None (Foundry Core Time)",
+      "dnd5e": "D&D 5e Calendar (v5.2+)",
       "simple-calendar": "Simple Calendar",
       "seasons-and-stars": "Seasons & Stars"
     },
@@ -197,7 +198,7 @@ export const registerSettings = function () {
     }
   });
 
-  // Add calendar detection information to settings UI (v13.3.2.0)
+  // Add calendar detection information to settings UI (v13.3.5.0)
   // Support both old SettingsConfig and new Foundry v13 Game Settings
   const addDetectionInfo = (html) => {
     // Find the calendar-system setting
@@ -210,11 +211,42 @@ export const registerSettings = function () {
     if (formGroup.find('.calendar-detection-info').length > 0) return;
 
     // Get detection results
-    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { simpleCalendar: false, seasonsStars: false };
+    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { dnd5e: false, simpleCalendar: false, seasonsStars: false };
     
-    // Build detection message
+    // DYNAMIC DROPDOWN FILTERING (v13.3.5.0)
+    // Remove options for systems that aren't detected (keep "auto" and "none" always)
+    const currentValue = calendarSetting.val();
+    calendarSetting.find('option').each(function() {
+      const optionValue = $(this).val();
+      
+      // Always keep "auto" and "none"
+      if (optionValue === 'auto' || optionValue === 'none') return;
+      
+      // Remove option if system not detected
+      const shouldShow = (
+        (optionValue === 'dnd5e' && detected.dnd5e) ||
+        (optionValue === 'simple-calendar' && detected.simpleCalendar) ||
+        (optionValue === 'seasons-and-stars' && detected.seasonsStars)
+      );
+      
+      if (!shouldShow) {
+        // If current value is being removed, change to auto
+        if (optionValue === currentValue) {
+          calendarSetting.val('auto');
+        }
+        $(this).remove();
+      }
+    });
+    
+    // Build detection message (shows ALL systems, detected or not)
     let detectionHTML = '<div class="calendar-detection-info" style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';
-    detectionHTML += '<strong>Detected Calendar Modules:</strong><br>';
+    detectionHTML += '<strong>Detected Calendar Systems:</strong><br>';
+    
+    if (detected.dnd5e) {
+      detectionHTML += '✓ D&D 5e Calendar (available)<br>';
+    } else {
+      detectionHTML += '✗ D&D 5e Calendar (not detected)<br>';
+    }
     
     if (detected.simpleCalendar) {
       detectionHTML += '✓ Simple Calendar (available)<br>';
@@ -238,7 +270,7 @@ export const registerSettings = function () {
       formGroup.append(detectionHTML);
     }
     
-    console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info`);
+    console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info and filtered dropdown`);
   };
   
   // Hook for old settings interface (pre-v13)

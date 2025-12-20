@@ -7,7 +7,7 @@
 # About Time Next
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
-It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
+It supports **D&D 5e v5.2+ native calendar** (priority), **Simple Calendar**, **Seasons & Stars**, or falls back to Foundry's core time system.
 
 ---
 
@@ -21,12 +21,34 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
    ```
 
 2. Enable the module in your world.
-3. (Optional) Install **Simple Calendar** for advanced date formatting.
-*Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
+3. (Optional) Configure calendar system in settings: Auto-detect (default), D&D 5e Calendar, Simple Calendar, Seasons & Stars, or None.
 
 > Compatibility: Designed for FVTT v13 (min 13, max 13.x).  
-> With SC enabled, About-Time uses SC’s format/interval helpers where available.
-> Works with smalltime and Season and Stars (using foundry's core time system, not Seasons and Stars') but also has it's own Time Management app built in (which can be disabled in settings).
+> **Calendar Support:** D&D 5e v5.2+ native calendar (auto-detected with priority), Simple Calendar, Seasons & Stars.  
+> Settings dropdown dynamically shows only available calendar systems. Detection display shows all systems with status.
+
+---
+
+## Calendar Integration
+
+About Time Next uses a **calendar adapter system** to integrate with multiple calendar systems. The module automatically detects available calendars and provides formatted time displays.
+
+**Supported Calendars:**
+- **D&D 5e Calendar (v5.2+)**: Native Foundry v13 calendar system with Harptos, Greyhawk, Gregorian, and Khorvaire calendars. *Auto-detected with highest priority.*
+- **Seasons & Stars**: Full integration with formatted date/time display. *Currently active and tested.*
+- **Simple Calendar**: Adapter ready, integration pending v13 update of Simple Calendar module.
+
+**Auto-Detection (Default):**
+When set to "Auto-detect", the module checks in priority order:
+1. D&D 5e Calendar (if system v5.2+ with calendar configured)
+2. Simple Calendar (if module active with API)
+3. Seasons & Stars (if module active with API)
+4. Falls back to "None" (Foundry core time)
+
+**Dynamic Settings:**
+- Dropdown shows **only detected** calendars (plus "Auto-detect" and "None")
+- Detection info panel shows **all calendars** with ✓/✗ status
+- If your selected calendar becomes unavailable, module falls back automatically
 
 ---
 
@@ -134,7 +156,7 @@ Actions (top buttons):
 - **Send Queue to Chat** (GM-whisper)  
 - **Stop all Events** / **Stop all + 1h reminder**
 
-> With **Simple Calendar** installed, About-Time uses SC's formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+> Time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, or Simple Calendar when available). Falls back to Foundry core time if no calendar system is configured.
 
 ### Event Notification Cards
 When events trigger, they display standardized notification cards with detailed information:
