@@ -1,8 +1,8 @@
 // module/ATMiniPanel.js
-// v13.0.7.2 — Compact header (Play | Time | tiny toggles), no pill,
-// tiny toggles wired to rtLinkPause / rtAutoPauseCombat, small a11y polish.
+// v13.3.4.0 — Refactored to use CalendarAdapter for time formatting
 
 import { MODULE_ID } from "./settings.js";
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
 import { startRealtime, stopRealtime } from "./ATRealtimeClock.js";
 
 const PANEL_ID = "at-mini-time-panel";
@@ -50,12 +50,11 @@ function fmtDHMS(seconds) {
   return `${sign}${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
 }
 function scFormat(worldTime) {
-  const sc = game.modules.get("foundryvtt-simple-calendar")?.active ? globalThis.SimpleCalendar?.api : null;
-  if (!sc) return null;
+  const adapter = CalendarAdapter.getActive();
+  if (!adapter || adapter.getSystemName() === "None") return null;
   try {
-    const dt = sc.timestampToDate?.(worldTime);
-    const out = sc.formatDateTime?.(dt);
-    const date = out?.date ?? "", time = out?.time ?? "", sep = (date && time) ? " " : "";
+    const result = adapter.formatDateTime(worldTime);
+    const date = result.date || "", time = result.time || "", sep = (date && time) ? " " : "";
     const str = `${date}${sep}${time}`.trim();
     return str || null;
   } catch { return null; }
