@@ -90,23 +90,34 @@ export class SandSAdapter extends CalendarAdapter {
         return { date: "", time: `t+${Math.round(timestamp)}s` };
       }
 
-      // S&S formatDate returns full string, need to split date/time
-      const formatted = api.formatDate?.(date) || this.#formatDateFallback(date);
+      // Format with time explicitly included
+      const withTime = api.formatDate?.(date, { includeTime: true }) || this.#formatDateFallback(date);
+      const withoutTime = api.formatDate?.(date, { includeTime: false }) || this.#formatDateFallback(date);
       
-      // Try to split date and time components
-      // S&S format varies by calendar, but typically "Date Time" or just date
-      const parts = formatted.split(/\s+at\s+|\s{2,}/);
-      if (parts.length >= 2) {
-        return {
-          date: parts[0].trim(),
-          time: parts[1].trim()
-        };
+      // Extract time by comparing with and without time versions
+      let dateStr = withoutTime;
+      let timeStr = "";
+      
+      // Try common separators
+      const separators = [' at ', '  ', ', at '];
+      for (const sep of separators) {
+        if (withTime.includes(sep)) {
+          const parts = withTime.split(sep);
+          if (parts.length >= 2) {
+            dateStr = parts[0].trim();
+            timeStr = parts.slice(1).join(' ').trim();
+            break;
+          }
+        }
       }
       
-      // If no time component, extract from date object
-      const timeStr = this.#formatTime(date);
+      // If no separator found, extract time from date object
+      if (!timeStr) {
+        timeStr = this.#formatTime(date);
+      }
+      
       return {
-        date: formatted,
+        date: dateStr,
         time: timeStr
       };
     } catch (e) {
