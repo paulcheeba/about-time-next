@@ -1,3 +1,27 @@
+# Changelog (v13.3.3.0)
+
+**AT Mini Panel Layout Refresh (Non-Breaking)**
+
+- **New Header Layout**  
+  Reworked the header into a 2-column layout: a two-line "Current / time:" label on the left and the live time display on the right. Title aligns right; time display centers and stretches to fill available space.
+
+- **Time Display Styling**  
+  Time display now uses button-like styling (border + radius) and a dark theme-token background for clearer visual separation.
+
+- **Step Button Compactness**  
+  Step buttons updated to a tighter layout with icon + duration on one line (rewind icons left, advance icons right).
+
+- **Bottom Row Split Into 3 Sections**  
+  Time-of-day row reorganized into left/center/right sections: Play/Pause (left), Dawn→Midnight buttons (center), and toggle switches (right). Enforced a 23px minimum width for all buttons in this row.
+
+- **Time-of-Day Hint Tints**  
+  Dawn/Noon/Dusk/Midnight buttons now have subtle tinted backgrounds (still grey overall) with matching hover behavior.
+
+- **Toggle Tooltip State**  
+  The two toggle buttons now append their current state (On/Off) to tooltips and keep `aria-checked` in sync.
+
+---
+
 # Changelog (v13.3.2.0)
 
 **Phase 2: Calendar Settings & Migration (Non-Breaking)**

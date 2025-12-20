@@ -1,5 +1,5 @@
 // module/settings.js
-// v13.3.2.0 — Added calendar-system setting and migration from use-simple-calendar
+// v13.3.3.0 — Calendar settings & Foundry v13 UI support complete
 
 export const MODULE_ID = "about-time-next";
 
