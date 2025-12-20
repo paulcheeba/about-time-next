@@ -20,10 +20,15 @@ const warn = (...args) => ElapsedTime.debug && console.warn(`${MODULE_ID} |`, ..
 
 /**
  * Get the active calendar adapter (v13.3.4.0 - Phase 3)
- * @returns {CalendarAdapter} The active calendar adapter
+ * @returns {CalendarAdapter|null} The active calendar adapter or null if not ready
  */
 function getCalendarAdapter() {
-  return CalendarAdapter.getActive();
+  try {
+    return CalendarAdapter.getActive();
+  } catch (err) {
+    console.warn(`${MODULE_ID} | getCalendarAdapter error:`, err);
+    return null;
+  }
 }
 
 /**
@@ -32,7 +37,9 @@ function getCalendarAdapter() {
  */
 function hasCalendarSystem() {
   const adapter = getCalendarAdapter();
-  return adapter && adapter.getSystemName() !== "None";
+  if (!adapter) return false;
+  if (typeof adapter.getSystemName !== 'function') return false;
+  return adapter.getSystemName() !== "None";
 }
 
 export class ElapsedTime {

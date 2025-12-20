@@ -50,14 +50,22 @@ function fmtDHMS(seconds) {
   return `${sign}${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
 }
 function scFormat(worldTime) {
-  const adapter = CalendarAdapter.getActive();
-  if (!adapter || adapter.getSystemName() === "None") return null;
   try {
+    const adapter = CalendarAdapter.getActive();
+    if (!adapter) return null;
+    
+    // Check if adapter has the method (defensive coding for initialization timing)
+    if (typeof adapter.getSystemName !== 'function') return null;
+    if (adapter.getSystemName() === "None") return null;
+    
     const result = adapter.formatDateTime(worldTime);
     const date = result.date || "", time = result.time || "", sep = (date && time) ? " " : "";
     const str = `${date}${sep}${time}`.trim();
     return str || null;
-  } catch { return null; }
+  } catch (err) {
+    console.warn(`${MODULE_ID} | scFormat error:`, err);
+    return null;
+  }
 }
 function currentTimeLabel() {
   const wt = game.time?.worldTime ?? 0;

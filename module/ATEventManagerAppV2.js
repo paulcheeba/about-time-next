@@ -338,10 +338,14 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   // If a calendar system is present, show its formatted date/time.
   // Otherwise, show a friendly relative start: "in DD:HH:MM:SS".
   #fmtTimestamp(ts) {
-    const adapter = CalendarAdapter.getActive();
-    if (adapter && adapter.getSystemName() !== "None") {
-      const f = adapter.formatDateTime(ts);
-      return `${f.date ? f.date + " " : ""}${f.time}`;
+    try {
+      const adapter = CalendarAdapter.getActive();
+      if (adapter && typeof adapter.getSystemName === 'function' && adapter.getSystemName() !== "None") {
+        const f = adapter.formatDateTime(ts);
+        return `${f.date ? f.date + " " : ""}${f.time}`;
+      }
+    } catch (err) {
+      console.warn(`${MODULE_ID} | #fmtTimestamp adapter error:`, err);
     }
     const now = game.time.worldTime ?? 0;
     const diff = Math.max(0, Math.floor(ts - now));
