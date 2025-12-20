@@ -198,16 +198,22 @@ export const registerSettings = function () {
   });
 
   // Add calendar detection information to settings UI (v13.3.2.0)
-  Hooks.on('renderSettingsConfig', (app, html, data) => {
+  // Support both old SettingsConfig and new Foundry v13 Game Settings
+  const addDetectionInfo = (html) => {
     // Find the calendar-system setting
-    const calendarSetting = html.find(`[name="${MODULE_ID}.calendar-system"]`);
+    const calendarSetting = html.find ? html.find(`[name="${MODULE_ID}.calendar-system"]`) : $(html).find(`[name="${MODULE_ID}.calendar-system"]`);
     if (calendarSetting.length === 0) return;
+
+    const formGroup = calendarSetting.closest('.form-group');
+    
+    // Check if already added to prevent duplicates
+    if (formGroup.find('.calendar-detection-info').length > 0) return;
 
     // Get detection results
     const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { simpleCalendar: false, seasonsStars: false };
     
     // Build detection message
-    let detectionHTML = '<div style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';
+    let detectionHTML = '<div class="calendar-detection-info" style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';
     detectionHTML += '<strong>Detected Calendar Modules:</strong><br>';
     
     if (detected.simpleCalendar) {
@@ -224,25 +230,25 @@ export const registerSettings = function () {
     
     detectionHTML += '</div>';
     
-    // Insert detection info after the setting input (try multiple insertion points)
-    const formGroup = calendarSetting.closest('.form-group');
+    // Insert detection info
     const hint = formGroup.find('.notes');
-    
-    // Check if already added to prevent duplicates
-    if (formGroup.find('.calendar-detection-info').length > 0) return;
-    
-    // Wrap detection HTML with class for duplicate detection
-    detectionHTML = detectionHTML.replace('<div style=', '<div class="calendar-detection-info" style=');
-    
     if (hint.length > 0) {
-      // If hint exists, add after it
       hint.after(detectionHTML);
     } else {
-      // Otherwise, append to form group
       formGroup.append(detectionHTML);
     }
     
     console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info`);
+  };
+  
+  // Hook for old settings interface (pre-v13)
+  Hooks.on('renderSettingsConfig', (app, html, data) => {
+    addDetectionInfo(html);
+  });
+  
+  // Hook for new Foundry v13 Game Settings interface
+  Hooks.on('renderGameSettings', (app, html, data) => {
+    addDetectionInfo(html);
   });
 
   console.log(`${MODULE_ID} | Settings registered successfully`);
