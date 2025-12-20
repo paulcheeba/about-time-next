@@ -37,8 +37,7 @@ function getCalendarAdapter() {
 function hasCalendarSystem() {
   const adapter = getCalendarAdapter();
   if (!adapter) return false;
-  if (typeof adapter.getSystemName !== 'function') return false;
-  return adapter.getSystemName() !== "None";
+  return adapter.systemId !== "none";
 }
 
 export class ElapsedTime {

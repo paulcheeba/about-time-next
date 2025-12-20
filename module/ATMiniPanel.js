@@ -53,8 +53,7 @@ function scFormat(worldTime) {
   try {
     const adapter = CalendarAdapter.getActive();
     if (!adapter) return null;
-    if (typeof adapter.getSystemName !== 'function') return null;
-    if (adapter.getSystemName() === "None") return null;
+    if (adapter.systemId === "none") return null;
     
     const result = adapter.formatDateTime(worldTime);
     const date = result.date || "", time = result.time || "", sep = (date && time) ? " " : "";
@@ -67,7 +66,8 @@ function scFormat(worldTime) {
 }
 function currentTimeLabel() {
   const wt = game.time?.worldTime ?? 0;
-  return scFormat(wt) ?? fmtDHMS(wt);
+  const formatted = scFormat(wt);
+  return formatted ?? fmtDHMS(wt);
 }
 function readDurations() {
   return {

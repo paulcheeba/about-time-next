@@ -340,7 +340,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   #fmtTimestamp(ts) {
     try {
       const adapter = CalendarAdapter.getActive();
-      if (adapter && typeof adapter.getSystemName === 'function' && adapter.getSystemName() !== "None") {
+      if (adapter && adapter.systemId !== "none") {
         const f = adapter.formatDateTime(ts);
         return `${f.date ? f.date + " " : ""}${f.time}`;
       }
