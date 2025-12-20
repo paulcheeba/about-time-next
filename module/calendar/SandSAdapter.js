@@ -90,29 +90,25 @@ export class SandSAdapter extends CalendarAdapter {
         return { date: "", time: `t+${Math.round(timestamp)}s` };
       }
 
-      // Format with time explicitly included
-      const withTime = api.formatDate?.(date, { includeTime: true }) || this.#formatDateFallback(date);
-      const withoutTime = api.formatDate?.(date, { includeTime: false }) || this.#formatDateFallback(date);
+      // Get full formatted string with time - this has the correct date format
+      const fullFormatted = api.formatDate?.(date, { includeTime: true }) || this.#formatDateFallback(date);
       
-      // Extract time by comparing with and without time versions
-      let dateStr = withoutTime;
-      let timeStr = "";
-      
-      // Try common separators
-      const separators = [' at ', '  ', ', at '];
-      for (const sep of separators) {
-        if (withTime.includes(sep)) {
-          const parts = withTime.split(sep);
-          if (parts.length >= 2) {
-            dateStr = parts[0].trim();
-            timeStr = parts.slice(1).join(' ').trim();
-            break;
-          }
-        }
+      // Extract date by removing the time portion (S&S uses " at " separator)
+      let dateStr = fullFormatted;
+      const atIndex = fullFormatted.indexOf(' at ');
+      if (atIndex !== -1) {
+        dateStr = fullFormatted.substring(0, atIndex).trim();
       }
       
-      // If no separator found, extract time from date object
-      if (!timeStr) {
+      // Extract time directly from date object's time property
+      let timeStr = "";
+      if (date.time && typeof date.time === 'object') {
+        const h = String(date.time.hour ?? 0).padStart(2, '0');
+        const m = String(date.time.minute ?? 0).padStart(2, '0');
+        const s = String(date.time.second ?? 0).padStart(2, '0');
+        timeStr = `${h}:${m}:${s}`;
+      } else {
+        // Fallback to extracting from date object properties
         timeStr = this.#formatTime(date);
       }
       
