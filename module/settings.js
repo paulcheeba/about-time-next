@@ -224,13 +224,25 @@ export const registerSettings = function () {
     
     detectionHTML += '</div>';
     
-    // Insert detection info after the hint
+    // Insert detection info after the setting input (try multiple insertion points)
     const formGroup = calendarSetting.closest('.form-group');
     const hint = formGroup.find('.notes');
+    
+    // Check if already added to prevent duplicates
+    if (formGroup.find('.calendar-detection-info').length > 0) return;
+    
+    // Wrap detection HTML with class for duplicate detection
+    detectionHTML = detectionHTML.replace('<div style=', '<div class="calendar-detection-info" style=');
+    
     if (hint.length > 0) {
+      // If hint exists, add after it
       hint.after(detectionHTML);
-      console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info`);
+    } else {
+      // Otherwise, append to form group
+      formGroup.append(detectionHTML);
     }
+    
+    console.log(`${MODULE_ID} | [Settings UI] Added calendar detection info`);
   });
 
   console.log(`${MODULE_ID} | Settings registered successfully`);
