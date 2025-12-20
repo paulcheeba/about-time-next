@@ -1,9 +1,9 @@
 // File: modules/about-time-next/module/ATEventManagerAppV2.js
-// v13.1.3.1 — Add macro datalist + refresh; no behavior changes
-// NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
+// v13.3.4.0 — Refactored to use CalendarAdapter for timestamp formatting
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
 import { MODULE_ID } from "./settings.js";
 import { formatEventChatCard } from "./FastPriorityQueue.js";
 // Minimal helper for GM whisper used inside scheduled handlers (no private fields)
@@ -335,13 +335,12 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     return `${String(d).padStart(2, "0")}:${pad(h)}:${pad(m)}:${pad(sec)}`;
   }
 
-  // If Simple Calendar is present, show its formatted date/time.
+  // If a calendar system is present, show its formatted date/time.
   // Otherwise, show a friendly relative start: "in DD:HH:MM:SS".
   #fmtTimestamp(ts) {
-    const api = globalThis.SimpleCalendar?.api;
-    if (api?.timestampToDate && api?.formatDateTime) {
-      const dt = api.timestampToDate(ts);
-      const f = api.formatDateTime(dt) ?? { date: "", time: `t+${ts}` };
+    const adapter = CalendarAdapter.getActive();
+    if (adapter && adapter.getSystemName() !== "None") {
+      const f = adapter.formatDateTime(ts);
       return `${f.date ? f.date + " " : ""}${f.time}`;
     }
     const now = game.time.worldTime ?? 0;
