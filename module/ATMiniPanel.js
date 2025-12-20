@@ -53,8 +53,6 @@ function scFormat(worldTime) {
   try {
     const adapter = CalendarAdapter.getActive();
     if (!adapter) return null;
-    
-    // Check if adapter has the method (defensive coding for initialization timing)
     if (typeof adapter.getSystemName !== 'function') return null;
     if (adapter.getSystemName() === "None") return null;
     

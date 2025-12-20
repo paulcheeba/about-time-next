@@ -345,7 +345,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
         return `${f.date ? f.date + " " : ""}${f.time}`;
       }
     } catch (err) {
-      console.warn(`${MODULE_ID} | #fmtTimestamp adapter error:`, err);
+      // Silently fall back to relative time on error
     }
     const now = game.time.worldTime ?? 0;
     const diff = Math.max(0, Math.floor(ts - now));

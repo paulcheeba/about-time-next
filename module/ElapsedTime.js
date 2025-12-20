@@ -26,7 +26,6 @@ function getCalendarAdapter() {
   try {
     return CalendarAdapter.getActive();
   } catch (err) {
-    console.warn(`${MODULE_ID} | getCalendarAdapter error:`, err);
     return null;
   }
 }
