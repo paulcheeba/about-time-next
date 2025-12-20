@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.3.3.0 — Phase 2 settings complete + Mini Panel layout refresh
+// v13.3.4.0 — Phase 3 complete: Core refactored to use CalendarAdapter
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -50,7 +50,7 @@ try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 export function DTNow() { return game.time.worldTime; }
 
 Hooks.once('init', () => {
-  console.log(`${MODULE_ID} | Initializing v13.3.3.0`);
+  console.log(`${MODULE_ID} | Initializing v13.3.4.0`);
   registerSettings();
   registerMiniSettings(); // <- new mini settings
 

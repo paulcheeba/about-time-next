@@ -1,3 +1,21 @@
+# Changelog (v13.3.4.0)
+
+**Phase 3: Core Refactor - Use CalendarAdapter System (Non-Breaking)**
+
+- **ElapsedTime.js Refactor**  
+  Replaced all direct Simple Calendar API calls with CalendarAdapter abstraction. Removed `isSCActive()` function and added `getCalendarAdapter()` and `hasCalendarSystem()` helpers. Updated all time formatting and interval calculation methods (`currentTimeString`, `timeString`, `currentTime`, `doIn`, `doEvery`, `doAtEvery`, `reminderAtEvery`) to use adapter methods. Event scheduling now works consistently across Simple Calendar, Seasons & Stars, and Foundry core time.
+
+- **ATMiniPanel.js Refactor**  
+  Refactored `scFormat()` function to use `CalendarAdapter.formatDateTime()` instead of direct Simple Calendar API calls. Mini time panel now displays correctly formatted timestamps for all supported calendar systems.
+
+- **ATEventManagerAppV2.js Refactor**  
+  Updated `#fmtTimestamp()` method to use `CalendarAdapter.formatDateTime()` instead of direct Simple Calendar checks. Event Manager UI now displays event timestamps correctly for Simple Calendar, Seasons & Stars, and core time. Comments updated to reflect support for calendar systems in general, not just Simple Calendar.
+
+- **Backward Compatibility**  
+  All refactoring maintains backward compatibility. Existing events, macros, and time displays continue to work. Simple Calendar functionality unchanged for existing users. Seasons & Stars now fully integrated throughout the module.
+
+---
+
 # Changelog (v13.3.3.0)
 
 **AT Mini Panel Layout Refresh (Non-Breaking)**
