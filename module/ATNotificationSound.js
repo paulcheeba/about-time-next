@@ -12,7 +12,11 @@ export class ATNotificationSound {
    * Initialize the notification sound system
    */
   static init() {
-    console.log(`${MODULE_ID} | Initializing event notification sounds`);
+    try {
+      if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | Initializing event notification sounds`);
+    } catch {
+      // ignore
+    }
     this.registerHooks();
   }
   
@@ -115,7 +119,11 @@ export class ATNotificationSound {
    * Test the notification sound (for settings preview or console testing)
    */
   static testSound() {
-    console.log(`${MODULE_ID} | Testing notification sound`);
+    try {
+      if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | Testing notification sound`);
+    } catch {
+      // ignore
+    }
     this.playNotificationSound();
   }
 }

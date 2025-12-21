@@ -1,4 +1,8 @@
 // About Time v13.0.5 — DTCalc
+//
+// Legacy Simple Calendar compatibility layer.
+// Simple Calendar is not currently FVTT v13-ready; we keep these helpers for
+// reference/back-compat and plan to remove them once SC is updated or retired.
 
 import { ElapsedTime } from "../ElapsedTime.js";
 
@@ -10,7 +14,7 @@ export class DTCalc {
   static padNumber(n, digits = 2) { return `${n}`.padStart(digits, "0"); }
   static padYear(n, digits = 2) { return `${n}`.padStart(digits, " "); }
   static isLeapYear() { console.error("about-time | isLeapYear not supported."); return undefined; }
-  static daysInYear() { warn("about-time | daysInYear deprecated."); return undefined; }
+  static daysInYear() { warn("daysInYear deprecated."); return undefined; }
 
   static get spd() {
     const api = globalThis.SimpleCalendar?.api;
@@ -19,7 +23,7 @@ export class DTCalc {
   }
 
   static timeToSeconds({ days = 0, hours = 0, minutes = 0, seconds = 0 } = {}) {
-    console.error("about-time | timeToSeconds deprecated.");
+    warn("timeToSeconds deprecated.");
     const api = globalThis.SimpleCalendar?.api;
     if (api) {
       const now = game.time.worldTime;

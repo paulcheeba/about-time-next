@@ -95,7 +95,7 @@
       <button type="button" class="at-emv2-btn icon at-emv2-macro-refresh" title="Refresh macros" aria-label="Refresh macros">⟳</button>
     </div>
     <div class="row buttons">
-      {{#if isGM}}
+      {{#if canManage}}
       <button type="button" class="at-btn danger" data-action="flush">Stop all Events</button>
       <button type="button" class="at-btn danger" data-action="flush-rem">Stop all + 1h reminder</button>
       <input type="text" name="stopKey" placeholder="Stop → enter Name or UID" />
@@ -118,7 +118,7 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Starts</th>
+            <th>Next</th>
             <th>Remaining</th>
             <th>Repeat</th>
             <th>Macro</th>
@@ -132,14 +132,23 @@
             {{#each entries as |e|}}
             <tr data-uid="{{e.uid}}">
               <td class="name">{{e.name}}</td>
-              <td class="start">{{e.startTxt}}</td>
-              <td class="remain"><span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span></td>
+              <td class="start" title="{{e.startTooltip}}">{{{e.startTxt}}}</td>
+              <td class="remain">
+                {{#if e.paused}}
+                  <span>{{e.remainingTxt}}</span>
+                {{else}}
+                  <span data-remaining data-time="{{e.time}}">{{e.remainingTxt}}</span>
+                {{/if}}
+              </td>
               <td class="repeat">{{#if e.recurring}}Yes ({{e.incTxt}}){{else}}—{{/if}}</td>
               <td class="macro" title="{{e.macroUuid}}">{{#if e.macroName}}{{e.macroName}}{{else}}NA{{/if}}</td>
               <td class="msg">{{e.msg}}</td>
               <td class="uid"><code>{{e.uid}}</code></td>
               <td class="actions">
-                {{#if ../isGM}}<button type="button" class="at-btn warn" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>{{/if}}
+                {{#if ../canManage}}
+                  <button type="button" class="at-btn warn" data-action="row-toggle-pause" data-uid="{{e.uid}}">{{e.pauseBtnTxt}}</button>
+                  <button type="button" class="at-btn warn" data-action="row-stop" data-uid="{{e.uid}}">Stop</button>
+                {{/if}}
                 <!-- Copy UID button removed by request -->
               </td>
             </tr>

@@ -20,6 +20,47 @@ export class Dnd5eAdapter extends CalendarAdapter {
     super();
   }
 
+  #getCalendarConfig() {
+    return CONFIG?.time?.worldCalendarConfig ?? null;
+  }
+
+  #getMonthsValues() {
+    const calendar = this.#getCalendar();
+    const cfg = this.#getCalendarConfig();
+    return cfg?.months?.values ?? calendar?.months?.values ?? [];
+  }
+
+  #normalizeMonthIndex(rawMonth, monthsLength) {
+    const m = Number(rawMonth);
+    if (!Number.isFinite(m) || monthsLength <= 0) return 0;
+
+    // Prefer 0-based if it fits.
+    if (m >= 0 && m < monthsLength) return m;
+    // Fall back to 1-based.
+    if (m >= 1 && m <= monthsLength) return m - 1;
+    return 0;
+  }
+
+  #normalizeDayOfMonth(rawDay, daysInMonth) {
+    const d = Number(rawDay);
+    if (!Number.isFinite(d) || !Number.isFinite(daysInMonth) || daysInMonth <= 0) return 1;
+
+    // Prefer 0-based if it fits.
+    if (d >= 0 && d < daysInMonth) return d + 1;
+    // Fall back to 1-based.
+    if (d >= 1 && d <= daysInMonth) return d;
+    return 1;
+  }
+
+  #getAbsoluteYear(rawYear) {
+    const calendar = this.#getCalendar();
+    const year = Number(rawYear);
+    const yearZero = Number(calendar?.years?.yearZero ?? 0);
+    if (!Number.isFinite(year)) return yearZero;
+    if (!Number.isFinite(yearZero)) return year;
+    return year + yearZero;
+  }
+
   /**
    * Get reference to D&D 5e Calendar API.
    * @returns {object|null} Calendar data model or null
@@ -67,19 +108,11 @@ export class Dnd5eAdapter extends CalendarAdapter {
     }
 
     try {
-      // For current time, use game.time.components
-      // For other timestamps, calculate offset from current time
-      const currentTime = game.time.worldTime;
-      const components = game.time.components;
-      
-      if (Math.abs(timestamp - currentTime) < 1) {
-        // Current time - use components directly
-        return calendar.format(components, "timestamp");
-      } else {
-        // Different timestamp - calculate offset and use simple format
-        const offset = timestamp - currentTime;
-        return `t+${Math.round(offset)}s`;
-      }
+      const f = this.formatDateTime(timestamp);
+      const date = f?.date || "";
+      const time = f?.time || "";
+      const sep = (date && time) ? ", " : "";
+      return `${date}${sep}${time}`.trim() || `t+${Math.round(timestamp)}s`;
     } catch (e) {
       console.error(`${MODULE_ID} | [Dnd5eAdapter] formatTimestamp error:`, e);
       return `t+${Math.round(timestamp)}s`;
@@ -93,24 +126,32 @@ export class Dnd5eAdapter extends CalendarAdapter {
     }
 
     try {
-      // For current time, use game.time.components
-      const components = game.time.components;
-      
-      // Get month name from calendar configuration
-      const calendarConfig = CONFIG.time.worldCalendarConfig;
-      const monthData = calendarConfig?.months?.values?.[components.month - 1];
-      let monthName = monthData?.name || `Month ${components.month}`;
+      const components = (typeof calendar.timeToComponents === "function")
+        ? calendar.timeToComponents(timestamp)
+        : game.time.components;
+
+      const monthsValues = this.#getMonthsValues();
+      const monthIndex = this.#normalizeMonthIndex(components?.month, monthsValues.length);
+      const monthData = monthsValues?.[monthIndex];
+      let monthName = monthData?.name || `Month ${monthIndex + 1}`;
       
       // Localize if it's a localization key
       if (monthName.includes('.')) {
         monthName = game.i18n.localize(monthName);
       }
       
-      // Format like S&S: "Day MonthName, Year"
-      const dateStr = `${components.dayOfMonth} ${monthName}, ${components.year}`;
+      // Get day with ordinal suffix (1st, 2nd, 3rd, etc.)
+      const daysInMonth = Number(monthData?.days ?? 0);
+      const rawDay = components?.dayOfMonth ?? components?.day;
+      const day = this.#normalizeDayOfMonth(rawDay, daysInMonth || 30);
+      const ordinal = CalendarAdapter.getOrdinalSuffix(day);
       
-      // Format time: "HH:MM:SS"
-      const timeStr = `${String(components.hour).padStart(2, '0')}:${String(components.minute).padStart(2, '0')}:${String(components.second).padStart(2, '0')}`;
+      // Format like: "3rd of Hammer, 1789"
+      const year = this.#getAbsoluteYear(components?.year);
+      const dateStr = `${day}${ordinal} of ${monthName}, ${year}`;
+      
+      // Format time according to user preference
+      const timeStr = CalendarAdapter.formatTime(components?.hour ?? 0, components?.minute ?? 0, components?.second ?? 0);
       
       return {
         date: dateStr,
@@ -131,11 +172,19 @@ export class Dnd5eAdapter extends CalendarAdapter {
 
     try {
       const normalized = this.normalizeInterval(interval);
-      
-      // Use calendar.offset() to add interval to timestamp
-      const result = calendar.offset(timestamp, normalized);
-      
-      return result;
+
+      // Prefer documented CalendarData API.
+      if (typeof calendar.add === "function" && typeof calendar.componentsToTime === "function") {
+        const comps = calendar.add(timestamp, normalized);
+        return calendar.componentsToTime(comps);
+      }
+
+      // Back-compat / non-standard calendar models.
+      if (typeof calendar.offset === "function") {
+        return calendar.offset(timestamp, normalized);
+      }
+
+      return this.#fallbackIntervalAdd(timestamp, interval);
     } catch (e) {
       console.error(`${MODULE_ID} | [Dnd5eAdapter] timestampPlusInterval error:`, e);
       return this.#fallbackIntervalAdd(timestamp, interval);
@@ -150,17 +199,23 @@ export class Dnd5eAdapter extends CalendarAdapter {
     }
 
     try {
-      // Use game.time.components for current time
-      const components = game.time.components;
-      
-      // Return components (month is already 1-based in Foundry v13)
+      const components = (typeof calendar.timeToComponents === "function")
+        ? calendar.timeToComponents(timestamp)
+        : game.time.components;
+
+      const monthsValues = this.#getMonthsValues();
+      const monthIndex = this.#normalizeMonthIndex(components?.month, monthsValues.length);
+      const monthData = monthsValues?.[monthIndex];
+      const daysInMonth = Number(monthData?.days ?? 0);
+      const rawDay = components?.dayOfMonth ?? components?.day;
+
       return {
-        year: components.year || 0,
-        month: components.month || 1,
-        day: components.dayOfMonth || 1,
-        hour: components.hour || 0,
-        minute: components.minute || 0,
-        second: components.second || 0
+        year: this.#getAbsoluteYear(components?.year),
+        month: monthIndex + 1, // return 1-based
+        day: this.#normalizeDayOfMonth(rawDay, daysInMonth || 30),
+        hour: components?.hour ?? 0,
+        minute: components?.minute ?? 0,
+        second: components?.second ?? 0
       };
     } catch (e) {
       console.error(`${MODULE_ID} | [Dnd5eAdapter] timestampToDate error:`, e);
@@ -203,7 +258,11 @@ export class Dnd5eAdapter extends CalendarAdapter {
     }
 
     try {
-      console.log(`${MODULE_ID} | [Dnd5eAdapter] getCalendarData: Querying D&D 5e for calendar structure...`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [Dnd5eAdapter] getCalendarData: Querying D&D 5e for calendar structure...`);
+      } catch {
+        // ignore
+      }
       
       // Extract calendar structure from D&D 5e calendar model
       const months = [];
@@ -228,7 +287,11 @@ export class Dnd5eAdapter extends CalendarAdapter {
         secondsInCombatRound: 6
       };
 
-      console.log(`${MODULE_ID} | [Dnd5eAdapter] getCalendarData: Retrieved data:`, data);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [Dnd5eAdapter] getCalendarData: Retrieved data:`, data);
+      } catch {
+        // ignore
+      }
       return data;
     } catch (e) {
       console.error(`${MODULE_ID} | [Dnd5eAdapter] getCalendarData error:`, e);

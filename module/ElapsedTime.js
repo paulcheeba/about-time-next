@@ -15,7 +15,7 @@ const _moduleSocket = `module.${MODULE_ID}`;
 let _userId = "";
 let _isGM = false;
 
-const log  = (...args) => console.log(`${MODULE_ID} |`, ...args);
+const log  = (...args) => ElapsedTime.debug && console.log(`${MODULE_ID} |`, ...args);
 const warn = (...args) => ElapsedTime.debug && console.warn(`${MODULE_ID} |`, ...args);
 
 /**
@@ -41,8 +41,66 @@ function hasCalendarSystem() {
 }
 
 export class ElapsedTime {
+  static PAUSED_TIME_SENTINEL = Number.MAX_SAFE_INTEGER - 10000;
+
   get eventQueue() { return ElapsedTime._eventQueue; }
   set eventQueue(queue) { ElapsedTime._eventQueue = queue; }
+
+  /**
+   * Pause or resume an event by UID.
+   * Paused events are moved far into the future so they won't execute.
+   * Remaining time is frozen in metadata and used when resuming.
+   */
+  static setEventPaused(uid, paused) {
+    if (!PseudoClock.isMaster) {
+      PseudoClock.warnNotMaster("pause/resume events");
+      return { ok: false, reason: "not-master" };
+    }
+    const q = ElapsedTime._eventQueue;
+    if (!q?.removeId || !q?.add) return { ok: false, reason: "no-queue" };
+
+    const qe = q.removeId(uid);
+    if (!qe) return { ok: false, reason: "not-found" };
+
+    if (!Array.isArray(qe._args)) qe._args = [];
+    let meta = qe._args[0];
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+      meta = {};
+      qe._args[0] = meta;
+    }
+
+    const now = Math.floor(game.time.worldTime ?? 0);
+    const currentlyPaused = !!meta.__atPaused;
+    const targetPaused = !!paused;
+
+    if (targetPaused && !currentlyPaused) {
+      const remaining = Math.max(0, Math.floor(Number(qe._time || 0) - now));
+      meta.__atPaused = true;
+      meta.__atPausedRemaining = remaining;
+      meta.__atPausedNextTime = Number(qe._time || 0);
+      qe._time = ElapsedTime.PAUSED_TIME_SENTINEL;
+    }
+
+    if (!targetPaused && currentlyPaused) {
+      const remaining = Math.max(0, Math.floor(Number(meta.__atPausedRemaining) || 0));
+      qe._time = now + remaining;
+      delete meta.__atPaused;
+      delete meta.__atPausedRemaining;
+      delete meta.__atPausedNextTime;
+    }
+
+    q.add(qe);
+    ElapsedTime._save(true);
+    return { ok: true, paused: targetPaused };
+  }
+
+  static pauseEvent(uid) {
+    return ElapsedTime.setEventPaused(uid, true);
+  }
+
+  static resumeEvent(uid) {
+    return ElapsedTime.setEventPaused(uid, false);
+  }
 
   static currentTimeString() {
     const adapter = getCalendarAdapter();
@@ -66,12 +124,14 @@ export class ElapsedTime {
   static currentTimeSeconds() { return game.time.worldTime; }
 
   static status() {
+    if (!ElapsedTime.debug) return;
     console.log(ElapsedTime._eventQueue.array, ElapsedTime._eventQueue.size, ElapsedTime._saveInterval);
   }
 
   static _displayCurrentTime() {
     if (!hasCalendarSystem()) return;
     const adapter = getCalendarAdapter();
+    if (!ElapsedTime.debug) return;
     console.log(`Elapsed time ${adapter.formatTimestamp(game.time.worldTime)}`);
   }
 
@@ -152,7 +212,34 @@ export class ElapsedTime {
       ui.notifications.warn("Cannot set event in the past");
       time = 1;
     }
+
+    // Preserve the original scheduled time (static) for display purposes.
+    // The queue entry _time may move forward for recurring events after time jumps.
+    try {
+      const meta = args?.[0];
+      if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+        if (meta.__atOriginalTime == null) meta.__atOriginalTime = time;
+      }
+    } catch {
+      // ignore
+    }
+
     const entry = new Quentry(time, recurring, increment, handler, null, game.user.id, ...args);
+
+    if (ElapsedTime.debug) {
+      try {
+        console.log(`${MODULE_ID} | [ElapsedTime] schedule`, {
+          isMaster: !!PseudoClock.isMaster,
+          uid: entry?._uid,
+          time: Number(entry?._time),
+          recurring: !!recurring,
+          increment: Number(increment ?? 0),
+          originator: game.user?.id
+        });
+      } catch {
+        // ignore
+      }
+    }
 
     if (PseudoClock.isMaster) {
       ElapsedTime._eventQueue.add(entry);
@@ -160,6 +247,13 @@ export class ElapsedTime {
       ElapsedTime._increment = increment;
       return entry._uid;
     } else {
+      if (ElapsedTime.debug) {
+        try {
+          console.log(`${MODULE_ID} | [ElapsedTime] sending socket addEvent`, { uid: entry?._uid });
+        } catch {
+          // ignore
+        }
+      }
       const eventMessage = new PseudoClockMessage({ action: _addEvent, userId: game.user.id, newTime: 0 }, entry.exportToJson());
       PseudoClock._notifyUsers(eventMessage);
       return entry._uid;
@@ -224,6 +318,21 @@ export class ElapsedTime {
     while (q.peek() && (q.peek()._time - nowSec) <= EPS) {
       const qe = q.poll(); // remove head
       try {
+        // Precompute next occurrence timestamp (for standardized chat card) before execution.
+        try {
+          const meta = qe?._args?.[0];
+          if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+            meta.__atNextTime = null;
+            if (qe._recurring && Number(qe._increment) > 0) {
+              const iv = Math.floor(Number(qe._increment));
+              const missed = Math.max(1, Math.ceil((nowSec - qe._time + EPS) / iv));
+              meta.__atNextTime = qe._time + missed * iv;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         // ---- Execute the entry's handler (string macro id/name OR function) ----
         if (typeof qe._handler === "string") {
           const macro =
@@ -278,10 +387,36 @@ export class ElapsedTime {
   static _save(force = false) {
     if (!PseudoClock.isMaster) return;
     const now = Date.now();
-    if ((now - ElapsedTime._lastSaveTime > ElapsedTime._saveInterval) || force) {
-      game.settings.set(MODULE_ID, "store", { _eventQueue: ElapsedTime._eventQueue.exportToJSON() });
-      ElapsedTime._lastSaveTime = now;
+    const shouldSave = ((now - ElapsedTime._lastSaveTime > ElapsedTime._saveInterval) || force);
+    if (!shouldSave) {
+      if (ElapsedTime.debug) {
+        try {
+          console.log(`${MODULE_ID} | [ElapsedTime] save skipped (throttled)`, {
+            force: !!force,
+            msSinceLast: now - ElapsedTime._lastSaveTime,
+            intervalMs: ElapsedTime._saveInterval,
+            queueSize: ElapsedTime?._eventQueue?.size
+          });
+        } catch {
+          // ignore
+        }
+      }
+      return;
     }
+
+    if (ElapsedTime.debug) {
+      try {
+        console.log(`${MODULE_ID} | [ElapsedTime] saving store`, {
+          force: !!force,
+          queueSize: ElapsedTime?._eventQueue?.size
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    game.settings.set(MODULE_ID, "store", { _eventQueue: ElapsedTime._eventQueue.exportToJSON() });
+    ElapsedTime._lastSaveTime = now;
   }
 
   static init() {
@@ -309,9 +444,10 @@ export class ElapsedTime {
 
   static showQueue() {
     if (ElapsedTime._eventQueue.size === 0) {
-      console.log("Empty Queue");
+      if (ElapsedTime.debug) console.log("Empty Queue");
       return;
     }
+    if (!ElapsedTime.debug) return;
     for (let i = 0; i < ElapsedTime._eventQueue.size; i++) {
       log(
         `queue [${i}]`,
@@ -383,7 +519,7 @@ export class ElapsedTime {
 
 }
 
-ElapsedTime.debug = true;
+ElapsedTime.debug = false;
 ElapsedTime._saveInterval = 60 * 1000;
 
 async function macroExecute(macro, ...args) {

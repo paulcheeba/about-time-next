@@ -3,6 +3,8 @@
 
 'use strict';
 
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
+
 const defaultcomparator = function (a, b) {
   if (a._time !== b._time) return a._time < b._time;
   return a._uid < b._uid;
@@ -19,11 +21,39 @@ const defaultcomparator = function (a, b) {
  */
 function formatEventChatCard(meta, uid, recurring, increment) {
   const escape = (str) => globalThis.foundry?.utils?.escapeHTML?.(str) ?? String(str);
+
+  // Escape arbitrary HTML but allow our known ordinal superscripts.
+  const allowOrdinalSup = (escaped) => {
+    const s = String(escaped ?? "");
+    return s.replace(/&lt;sup&gt;(st|nd|rd|th)&lt;\/sup&gt;/gi, "<sup>$1</sup>");
+  };
+
+  const formatTimestamp = (ts) => {
+    const t = Number(ts);
+    if (!Number.isFinite(t)) return "NA";
+    try {
+      const adapter = CalendarAdapter.getActive();
+      if (adapter && adapter.systemId !== "none") {
+        const f = adapter.formatDateTime(t);
+        const date = f?.date || "";
+        const time = f?.time || "";
+        const sep = (date && time) ? ", " : "";
+        return `${date}${sep}${time}`.trim() || `t+${Math.round(t)}s`;
+      }
+    } catch {
+      // ignore
+    }
+    return `t+${Math.round(t)}s`;
+  };
   
   const name = escape(meta?.__atName || "NA");
   const message = escape(meta?.__atMsg || "NA");
   const macroName = escape(meta?.__macroName || "NA");
   const recurringText = recurring ? "Yes" : "No";
+
+  // Started On: use preserved original time if available
+  const startedOnTs = (meta && typeof meta === "object") ? meta.__atOriginalTime : null;
+  const startedOnText = startedOnTs != null ? allowOrdinalSup(escape(formatTimestamp(startedOnTs))) : "";
   
   // Format duration from increment or stored __duration
   let durationText = "NA";
@@ -36,12 +66,18 @@ function formatEventChatCard(meta, uid, recurring, increment) {
     const pad = (n) => String(n).padStart(2, '0');
     durationText = `${pad(d)}:${pad(h)}:${pad(m)}:${pad(s)}`;
   }
+
+  // Next Occurrence: computed when the event fires (if recurring)
+  const nextTs = (meta && typeof meta === "object") ? meta.__atNextTime : null;
+  const nextText = (nextTs != null && recurring) ? allowOrdinalSup(escape(formatTimestamp(nextTs))) : "—";
   
   return `<div style="border-left: 3px solid #50fa7b; padding-left: 8px; font-family: monospace;">
 <p style="margin: 4px 0;"><strong>[about-time-next]</strong></p>
 <p style="margin: 2px 0;"><strong>Event Name:</strong> ${name}</p>
 <p style="margin: 2px 0;"><strong>Message:</strong> ${message}</p>
+${startedOnText ? `<p style="margin: 2px 0;"><strong>Started On:</strong> ${startedOnText}</p>` : ""}
 <p style="margin: 2px 0;"><strong>Duration:</strong> ${durationText}</p>
+<p style="margin: 2px 0;"><strong>Next Occurrence:</strong> ${nextText}</p>
 <p style="margin: 2px 0;"><strong>Repeating:</strong> ${recurringText}</p>
 <p style="margin: 2px 0;"><strong>Macro:</strong> ${macroName}</p>
 <p style="margin: 2px 0;"><strong>Event UID:</strong> <code>${escape(uid)}</code></p>

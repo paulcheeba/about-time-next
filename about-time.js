@@ -51,14 +51,25 @@ try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 export function DTNow() { return game.time.worldTime; }
 
 Hooks.once('init', () => {
-  console.log(`${MODULE_ID} | Initializing v13.3.4.0`);
   registerSettings();
   registerMiniSettings(); // <- new mini settings
+
+  // Always-on basic status line.
+  try {
+    const version = game.modules.get(MODULE_ID)?.version ?? "unknown";
+    console.info(`${MODULE_ID} | Loaded v${version}`);
+  } catch {
+    // ignore
+  }
+
+  const debug = (() => {
+    try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+  })();
 
   // Expose CalendarAdapter to global namespace for macros and testing
   if (!window.AboutTimeNext) window.AboutTimeNext = {};
   window.AboutTimeNext.CalendarAdapter = CalendarAdapter;
-  console.log(`${MODULE_ID} | CalendarAdapter available at window.AboutTimeNext.CalendarAdapter`);
+  if (debug) console.log(`${MODULE_ID} | CalendarAdapter available at window.AboutTimeNext.CalendarAdapter`);
 
   // Optionally preload (only real template path is loaded)
   preloadTemplates().catch(() => { /* ignore */ });
@@ -93,6 +104,8 @@ Hooks.once('setup', () => {
 
     // queue admin
     clearTimeout: ElapsedTime.gclearTimeout,
+    pauseEvent: ElapsedTime.pauseEvent,
+    resumeEvent: ElapsedTime.resumeEvent,
     getTimeString: ElapsedTime.currentTimeString,
     getTime: ElapsedTime.currentTimeString,
     queue: ElapsedTime.showQueue,
@@ -153,7 +166,7 @@ Hooks.once('setup', () => {
   globalThis.Gametime = new Proxy(operations, warnProxy);
 });
 
-Hooks.once('ready', () => {
+Hooks.once('ready', async () => {
   // ============================================================================
   // CALENDAR SETTINGS MIGRATION (v13.3.2.0 - Phase 2)
   // ============================================================================
@@ -162,37 +175,43 @@ Hooks.once('ready', () => {
     try {
       const currentSystem = game.settings.get(MODULE_ID, "calendar-system");
       const legacySetting = game.settings.get(MODULE_ID, "use-simple-calendar");
-      
-      console.log(`${MODULE_ID} | [Migration] Current calendar-system: "${currentSystem}"`);
-      console.log(`${MODULE_ID} | [Migration] Legacy use-simple-calendar: ${legacySetting}`);
+
+      const debug = (() => {
+        try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+      })();
+
+      if (debug) {
+        console.log(`${MODULE_ID} | [Migration] Current calendar-system: "${currentSystem}"`);
+        console.log(`${MODULE_ID} | [Migration] Legacy use-simple-calendar: ${legacySetting}`);
+      }
       
       // Only migrate if still on default "auto" setting (first time setup or upgrade)
       if (currentSystem === "auto") {
         const detected = CalendarAdapter.detectAvailableAsObject();
-        console.log(`${MODULE_ID} | [Migration] Detected calendars:`, detected);
+        if (debug) console.log(`${MODULE_ID} | [Migration] Detected calendars:`, detected);
         
         let newSystem = "auto"; // Keep auto as default
         
         // If user had explicitly disabled SC, respect that
         if (legacySetting === false) {
           newSystem = "none";
-          console.log(`${MODULE_ID} | [Migration] User had disabled SC → setting to "none"`);
+          if (debug) console.log(`${MODULE_ID} | [Migration] User had disabled SC → setting to "none"`);
         }
         // If user had SC enabled and it's still available, use it explicitly
         else if (legacySetting === true && detected.simpleCalendar) {
           newSystem = "simple-calendar";
-          console.log(`${MODULE_ID} | [Migration] SC was enabled and is available → setting to "simple-calendar"`);
+          if (debug) console.log(`${MODULE_ID} | [Migration] SC was enabled and is available → setting to "simple-calendar"`);
         }
         // If SC was enabled but no longer available, check for S&S
         else if (legacySetting === true && !detected.simpleCalendar && detected.seasonsStars) {
           newSystem = "seasons-and-stars";
-          console.log(`${MODULE_ID} | [Migration] SC unavailable but S&S detected → setting to "seasons-and-stars"`);
+          if (debug) console.log(`${MODULE_ID} | [Migration] SC unavailable but S&S detected → setting to "seasons-and-stars"`);
         }
         
         // Save migrated setting
         if (newSystem !== "auto") {
           game.settings.set(MODULE_ID, "calendar-system", newSystem);
-          console.log(`${MODULE_ID} | [Migration] ✓ Migrated calendar-system to: "${newSystem}"`);
+          if (debug) console.log(`${MODULE_ID} | [Migration] ✓ Migrated calendar-system to: "${newSystem}"`);
           
           // Show one-time notice to GM
           ui.notifications.info(
@@ -200,10 +219,13 @@ Hooks.once('ready', () => {
             { permanent: false }
           );
         } else {
-          console.log(`${MODULE_ID} | [Migration] Keeping auto-detect mode`);
+          if (debug) console.log(`${MODULE_ID} | [Migration] Keeping auto-detect mode`);
         }
       } else {
-        console.log(`${MODULE_ID} | [Migration] Already configured, skipping migration`);
+        const debug = (() => {
+          try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+        })();
+        if (debug) console.log(`${MODULE_ID} | [Migration] Already configured, skipping migration`);
       }
     } catch (err) {
       console.error(`${MODULE_ID} | [Migration] Failed:`, err);
@@ -214,14 +236,30 @@ Hooks.once('ready', () => {
   // INITIALIZATION
   // ============================================================================
   
-  if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
-    console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
+  try {
+    if (game.settings.get(MODULE_ID, "debug")) {
+      if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
+        console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
+      }
+    }
+  } catch {
+    // ignore
   }
   PseudoClock.init();
   ElapsedTime.init();
 
   // Initialize event notification sound system (v13.2.0.0)
   ATNotificationSound.init();
+
+  // Check for calendar changes (v13.4.0.0)
+  // This detects when modules are enabled/disabled and prompts GM to switch calendars
+  if (game.user.isGM) {
+    try {
+      await CalendarAdapter.checkForCalendarChanges();
+    } catch (e) {
+      console.warn(`${MODULE_ID} | Calendar change check failed (non-fatal)`, e);
+    }
+  }
 
   // Auto-open the mini panel per user setting
   try {

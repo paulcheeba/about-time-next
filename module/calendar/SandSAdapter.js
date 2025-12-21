@@ -20,13 +20,16 @@ export class SandSAdapter extends CalendarAdapter {
   constructor() {
     super();
     
-    console.log(`${MODULE_ID} | [SandSAdapter] Initializing...`);
+      const debug = (() => {
+        try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+      })();
+      if (debug) console.log(`${MODULE_ID} | [SandSAdapter] Initializing...`);
     
     // Verify S&S is available
     if (!this.isAvailable()) {
       console.warn(`${MODULE_ID} | [SandSAdapter] ⚠ S&S not available at instantiation time`);
     } else {
-      console.log(`${MODULE_ID} | [SandSAdapter] ✓ S&S API verified available`);
+        if (debug) console.log(`${MODULE_ID} | [SandSAdapter] ✓ S&S API verified available`);
     }
   }
 
@@ -58,20 +61,20 @@ export class SandSAdapter extends CalendarAdapter {
   formatTimestamp(timestamp) {
     const api = this.#getAPI();
     if (!api) {
-      console.warn(`${MODULE_ID} | [SandSAdapter] formatTimestamp: API not available`);
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.warn(`${MODULE_ID} | [SandSAdapter] formatTimestamp: API not available`);
+        } catch {
+          // ignore
+        }
       return `t+${Math.round(timestamp)}s`;
     }
 
     try {
-      const date = api.worldTimeToDate?.(timestamp) || api.getCurrentDate?.();
-      if (!date) {
-        console.warn(`${MODULE_ID} | [SandSAdapter] formatTimestamp: Could not get date from timestamp`);
-        return `t+${Math.round(timestamp)}s`;
-      }
-
-      const formatted = api.formatDate?.(date) || this.#formatDateFallback(date);
-      console.log(`${MODULE_ID} | [SandSAdapter] formatTimestamp(${timestamp}) => "${formatted}"`);
-      return formatted || `t+${Math.round(timestamp)}s`;
+      const f = this.formatDateTime(timestamp);
+      const d = f?.date || "";
+      const t = f?.time || "";
+      const sep = (d && t) ? ", " : "";
+      return `${d}${sep}${t}`.trim() || `t+${Math.round(timestamp)}s`;
     } catch (e) {
       console.error(`${MODULE_ID} | [SandSAdapter] formatTimestamp error:`, e);
       return `t+${Math.round(timestamp)}s`;
@@ -85,37 +88,32 @@ export class SandSAdapter extends CalendarAdapter {
     }
 
     try {
-      const date = api.worldTimeToDate?.(timestamp) || api.getCurrentDate?.();
-      if (!date) {
+      const dateObj = api.worldTimeToDate?.(timestamp) || api.getCurrentDate?.();
+      if (!dateObj) {
         return { date: "", time: `t+${Math.round(timestamp)}s` };
       }
 
-      // Get full formatted string with time - this has the correct date format
-      const fullFormatted = api.formatDate?.(date, { includeTime: true }) || this.#formatDateFallback(date);
-      
-      // Extract date by removing the time portion (S&S uses " at " separator)
-      let dateStr = fullFormatted;
-      const atIndex = fullFormatted.indexOf(' at ');
-      if (atIndex !== -1) {
-        dateStr = fullFormatted.substring(0, atIndex).trim();
-      }
-      
-      // Extract time directly from date object's time property
-      let timeStr = "";
-      if (date.time && typeof date.time === 'object') {
-        const h = String(date.time.hour ?? 0).padStart(2, '0');
-        const m = String(date.time.minute ?? 0).padStart(2, '0');
-        const s = String(date.time.second ?? 0).padStart(2, '0');
-        timeStr = `${h}:${m}:${s}`;
-      } else {
-        // Fallback to extracting from date object properties
-        timeStr = this.#formatTime(date);
-      }
-      
-      return {
-        date: dateStr,
-        time: timeStr
-      };
+      let day = Number(dateObj.day ?? dateObj.dayOfMonth ?? 1);
+      if (!Number.isFinite(day) || day <= 0) day = 1;
+
+      const monthNames = api.getMonthNames?.();
+      const monthIndex = (Number(dateObj.month ?? 1) || 1) - 1;
+      let monthName = (Array.isArray(monthNames) ? monthNames[monthIndex] : undefined) ?? dateObj.monthName;
+      if (!monthName) monthName = `Month ${dateObj.month || 1}`;
+
+      const year = dateObj.year ?? 0;
+      const era = dateObj.era || "";
+
+      const ordinal = CalendarAdapter.getOrdinalSuffix(day);
+      let dateStr = `${day}${ordinal} of ${monthName}, ${year}`;
+      if (era) dateStr += ` ${era}`;
+
+      const hour = dateObj.time?.hour ?? dateObj.hour ?? 0;
+      const minute = dateObj.time?.minute ?? dateObj.minute ?? 0;
+      const second = dateObj.time?.second ?? dateObj.second ?? 0;
+      const timeStr = CalendarAdapter.formatTime(hour, minute, second);
+
+      return { date: dateStr, time: timeStr };
     } catch (e) {
       console.error(`${MODULE_ID} | SandSAdapter.formatDateTime error:`, e);
       return { date: "", time: `t+${Math.round(timestamp)}s` };
@@ -131,7 +129,11 @@ export class SandSAdapter extends CalendarAdapter {
 
     try {
       const normalized = this.normalizeInterval(interval);
-      console.log(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
+        } catch {
+          // ignore
+        }
       
       // S&S doesn't have a direct timestampPlusInterval method
       // We need to convert timestamp to date, add interval components, convert back
@@ -150,7 +152,11 @@ export class SandSAdapter extends CalendarAdapter {
       seconds += (normalized.month || 0) * 30 * 86400; // Conservative: 30-day months
       seconds += (normalized.year || 0) * 365 * 86400; // Conservative: 365-day years
       
-      console.log(`${MODULE_ID} | [SandSAdapter]   => ${seconds}`);
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SandSAdapter]   => ${seconds}`);
+        } catch {
+          // ignore
+        }
       return seconds;
     } catch (e) {
       console.error(`${MODULE_ID} | [SandSAdapter] timestampPlusInterval error:`, e);
@@ -246,7 +252,11 @@ export class SandSAdapter extends CalendarAdapter {
     }
 
     try {
-      console.log(`${MODULE_ID} | [SandSAdapter] getCalendarData: Querying S&S for calendar structure...`);
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SandSAdapter] getCalendarData: Querying S&S for calendar structure...`);
+        } catch {
+          // ignore
+        }
       // Query S&S for active calendar configuration
       // S&S exposes calendar data through game.seasonsStars.calendar
       const calendar = api.calendar;
@@ -255,7 +265,11 @@ export class SandSAdapter extends CalendarAdapter {
         console.warn(`${MODULE_ID} | [SandSAdapter] No calendar data from S&S, using fallback`);
         return this.#getFallbackCalendarData();
       }
-      console.log(`${MODULE_ID} | [SandSAdapter] Retrieved calendar: "${calendar.name}"`);
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SandSAdapter] Retrieved calendar: "${calendar.name}"`);
+        } catch {
+          // ignore
+        }
 
       // Extract calendar structure from S&S's calendar object
       // S&S structure: calendar.months = [{name, days, ...}], calendar.weekdays = [...]
@@ -272,11 +286,15 @@ export class SandSAdapter extends CalendarAdapter {
         daysPerWeek: weekdays.length,
         leapYearRule: calendar.leapYearRule || "None"
       };
-      console.log(`${MODULE_ID} | [SandSAdapter] Calendar data:`, {
+        try {
+          if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SandSAdapter] Calendar data:`, {
         name: calData.name,
         monthsInYear: calData.monthsInYear,
         daysPerWeek: calData.daysPerWeek
-      });
+          });
+        } catch {
+          // ignore
+        }
       return calData;
     } catch (e) {
       console.error(`${MODULE_ID} | SandSAdapter.getCalendarData error:`, e);

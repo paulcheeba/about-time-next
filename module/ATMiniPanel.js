@@ -56,7 +56,7 @@ function scFormat(worldTime) {
     if (adapter.systemId === "none") return null;
     
     const result = adapter.formatDateTime(worldTime);
-    const date = result.date || "", time = result.time || "", sep = (date && time) ? " " : "";
+    const date = result.date || "", time = result.time || "", sep = (date && time) ? ", " : "";
     const str = `${date}${sep}${time}`.trim();
     return str || null;
   } catch (err) {
@@ -68,6 +68,16 @@ function currentTimeLabel() {
   const wt = game.time?.worldTime ?? 0;
   const formatted = scFormat(wt);
   return formatted ?? fmtDHMS(wt);
+}
+
+function currentTimeTooltip() {
+  try {
+    const adapter = CalendarAdapter.getActive();
+    const systemId = adapter?.systemId ?? "none";
+    return `${CalendarAdapter.getSystemName(systemId)} in use`;
+  } catch {
+    return "Foundry Core Time in use";
+  }
 }
 function readDurations() {
   return {
@@ -264,7 +274,11 @@ function buildPanel() {
   const titleLine1 = document.createElement("span"); titleLine1.className = "atmp-title-line"; titleLine1.textContent = "Current";
   const titleLine2 = document.createElement("span"); titleLine2.className = "atmp-title-line"; titleLine2.textContent = "time:";
   title.append(titleLine1, titleLine2);
-  const time = document.createElement("div"); time.className = "atmp-time"; time.id = `${PANEL_ID}-time`; time.textContent = currentTimeLabel();
+  const time = document.createElement("div");
+  time.className = "atmp-time";
+  time.id = `${PANEL_ID}-time`;
+  time.innerHTML = currentTimeLabel();
+  time.title = currentTimeTooltip();
   head.append(title, time);
 
   // Tiny toggles (pause link, combat auto-pause)
@@ -386,7 +400,11 @@ function wireBehavior(ctx) {
   const close = () => { cleanup.forEach((fn) => { try { fn(); } catch {} }); document.getElementById(PANEL_ID)?.remove(); _visible = false; };
   root.querySelector(".atmp-close")?.addEventListener("click", close);
 
-  const updateTime = () => { if (timeEl?.isConnected) timeEl.textContent = currentTimeLabel(); };
+  const updateTime = () => {
+    if (!timeEl?.isConnected) return;
+    timeEl.innerHTML = currentTimeLabel();
+    timeEl.title = currentTimeTooltip();
+  };
   const hookWT = Hooks.on("updateWorldTime", updateTime); cleanup.push(() => Hooks.off("updateWorldTime", hookWT));
   const tick = setInterval(updateTime, 1000); cleanup.push(() => clearInterval(tick));
 

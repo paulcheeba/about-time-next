@@ -1,21 +1,42 @@
 # Changelog (v13.4.0.0)
 
-**D&D 5e Calendar Integration - Native Calendar Support**
+**D&D 5e Calendar Integration + Timekeeper & Stability Updates**
 
 - **New Dnd5eAdapter Class**  
-  Added native support for D&D 5e v5.2.0+ calendar system via new `Dnd5eAdapter.js`. The adapter integrates with Foundry v13's core time API at `game.time.calendar`. Supports all four built-in D&D 5e calendars (Gregorian, Greyhawk, Harptos/Forgotten Realms, Khorvaire/Eberron). Time formatting displays localized month names with proper date structure (e.g., "24 Alturiak, 1790 15:14:10").
+  Added native support for D&D 5e v5.2.0+ calendar system via new `Dnd5eAdapter.js`. The adapter integrates with Foundry v13's core time API at `game.time.calendar`. Supports all four built-in D&D 5e calendars (Gregorian, Greyhawk, Harptos/Forgotten Realms, Khorvaire/Eberron).
 
-- **Auto-Detection Priority**  
-  D&D 5e Calendar now has **priority in auto-detection** when available. The detection system checks: (1) D&D 5e Calendar (native system), (2) Simple Calendar (module), (3) Seasons & Stars (module). This ensures native system calendars are preferred over module-based calendars.
+- **Auto-Detect Calendar Priority (Updated)**  
+  Auto-detect now prefers full calendar modules when present (Seasons & Stars / Simple Calendar), then falls back to the D&D 5e native calendar (v5.2+), then Foundry core time when no calendar system is available.
+
+- **Calendar Recommendation on World Load**  
+  Added a GM prompt when the current selection is set to Auto-detect, or when the selected calendar is unavailable. Includes an option to suppress future prompts until the Calendar System selection changes.
 
 - **Dynamic Settings UI**  
-  Settings dropdown now dynamically shows only detected calendar systems. "Auto-detect" and "None" always appear. Calendar-specific options (D&D 5e, Simple Calendar, Seasons & Stars) only appear when their respective system/module is active and functional. Detection display shows all systems with ✓/✗ status for visibility.
+  Calendar dropdown dynamically shows only detected calendar systems. "Auto-detect" and "None" always appear; other options only appear when functional. Changing the Calendar System no longer requires a world reload; the adapter cache is refreshed automatically.
 
-- **Requirements**  
-  D&D 5e Calendar requires: (1) D&D 5e system v5.2.0 or higher, (2) Calendar configured in D&D 5e settings, (3) `game.time.calendar` initialized. The adapter gracefully degrades if requirements not met.
+- **Standardized Date/Time Formatting + Time Format Setting**  
+  All calendar adapters now use consistent formatting with ordinal suffixes (1st, 2nd, 3rd, etc.) rendered as superscript, and a consistent date/time joiner. Added a new world setting for 12-hour (AM/PM) or 24-hour time display.
 
-- **Backward Compatibility**  
-  All existing calendar integrations (Simple Calendar, Seasons & Stars) remain fully functional. D&D 5e Calendar is purely additive and optional. Systems without D&D 5e v5.2+ continue using existing calendar preferences.
+- **Timekeeper Permissions (GM Always Overrides)**  
+  Added a minimum-role threshold world setting so non-GM users can be delegated as timekeepers. Timekeepers can manage the event queue (chat commands, Event Manager, toolbar entry), while GMs are always allowed regardless of threshold.
+
+- **Chat Command Confirmations**  
+  `/at clear` and `/at stop` now post confirm/cancel buttons and update the same chat card in-place after confirm/cancel.
+
+- **Event Scheduling Reliability During Master Election**  
+  Fixed an intermittent race during world refresh where socket `addEvent` messages could be lost before a master timekeeper is elected. Add events are now queued until a master is acquired and then drained/persisted.
+
+- **Event Manager Improvements**  
+  Event Manager now prefers the persisted store as the authoritative queue source for display (reduces stale views after refresh). Added Pause/Resume controls per event and improved timestamp display/tooltips.
+
+- **Event Notification Card Enhancements**  
+  Event chat cards now include stable "Started On" and "Next Occurrence" fields (for repeating events) using the active calendar adapter.
+
+- **Realtime Clock Safety**  
+  If realtime world time advancement throws, realtime is stopped and a warning is surfaced (prevents repeated error spam).
+
+- **Reduced Log Noise**  
+  Most calendar adapter and notification sound logs are now debug-gated, while keeping a minimal always-on status line for basic troubleshooting.
 
 ---
 

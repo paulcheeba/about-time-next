@@ -36,7 +36,7 @@ About Time Next uses a **calendar adapter system** to integrate with multiple ca
 **Supported Calendars:**
 - **D&D 5e Calendar (v5.2+)**: Native Foundry v13 calendar system with Harptos, Greyhawk, Gregorian, and Khorvaire calendars. *Auto-detected with highest priority.*
 - **Seasons & Stars**: Full integration with formatted date/time display. *Currently active and tested.*
-- **Simple Calendar**: Adapter ready, integration pending v13 update of Simple Calendar module.
+- **Simple Calendar**: Legacy compatibility layer retained for reference/back-compat. Full support depends on a FVTT v13 update of the Simple Calendar module.
 
 **Auto-Detection (Default):**
 When set to "Auto-detect", the module checks in priority order:

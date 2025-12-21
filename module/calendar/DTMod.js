@@ -1,12 +1,19 @@
 // About Time v13.0.5 — DTMod
+//
+// Legacy Simple Calendar compatibility layer.
+// Simple Calendar is not currently FVTT v13-ready; we keep these utilities for
+// reference/back-compat and plan to remove them once SC is updated or retired.
 
 import { intervalATtoSC } from "./DateTime.js";
 import { DTCalc } from "./DTCalc.js";
+import { ElapsedTime } from "../ElapsedTime.js";
+
+const warn = (...a) => ElapsedTime?.debug && console.warn("about-time |", ...a);
 
 export class DTMod {
   constructor({ years = 0, months = 0, days = 0, hours = 0, minutes = 0, seconds = 0 } = {}) {
     this._interval = intervalATtoSC({ years, months, days, hours, minutes, seconds });
-    console.warn(`about-time | DTMod is deprecated. Prefer SimpleCalendar.api intervals.`);
+    warn("DTMod is deprecated (legacy Simple Calendar helper).");
     return this;
   }
 
@@ -18,7 +25,7 @@ export class DTMod {
   }
 
   add(incr) {
-    console.warn("about-time | DTMod.add() deprecated.");
+    warn("DTMod.add() deprecated.");
     const a = this.interval, b = incr?.interval ?? {};
     const r = new DTMod({});
     r.interval = {
@@ -33,7 +40,7 @@ export class DTMod {
   }
 
   toSeconds() {
-    console.warn("about-time | DTMod.toSeconds() deprecated.");
+    warn("DTMod.toSeconds() deprecated.");
     const api = globalThis.SimpleCalendar?.api;
     if (!api) return 0;
     const now = game.time.worldTime;
@@ -42,14 +49,14 @@ export class DTMod {
   }
 
   static timeString(timeInSeconds) {
-    console.warn("about-time | DTMod.timeString() deprecated.");
+    warn("DTMod.timeString() deprecated.");
     const dmhs = this.fromSeconds(timeInSeconds);
     const pad = DTCalc.padNumber;
     return `${pad(dmhs.interval.hour)}:${pad(dmhs.interval.minute)}:${pad(dmhs.interval.second)}`;
     }
 
   static fromSeconds(seconds) {
-    console.warn("about-time | DTMod.fromSeconds() deprecated.");
+    warn("DTMod.fromSeconds() deprecated.");
     const api = globalThis.SimpleCalendar?.api;
     if (!api) {
       const s = Math.max(0, Number(seconds) || 0);

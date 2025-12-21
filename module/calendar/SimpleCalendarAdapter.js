@@ -18,14 +18,17 @@ import { MODULE_ID } from "../settings.js";
 export class SimpleCalendarAdapter extends CalendarAdapter {
   constructor() {
     super();
-    
-    console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Initializing...`);
+
+    const debug = (() => {
+      try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+    })();
+    if (debug) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Initializing...`);
     
     // Verify SC is available
     if (!this.isAvailable()) {
       console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] ⚠ SC not available at instantiation time`);
     } else {
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] ✓ SC API verified available`);
+      if (debug) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] ✓ SC API verified available`);
     }
   }
 
@@ -58,7 +61,11 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
   formatTimestamp(timestamp) {
     const api = this.#getAPI();
     if (!api) {
-      console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp: API not available`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp: API not available`);
+      } catch {
+        // ignore
+      }
       return `t+${Math.round(timestamp)}s`;
     }
 
@@ -67,9 +74,13 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
       const formatted = api.formatDateTime(dt);
       const date = formatted?.date ?? "";
       const time = formatted?.time ?? "";
-      const separator = (date && time) ? " " : "";
+      const separator = (date && time) ? ", " : "";
       const result = `${date}${separator}${time}`.trim() || `t+${Math.round(timestamp)}s`;
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp(${timestamp}) => "${result}"`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp(${timestamp}) => "${result}"`);
+      } catch {
+        // ignore
+      }
       return result;
     } catch (e) {
       console.error(`${MODULE_ID} | [SimpleCalendarAdapter] formatTimestamp error:`, e);
@@ -85,10 +96,27 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
 
     try {
       const dt = api.timestampToDate(timestamp);
-      const formatted = api.formatDateTime(dt);
+      
+      // Extract components for standardized format
+      const day = dt.day ?? 1;
+      const monthName = dt.monthName || `Month ${dt.month || 1}`;
+      const year = dt.year ?? 0;
+      
+      // Get day with ordinal suffix (1st, 2nd, 3rd, etc.)
+      const ordinal = CalendarAdapter.getOrdinalSuffix(day);
+      
+      // Format like: "3rd of Hammer, 1789"
+      const dateStr = `${day}${ordinal} of ${monthName}, ${year}`;
+      
+      // Format time according to user preference
+      const hour = dt.hour ?? 0;
+      const minute = dt.minute ?? 0;
+      const second = dt.seconds ?? 0;
+      const timeStr = CalendarAdapter.formatTime(hour, minute, second);
+      
       return {
-        date: formatted?.date ?? "",
-        time: formatted?.time ?? `t+${Math.round(timestamp)}s`
+        date: dateStr,
+        time: timeStr
       };
     } catch (e) {
       console.error(`${MODULE_ID} | SimpleCalendarAdapter.formatDateTime error:`, e);
@@ -105,9 +133,17 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
 
     try {
       const normalized = this.normalizeInterval(interval);
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval(${timestamp}, ${JSON.stringify(normalized)})`);
+      } catch {
+        // ignore
+      }
       const result = api.timestampPlusInterval(timestamp, normalized);
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter]   => ${result}`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter]   => ${result}`);
+      } catch {
+        // ignore
+      }
       return result ?? timestamp;
     } catch (e) {
       console.error(`${MODULE_ID} | [SimpleCalendarAdapter] timestampPlusInterval error:`, e);
@@ -200,7 +236,11 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
     }
 
     try {
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] getCalendarData: Querying SC for calendar structure...`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] getCalendarData: Querying SC for calendar structure...`);
+      } catch {
+        // ignore
+      }
       // Query SC for active calendar configuration
       // SC API provides: currentCalendar, getAllCalendars, etc.
       const currentCal = api.getCurrentCalendar?.();
@@ -209,7 +249,11 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
         console.warn(`${MODULE_ID} | [SimpleCalendarAdapter] No current calendar from SC, using fallback`);
         return this.#getFallbackCalendarData();
       }
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Retrieved calendar: "${currentCal.name}"`);
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Retrieved calendar: "${currentCal.name}"`);
+      } catch {
+        // ignore
+      }
 
       // Extract calendar structure from SC's calendar object
       // SC structure: calendar.months = [{name, numberOfDays, ...}], calendar.weekdays = [...]
@@ -226,11 +270,15 @@ export class SimpleCalendarAdapter extends CalendarAdapter {
         daysPerWeek: weekdays.length,
         leapYearRule: currentCal.leapYearRule?.rule || "None"
       };
-      console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Calendar data:`, {
-        name: calData.name,
-        monthsInYear: calData.monthsInYear,
-        daysPerWeek: calData.daysPerWeek
-      });
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) console.log(`${MODULE_ID} | [SimpleCalendarAdapter] Calendar data:`, {
+          name: calData.name,
+          monthsInYear: calData.monthsInYear,
+          daysPerWeek: calData.daysPerWeek
+        });
+      } catch {
+        // ignore
+      }
       return calData;
     } catch (e) {
       console.error(`${MODULE_ID} | SimpleCalendarAdapter.getCalendarData error:`, e);

@@ -3,6 +3,7 @@
 const MOD = "about-time-next";
 
 import { openATEventManagerV2 } from "./ATEventManagerAppV2.js";
+import { isTimekeeper } from "./permissions.js";
 
 // v13.1.3.0 — Event Manager toolbar toggle (single instance)
 let _emAppV2 = null;
@@ -40,7 +41,7 @@ function addToolRecord(control, tool) {
 
 /* ---------- Hook: inject subtool under Journal/Notes ---------- */
 Hooks.on("getSceneControlButtons", (controlsArg) => {
-  if (!game.user?.isGM) return;
+  if (!isTimekeeper(game.user)) return;
   const controls = normalizeControls(controlsArg);
   const ctl = controls["journal"] ?? controls["notes"];
   if (!ctl) return;
@@ -99,11 +100,17 @@ function openATEventManager() {
     return `${String(d).padStart(2, "0")}:${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
   }
   function fmtTimestamp(ts) {
-    const api = globalThis.SimpleCalendar?.api;
-    if (api?.timestampToDate && api?.formatDateTime) {
-      const d = api.timestampToDate(ts);
-      const f = api.formatDateTime(d);
-      return `${f.date} ${f.time}`;
+    try {
+      const adapter = AT?.CalendarAdapter?.getActive?.();
+      if (adapter && adapter.systemId !== "none") {
+        const f = adapter.formatDateTime(ts);
+        const date = f?.date || "";
+        const time = f?.time || "";
+        const sep = (date && time) ? ", " : "";
+        return `${date}${sep}${time}`.trim() || `t+${Math.round(ts)}s`;
+      }
+    } catch {
+      // ignore
     }
     return `t+${Math.round(ts)}s`;
   }
