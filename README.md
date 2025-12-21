@@ -46,7 +46,7 @@ When set to "Auto-detect", the module checks in priority order:
 4. Falls back to "None" (Foundry core time)
 5. Additional calendars to be added in future updates.
 
-**Dynamic Settings:**
+**Calendar Integration Settings:**
 - Dropdown shows **only detected** calendars (plus "Auto-detect" and "None")
 - Detection info panel shows **all calendars** with ✓/✗ status
 - If your selected calendar becomes unavailable, module falls back automatically
