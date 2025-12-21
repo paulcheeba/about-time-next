@@ -287,7 +287,7 @@ function buildPanel() {
   tinyLink.title = "Link realtime to world pause";
   const tinyCombat = document.createElement("div"); tinyCombat.className = "atmp-tiny"; tinyCombat.textContent = "⚔";
   tinyCombat.setAttribute("role","switch"); tinyCombat.setAttribute("tabindex","0");
-  tinyCombat.title = "Auto-pause during combat";
+  tinyCombat.title = "Auto Pause at Combat Start/End";
 
   // Initialize visual state for tiny toggles
   if (!getSetting("rtLinkPause", true)) tinyLink.classList.add("off");
@@ -494,7 +494,7 @@ function wireBehavior(ctx) {
     if (combatOn) tinyCombat.classList.remove("off"); else tinyCombat.classList.add("off");
 
     tinyLink.title = `Link realtime to world pause — ${linkOn ? "On" : "Off"}`;
-    tinyCombat.title = `Auto-pause during combat — ${combatOn ? "On" : "Off"}`;
+    tinyCombat.title = `Auto Pause at Combat Start/End — ${combatOn ? "On" : "Off"}`;
     tinyLink.setAttribute("aria-checked", linkOn ? "true" : "false");
     tinyCombat.setAttribute("aria-checked", combatOn ? "true" : "false");
   };
