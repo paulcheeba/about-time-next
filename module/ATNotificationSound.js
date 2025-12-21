@@ -57,36 +57,23 @@ export class ATNotificationSound {
   static isEventNotification(message) {
     // Get message content
     const content = message.content || "";
-    
-    // Must contain ATN identifier
-    if (!content.includes("[about-time-next]") && !content.includes("about-time")) {
+
+    // Only trigger on GM whispers.
+    const isWhisper = Array.isArray(message?.whisper) && message.whisper.length > 0;
+    if (!isWhisper) return false;
+
+    // v13.4.0.1: Restrict sound playback to standardized event notification cards only.
+    // These are created by formatEventChatCard() and include stable field labels.
+    const hasModulePrefix = content.includes("[about-time-next]");
+    const hasEventName = /\bEvent Name:\s*<\/strong>/i.test(content) || content.includes("Event Name:");
+    const hasEventUid = /\bEvent UID:\s*<\/strong>/i.test(content) || content.includes("Event UID:");
+
+    // Exclude confirmation/status cards that also contain the module prefix.
+    if (content.includes("atn-at-confirm") || content.includes("data-atn-confirm") || content.includes("data-atn-cancel")) {
       return false;
     }
-    
-    // Exclude messages that are clearly NOT event notifications
-    const excludePatterns = [
-      "Created",           // Event creation confirmation
-      "Stopped",           // Event stop confirmation
-      "Queue:",            // Queue list display
-      "/at",               // Chat command echo
-      "Flushed",           // Queue flush confirmation
-      "cleared",           // Timeout clear confirmation
-      "Event Manager",     // Event Manager UI messages
-      "event:"             // Event metadata display
-    ];
-    
-    for (const pattern of excludePatterns) {
-      if (content.includes(pattern)) {
-        return false;
-      }
-    }
-    
-    // If whispered to GM and contains ATN identifier, likely an event
-    const isWhisper = message.whisper && message.whisper.length > 0;
-    
-    // Event notifications are typically whispers with event content
-    // This heuristic may need refinement based on testing
-    return isWhisper;
+
+    return hasModulePrefix && hasEventName && hasEventUid;
   }
   
   /**

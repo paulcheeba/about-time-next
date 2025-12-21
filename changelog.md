@@ -1,3 +1,12 @@
+# Changelog (v13.4.0.1)
+
+**Minor QoL Fix**
+
+- **Notification Sounds: Event Cards Only**  
+  Reduced notification sound triggers to only play for scheduled event notification cards (standardized event cards), not for other About Time Next chat/status/confirmation cards.
+
+---
+
 # Changelog (v13.4.0.0)
 
 **D&D 5e Calendar Integration + Timekeeper & Stability Updates**
