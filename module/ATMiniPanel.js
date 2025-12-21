@@ -1,8 +1,8 @@
 // module/ATMiniPanel.js
-// v13.0.7.2 — Compact header (Play | Time | tiny toggles), no pill,
-// tiny toggles wired to rtLinkPause / rtAutoPauseCombat, small a11y polish.
+// v13.3.4.0 — Refactored to use CalendarAdapter for time formatting
 
 import { MODULE_ID } from "./settings.js";
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
 import { startRealtime, stopRealtime } from "./ATRealtimeClock.js";
 
 const PANEL_ID = "at-mini-time-panel";
@@ -50,19 +50,34 @@ function fmtDHMS(seconds) {
   return `${sign}${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
 }
 function scFormat(worldTime) {
-  const sc = game.modules.get("foundryvtt-simple-calendar")?.active ? globalThis.SimpleCalendar?.api : null;
-  if (!sc) return null;
   try {
-    const dt = sc.timestampToDate?.(worldTime);
-    const out = sc.formatDateTime?.(dt);
-    const date = out?.date ?? "", time = out?.time ?? "", sep = (date && time) ? " " : "";
+    const adapter = CalendarAdapter.getActive();
+    if (!adapter) return null;
+    if (adapter.systemId === "none") return null;
+    
+    const result = adapter.formatDateTime(worldTime);
+    const date = result.date || "", time = result.time || "", sep = (date && time) ? ", " : "";
     const str = `${date}${sep}${time}`.trim();
     return str || null;
-  } catch { return null; }
+  } catch (err) {
+    console.warn(`${MODULE_ID} | scFormat error:`, err);
+    return null;
+  }
 }
 function currentTimeLabel() {
   const wt = game.time?.worldTime ?? 0;
-  return scFormat(wt) ?? fmtDHMS(wt);
+  const formatted = scFormat(wt);
+  return formatted ?? fmtDHMS(wt);
+}
+
+function currentTimeTooltip() {
+  try {
+    const adapter = CalendarAdapter.getActive();
+    const systemId = adapter?.systemId ?? "none";
+    return `${CalendarAdapter.getSystemName(systemId)} in use`;
+  } catch {
+    return "Foundry Core Time in use";
+  }
 }
 function readDurations() {
   return {
@@ -129,24 +144,25 @@ function ensureStyles() {
   padding: 8px 10px 8px 12px; user-select: none; transition: opacity .12s ease, filter .12s ease; }
 #${PANEL_ID}.dimmed { opacity: .72; filter: saturate(.9); }
 #${PANEL_ID} .atmp-inner { position: relative; border: 1px solid var(--color-border-light-2, rgba(255,255,255,0.12));
-  border-radius: 8px; background: var(--color-bg-alt, rgba(255,255,255,0.05)); padding: 8px 10px; }
+  border-radius: 8px; background: var(--color-bg-alt, rgba(255,255,255,0.05)); padding: 0px 8px 8px 8px; }
 #${PANEL_ID} .atmp-close { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
   border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: 1px solid rgba(255,255,255,0.25);
   font-size: 11px; line-height: 16px; text-align: center; cursor: pointer; transition: transform .06s ease; }
 #${PANEL_ID} .atmp-close:hover { transform: scale(1.06); }
 #${PANEL_ID} .atmp-grip { position: absolute; top: 0; left: 0; right: 24px; height: 6px; cursor: move; }
 
-#${PANEL_ID} .atmp-ctl-row {
-  display: grid; grid-auto-flow: column; grid-auto-columns: max-content; gap: 8px;
-  align-items: center; justify-content: center; margin-bottom: 6px;
+#${PANEL_ID} .atmp-head { display: grid; width: 100%; grid-template-columns: max-content 1fr; align-items: stretch; gap: 6px; margin-top: 6px; }
+#${PANEL_ID} .atmp-title { font-size: 8px; font-weight: 600; opacity: .9; margin: 0; text-align: right;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+  line-height: 1.05; padding: 2px 0;
 }
-#${PANEL_ID} .atmp-title { font-size: 8px; font-weight: 600; opacity: .9; margin: 0 0 2px 0; text-align: center; }
-#${PANEL_ID} .atmp-time { font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; min-width: 140px; }
-
-#${PANEL_ID} .atmp-ctl-btn { width: 54px; text-align: center; padding: 4px 8px; border-radius: 6px;
-  background: var(--color-background, rgba(255,255,255,0.06));
-  border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18)); cursor: pointer; }
-#${PANEL_ID} .atmp-ctl-btn[disabled] { opacity: .5; cursor: not-allowed; }
+#${PANEL_ID} .atmp-title-line { display: block; }
+#${PANEL_ID} .atmp-time { font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; min-width: 150px;
+  padding: 2px 6px; border-radius: 6px;
+  border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18));
+  background: var(--color-bg, rgba(20,20,20,0.92));
+  width: 100%;
+}
 
 #${PANEL_ID} .atmp-icon-col { display: inline-flex; gap: 6px; align-items: center; }
 #${PANEL_ID} .atmp-tiny {
@@ -160,15 +176,56 @@ function ensureStyles() {
 
 #${PANEL_ID} .atmp-buttons, #${PANEL_ID} .atmp-buttons-td {
   display: grid; grid-auto-flow: column; grid-auto-columns: max-content; gap: 6px; justify-content: center; align-items: stretch; margin-top: 6px; }
-#${PANEL_ID} .atmp-btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 8px;
+#${PANEL_ID} .atmp-buttons-td { grid-auto-flow: initial; grid-auto-columns: initial; gap: 0;
+  grid-template-columns: max-content 1fr max-content; align-items: center; }
+#${PANEL_ID} .atmp-td-left { display: flex; justify-content: flex-start; gap: 6px; }
+#${PANEL_ID} .atmp-td-center { display: grid; grid-auto-flow: column; grid-auto-columns: max-content; gap: 6px; justify-content: center; align-items: stretch; }
+#${PANEL_ID} .atmp-td-right { display: flex; justify-content: flex-end; gap: 6px; }
+#${PANEL_ID} .atmp-buttons-td .atmp-btn { min-width: 23px; }
+
+/* Time-of-day hint colors (subtle tint over normal grey backgrounds) */
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="dawn"] {
+  background: linear-gradient(0deg, rgba(255, 190, 90, 0.12), rgba(255, 190, 90, 0.12)),
+              var(--color-background, rgba(255,255,255,0.05));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="noon"] {
+  background: linear-gradient(0deg, rgba(255, 220, 120, 0.12), rgba(255, 220, 120, 0.12)),
+              var(--color-background, rgba(255,255,255,0.05));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="dusk"] {
+  background: linear-gradient(0deg, rgba(170, 130, 255, 0.12), rgba(170, 130, 255, 0.12)),
+              var(--color-background, rgba(255,255,255,0.05));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="midnight"] {
+  background: linear-gradient(0deg, rgba(110, 170, 255, 0.12), rgba(110, 170, 255, 0.12)),
+              var(--color-background, rgba(255,255,255,0.05));
+}
+
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="dawn"]:hover {
+  background: linear-gradient(0deg, rgba(255, 190, 90, 0.12), rgba(255, 190, 90, 0.12)),
+              var(--color-hover-bg, rgba(255,255,255,0.12));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="noon"]:hover {
+  background: linear-gradient(0deg, rgba(255, 220, 120, 0.12), rgba(255, 220, 120, 0.12)),
+              var(--color-hover-bg, rgba(255,255,255,0.12));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="dusk"]:hover {
+  background: linear-gradient(0deg, rgba(170, 130, 255, 0.12), rgba(170, 130, 255, 0.12)),
+              var(--color-hover-bg, rgba(255,255,255,0.12));
+}
+#${PANEL_ID} .atmp-td-center .atmp-btn[data-tod="midnight"]:hover {
+  background: linear-gradient(0deg, rgba(110, 170, 255, 0.12), rgba(110, 170, 255, 0.12)),
+              var(--color-hover-bg, rgba(255,255,255,0.12));
+}
+#${PANEL_ID} .atmp-btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 2px 4px;
   border-radius: 6px; background: var(--color-background, rgba(255,255,255,0.05)); border: 1px solid var(--color-border-light-1, rgba(255,255,255,0.18));
   cursor: pointer; white-space: nowrap; }
 #${PANEL_ID} .atmp-btn:hover { background: var(--color-hover-bg, rgba(255,255,255,0.12)); }
 #${PANEL_ID} .atmp-btn.is-disabled { opacity: .5; pointer-events: none; }
-#${PANEL_ID} .atmp-label { font-size: 11px; font-weight: 700; line-height: 1; }
+#${PANEL_ID} .atmp-label { font-size: 11px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; gap: 2px; }
 #${PANEL_ID} .atmp-icon { font-size: 10px; opacity: .85; line-height: 1; }
 
-#${PANEL_ID}.readonly .atmp-buttons, #${PANEL_ID}.readonly .atmp-buttons-td, #${PANEL_ID}.readonly .atmp-ctl-row { display: none; } /* players see time only */
+#${PANEL_ID}.readonly .atmp-buttons, #${PANEL_ID}.readonly .atmp-buttons-td { display: none; } /* players see time only */
 `;
   document.head.appendChild(style);
 }
@@ -177,16 +234,22 @@ function ensureStyles() {
 function mkStepBtn(id, label, icon, tip) {
   const btn = document.createElement("div"); btn.className = "atmp-btn"; btn.dataset.id = id; btn.title = tip;
   btn.setAttribute("role", "button"); btn.setAttribute("tabindex", "0");
-  const lbl = document.createElement("div"); lbl.className = "atmp-label"; lbl.textContent = label;
+  const lbl = document.createElement("div"); lbl.className = "atmp-label";
+
   const ico = document.createElement("i"); ico.className = `fas ${icon} atmp-icon`; ico.setAttribute("aria-hidden", "true");
-  btn.append(lbl, ico); return btn;
+  const txt = document.createElement("span"); txt.textContent = label;
+  if (id?.startsWith("rwd")) lbl.append(ico, txt);
+  else lbl.append(txt, ico);
+
+  btn.append(lbl);
+  return btn;
 }
-function mkTodBtn(id, label, icon, tip) {
+function mkTodBtn(id, iconClasses, tip) {
   const btn = document.createElement("div"); btn.className = "atmp-btn"; btn.dataset.tod = id; btn.title = tip;
   btn.setAttribute("role", "button"); btn.setAttribute("tabindex", "0");
-  const lbl = document.createElement("div"); lbl.className = "atmp-label"; lbl.textContent = label;
-  const ico = document.createElement("i"); ico.className = `fas ${icon} atmp-icon`; ico.setAttribute("aria-hidden", "true");
-  btn.append(lbl, ico); return btn;
+  const ico = document.createElement("i"); ico.className = `${iconClasses} atmp-icon`; ico.setAttribute("aria-hidden", "true");
+  btn.append(ico);
+  return btn;
 }
 
 function buildPanel() {
@@ -205,20 +268,18 @@ function buildPanel() {
 
   const inner = document.createElement("div"); inner.className = "atmp-inner";
 
-  // Title + compact control row (Play | Time | tiny toggles)
-  const title = document.createElement("div"); title.className = "atmp-title"; title.textContent = "Current time";
-  const time = document.createElement("div"); time.className = "atmp-time"; time.id = `${PANEL_ID}-time`; time.textContent = currentTimeLabel();
-
-  const ctlRow = document.createElement("div"); ctlRow.className = "atmp-ctl-row";
-
-  const playPause = document.createElement("button");
-  playPause.type = "button";
-  playPause.className = "atmp-ctl-btn";
-  playPause.textContent = (game.paused ? "Play" : "Pause");
-  playPause.title = "Toggle real-time & world pause (if linked)";
-
-  const iconCol = document.createElement("div");
-  iconCol.className = "atmp-icon-col";
+  // Header row ("Current time:" + time)
+  const head = document.createElement("div"); head.className = "atmp-head";
+  const title = document.createElement("div"); title.className = "atmp-title";
+  const titleLine1 = document.createElement("span"); titleLine1.className = "atmp-title-line"; titleLine1.textContent = "Current";
+  const titleLine2 = document.createElement("span"); titleLine2.className = "atmp-title-line"; titleLine2.textContent = "time:";
+  title.append(titleLine1, titleLine2);
+  const time = document.createElement("div");
+  time.className = "atmp-time";
+  time.id = `${PANEL_ID}-time`;
+  time.innerHTML = currentTimeLabel();
+  time.title = currentTimeTooltip();
+  head.append(title, time);
 
   // Tiny toggles (pause link, combat auto-pause)
   const tinyLink = document.createElement("div"); tinyLink.className = "atmp-tiny"; tinyLink.textContent = "⏯";
@@ -232,20 +293,29 @@ function buildPanel() {
   if (!getSetting("rtLinkPause", true)) tinyLink.classList.add("off");
   if (!getSetting("rtAutoPauseCombat", true)) tinyCombat.classList.add("off");
 
-  iconCol.append(tinyLink, tinyCombat);
-  ctlRow.append(playPause, time, iconCol);
-
   // Buttons rows
   const steps = document.createElement("div"); steps.className = "atmp-buttons";
   addStepButtons(steps);
 
   const tod = document.createElement("div"); tod.className = "atmp-buttons-td";
-  addTimeOfDayButtons(tod);
+  const todLeft = document.createElement("div"); todLeft.className = "atmp-td-left";
+  const todCenter = document.createElement("div"); todCenter.className = "atmp-td-center";
+  const todRight = document.createElement("div"); todRight.className = "atmp-td-right";
+  addTimeOfDayButtons(todCenter);
 
-  inner.append(title, ctlRow, steps, tod);
+  // Add play/pause + tiny toggles into the TOD row (3-section layout)
+  const playPause = mkTodBtn("playPause", "fa-solid fa-play", "Play or Pause the game");
+  const iconCol = document.createElement("div");
+  iconCol.className = "atmp-icon-col";
+  iconCol.append(tinyLink, tinyCombat);
+  todLeft.append(playPause);
+  todRight.append(iconCol);
+  tod.append(todLeft, todCenter, todRight);
+
+  inner.append(head, steps, tod);
   root.append(grip, closeBtn, inner);
   document.body.appendChild(root);
-  return { root, steps, tod, timeEl: time, playPauseBtn: playPause, tinyLink, tinyCombat };
+  return { root, steps, tod, timeEl: time, playPauseBtn: playPause, playPauseIcon: playPause.querySelector("i"), tinyLink, tinyCombat };
 }
 
 function addStepButtons(container) {
@@ -263,10 +333,10 @@ function addTimeOfDayButtons(container) {
   container.replaceChildren();
   const { dawn, dusk } = readTimeOfDay();
   container.append(
-    mkTodBtn("dawn",     "Dawn",     "fa-cloud-sun",  `Advance to Dawn \u2014 ${dawn}`),
-    mkTodBtn("noon",     "Noon",     "fa-sun",        "Advance to Noon \u2014 12:00"),
-    mkTodBtn("dusk",     "Dusk",     "fa-cloud-moon", `Advance to Dusk \u2014 ${dusk}`),
-    mkTodBtn("midnight", "Midnight", "fa-moon",       "Advance to Midnight \u2014 00:00"),
+    mkTodBtn("dawn",     "fas fa-cloud-sun",  `Advance to Dawn \u2014 ${dawn}`),
+    mkTodBtn("noon",     "fas fa-sun",        "Advance to Noon \u2014 12:00"),
+    mkTodBtn("dusk",     "fas fa-cloud-moon", `Advance to Dusk \u2014 ${dusk}`),
+    mkTodBtn("midnight", "fas fa-moon",       "Advance to Midnight \u2014 00:00"),
   );
 }
 
@@ -324,13 +394,17 @@ async function requestPause(desired) {
 }
 
 function wireBehavior(ctx) {
-  const { root, steps, tod, timeEl, playPauseBtn, tinyLink, tinyCombat } = ctx;
+  const { root, steps, tod, timeEl, playPauseBtn, playPauseIcon, tinyLink, tinyCombat } = ctx;
   const cleanup = [];
 
   const close = () => { cleanup.forEach((fn) => { try { fn(); } catch {} }); document.getElementById(PANEL_ID)?.remove(); _visible = false; };
   root.querySelector(".atmp-close")?.addEventListener("click", close);
 
-  const updateTime = () => { if (timeEl?.isConnected) timeEl.textContent = currentTimeLabel(); };
+  const updateTime = () => {
+    if (!timeEl?.isConnected) return;
+    timeEl.innerHTML = currentTimeLabel();
+    timeEl.title = currentTimeTooltip();
+  };
   const hookWT = Hooks.on("updateWorldTime", updateTime); cleanup.push(() => Hooks.off("updateWorldTime", hookWT));
   const tick = setInterval(updateTime, 1000); cleanup.push(() => clearInterval(tick));
 
@@ -391,7 +465,11 @@ function wireBehavior(ctx) {
   }
 
   function refreshPlayPause() {
-    playPauseBtn.textContent = game.paused ? "Play" : "Pause";
+    const isPausedNow = !!game.paused;
+    playPauseBtn.title = isPausedNow ? "Play the game" : "Pause the game";
+    if (playPauseIcon) {
+      playPauseIcon.className = `${isPausedNow ? "fa-solid fa-play" : "fa-solid fa-pause"} atmp-icon`;
+    }
   }
   refreshPlayPause();
 
@@ -409,8 +487,16 @@ function wireBehavior(ctx) {
 
   // --- Tiny toggles (flip world settings; GM-only makes most sense, but leave clickable for clarity) ---
   const applyTinyState = () => {
-    if (getSetting("rtLinkPause", true)) tinyLink.classList.remove("off"); else tinyLink.classList.add("off");
-    if (getSetting("rtAutoPauseCombat", true)) tinyCombat.classList.remove("off"); else tinyCombat.classList.add("off");
+    const linkOn = !!getSetting("rtLinkPause", true);
+    const combatOn = !!getSetting("rtAutoPauseCombat", true);
+
+    if (linkOn) tinyLink.classList.remove("off"); else tinyLink.classList.add("off");
+    if (combatOn) tinyCombat.classList.remove("off"); else tinyCombat.classList.add("off");
+
+    tinyLink.title = `Link realtime to world pause — ${linkOn ? "On" : "Off"}`;
+    tinyCombat.title = `Auto-pause during combat — ${combatOn ? "On" : "Off"}`;
+    tinyLink.setAttribute("aria-checked", linkOn ? "true" : "false");
+    tinyCombat.setAttribute("aria-checked", combatOn ? "true" : "false");
   };
   async function toggleSetting(key, fallbackBool) {
     const current = !!getSetting(key, fallbackBool);
@@ -440,6 +526,7 @@ function wireBehavior(ctx) {
     if (dimOnBlur) root.classList.add("dimmed"); // will undim on hover
     updateTime();
     updateState();
+    refreshPlayPause();
   }
   initialPaint();
 

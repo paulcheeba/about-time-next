@@ -1,11 +1,11 @@
 // module/ElapsedTime.js
-// Event scheduling (v13.0.9.0.4) — stabilized SC checks and logging
-// v13.0.7.3+ patch: ensure doIn/doEvery produce numeric increment (seconds)
-// for reliable repeating reschedules; respect SC when available.
+// Event scheduling (v13.3.4.0) — Refactored to use CalendarAdapter system
+// Replaces direct Simple Calendar calls with adapter abstraction
 
 import { FastPriorityQueue, Quentry } from "./FastPriorityQueue.js";
 import { PseudoClock, PseudoClockMessage, _addEvent } from "./PseudoClock.js";
 import { currentWorldTime, dateToTimestamp, intervalATtoSC, intervalSCtoAT, secondsFromATInterval, normalizeATInterval } from "./calendar/DateTime.js";
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
 import { MODULE_ID } from "./settings.js";
 
 // Tiny tolerance to avoid float jitter / early triggers
@@ -15,46 +15,124 @@ const _moduleSocket = `module.${MODULE_ID}`;
 let _userId = "";
 let _isGM = false;
 
-const log  = (...args) => console.log(`${MODULE_ID} |`, ...args);
+const log  = (...args) => ElapsedTime.debug && console.log(`${MODULE_ID} |`, ...args);
 const warn = (...args) => ElapsedTime.debug && console.warn(`${MODULE_ID} |`, ...args);
 
-function isSCActive() {
-  const useSC = game.settings.get(MODULE_ID, "use-simple-calendar");
-  if (!useSC) return false;
-  const sc = game.modules.get("foundryvtt-simple-calendar") ?? game.modules.get("simple-calendar");
-  return !!(sc && sc.active && globalThis.SimpleCalendar?.api);
+/**
+ * Get the active calendar adapter (v13.3.4.0 - Phase 3)
+ * @returns {CalendarAdapter|null} The active calendar adapter or null if not ready
+ */
+function getCalendarAdapter() {
+  try {
+    return CalendarAdapter.getActive();
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Check if a calendar system (not just core time) is available
+ * @returns {boolean} True if SC or S&S is active
+ */
+function hasCalendarSystem() {
+  const adapter = getCalendarAdapter();
+  if (!adapter) return false;
+  return adapter.systemId !== "none";
 }
 
 export class ElapsedTime {
+  static PAUSED_TIME_SENTINEL = Number.MAX_SAFE_INTEGER - 10000;
+
   get eventQueue() { return ElapsedTime._eventQueue; }
   set eventQueue(queue) { ElapsedTime._eventQueue = queue; }
 
+  /**
+   * Pause or resume an event by UID.
+   * Paused events are moved far into the future so they won't execute.
+   * Remaining time is frozen in metadata and used when resuming.
+   */
+  static setEventPaused(uid, paused) {
+    if (!PseudoClock.isMaster) {
+      PseudoClock.warnNotMaster("pause/resume events");
+      return { ok: false, reason: "not-master" };
+    }
+    const q = ElapsedTime._eventQueue;
+    if (!q?.removeId || !q?.add) return { ok: false, reason: "no-queue" };
+
+    const qe = q.removeId(uid);
+    if (!qe) return { ok: false, reason: "not-found" };
+
+    if (!Array.isArray(qe._args)) qe._args = [];
+    let meta = qe._args[0];
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+      meta = {};
+      qe._args[0] = meta;
+    }
+
+    const now = Math.floor(game.time.worldTime ?? 0);
+    const currentlyPaused = !!meta.__atPaused;
+    const targetPaused = !!paused;
+
+    if (targetPaused && !currentlyPaused) {
+      const remaining = Math.max(0, Math.floor(Number(qe._time || 0) - now));
+      meta.__atPaused = true;
+      meta.__atPausedRemaining = remaining;
+      meta.__atPausedNextTime = Number(qe._time || 0);
+      qe._time = ElapsedTime.PAUSED_TIME_SENTINEL;
+    }
+
+    if (!targetPaused && currentlyPaused) {
+      const remaining = Math.max(0, Math.floor(Number(meta.__atPausedRemaining) || 0));
+      qe._time = now + remaining;
+      delete meta.__atPaused;
+      delete meta.__atPausedRemaining;
+      delete meta.__atPausedNextTime;
+    }
+
+    q.add(qe);
+    ElapsedTime._save(true);
+    return { ok: true, paused: targetPaused };
+  }
+
+  static pauseEvent(uid) {
+    return ElapsedTime.setEventPaused(uid, true);
+  }
+
+  static resumeEvent(uid) {
+    return ElapsedTime.setEventPaused(uid, false);
+  }
+
   static currentTimeString() {
-    if (!isSCActive()) return String(game.time.worldTime);
-    const datetime = globalThis.SimpleCalendar.api.timestampToDate(game.time.worldTime);
-    return `${datetime.hour}:${datetime.minute}:${datetime.second}`;
+    const adapter = getCalendarAdapter();
+    const result = adapter.formatDateTime(game.time.worldTime);
+    return result.time || String(game.time.worldTime);
   }
 
   static timeString(duration) {
-    if (!isSCActive()) return String(duration);
-    const datetime = globalThis.SimpleCalendar.api.timestampToDate(duration);
-    return `${datetime.hour}:${datetime.minute}:${datetime.second}`;
+    const adapter = getCalendarAdapter();
+    const result = adapter.formatDateTime(duration);
+    return result.time || String(duration);
   }
 
   static currentTime() {
-    if (!isSCActive()) return game.time.worldTime;
-    return intervalSCtoAT(globalThis.SimpleCalendar.api.timestampToDate(game.time.worldTime));
+    if (!hasCalendarSystem()) return game.time.worldTime;
+    const adapter = getCalendarAdapter();
+    const date = adapter.timestampToDate(game.time.worldTime);
+    return intervalSCtoAT(date);
   }
 
   static currentTimeSeconds() { return game.time.worldTime; }
 
   static status() {
+    if (!ElapsedTime.debug) return;
     console.log(ElapsedTime._eventQueue.array, ElapsedTime._eventQueue.size, ElapsedTime._saveInterval);
   }
 
   static _displayCurrentTime() {
-    if (!isSCActive()) return;
-    console.log(`Elapsed time ${globalThis.SimpleCalendar.api.timestampToDate(game.time.worldTime)}`);
+    if (!hasCalendarSystem()) return;
+    const adapter = getCalendarAdapter();
+    if (!ElapsedTime.debug) return;
+    console.log(`Elapsed time ${adapter.formatTimestamp(game.time.worldTime)}`);
   }
 
   static setClock()      { console.error(`${MODULE_ID} | setClock() deprecated.`); }
@@ -75,14 +153,15 @@ export class ElapsedTime {
 
   // --- Relative "in" (interval) -> schedule once ---
   static doIn(when, handler, ...args) {
-    // Produce a numeric delta in seconds; prefer SC when available, else fallback
+    // Produce a numeric delta in seconds; prefer calendar adapter when available, else fallback
     let incSeconds;
     if (typeof when === "number") {
       incSeconds = Math.floor(when);
     } else {
       const norm = normalizeATInterval(when);
-      if (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval) {
-        const nextTs = globalThis.SimpleCalendar.api.timestampPlusInterval(0, norm);
+      const adapter = getCalendarAdapter();
+      if (hasCalendarSystem()) {
+        const nextTs = adapter.timestampPlusInterval(0, norm);
         incSeconds = Math.max(0, Math.floor(nextTs)); // base 0 => pure interval in seconds
       } else {
         incSeconds = secondsFromATInterval(norm);
@@ -100,9 +179,10 @@ export class ElapsedTime {
       incSeconds = Math.floor(when);
     } else {
       const norm = normalizeATInterval(when);
-      if (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval) {
+      const adapter = getCalendarAdapter();
+      if (hasCalendarSystem()) {
         const base = 0;
-        const nextTs = globalThis.SimpleCalendar.api.timestampPlusInterval(base, norm);
+        const nextTs = adapter.timestampPlusInterval(base, norm);
         incSeconds = Math.max(0, Math.floor(nextTs - base));
       } else {
         incSeconds = secondsFromATInterval(norm);
@@ -132,7 +212,34 @@ export class ElapsedTime {
       ui.notifications.warn("Cannot set event in the past");
       time = 1;
     }
+
+    // Preserve the original scheduled time (static) for display purposes.
+    // The queue entry _time may move forward for recurring events after time jumps.
+    try {
+      const meta = args?.[0];
+      if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+        if (meta.__atOriginalTime == null) meta.__atOriginalTime = time;
+      }
+    } catch {
+      // ignore
+    }
+
     const entry = new Quentry(time, recurring, increment, handler, null, game.user.id, ...args);
+
+    if (ElapsedTime.debug) {
+      try {
+        console.log(`${MODULE_ID} | [ElapsedTime] schedule`, {
+          isMaster: !!PseudoClock.isMaster,
+          uid: entry?._uid,
+          time: Number(entry?._time),
+          recurring: !!recurring,
+          increment: Number(increment ?? 0),
+          originator: game.user?.id
+        });
+      } catch {
+        // ignore
+      }
+    }
 
     if (PseudoClock.isMaster) {
       ElapsedTime._eventQueue.add(entry);
@@ -140,6 +247,13 @@ export class ElapsedTime {
       ElapsedTime._increment = increment;
       return entry._uid;
     } else {
+      if (ElapsedTime.debug) {
+        try {
+          console.log(`${MODULE_ID} | [ElapsedTime] sending socket addEvent`, { uid: entry?._uid });
+        } catch {
+          // ignore
+        }
+      }
       const eventMessage = new PseudoClockMessage({ action: _addEvent, userId: game.user.id, newTime: 0 }, entry.exportToJson());
       PseudoClock._notifyUsers(eventMessage);
       return entry._uid;
@@ -151,20 +265,33 @@ export class ElapsedTime {
   // Legacy helpers that pass increment explicitly (keep behavior)
   static doAtEvery(when, every, handler, ...args) {
     // Convert 'every' to numeric seconds if object
-    let incSeconds = (typeof every === "number")
-      ? Math.floor(every)
-      : (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval)
-          ? Math.max(0, Math.floor(globalThis.SimpleCalendar.api.timestampPlusInterval(0, normalizeATInterval(every))))
-          : secondsFromATInterval(every);
+    let incSeconds;
+    if (typeof every === "number") {
+      incSeconds = Math.floor(every);
+    } else {
+      const adapter = getCalendarAdapter();
+      if (hasCalendarSystem()) {
+        incSeconds = Math.max(0, Math.floor(adapter.timestampPlusInterval(0, normalizeATInterval(every))));
+      } else {
+        incSeconds = secondsFromATInterval(every);
+      }
+    }
     const at = (typeof when === "number") ? when : dateToTimestamp(intervalATtoSC(when));
     return ElapsedTime._addEVent(at, true, incSeconds, handler, ...args);
   }
+  
   static reminderAtEvery(when, every, ...args) {
-    let incSeconds = (typeof every === "number")
-      ? Math.floor(every)
-      : (isSCActive() && globalThis.SimpleCalendar?.api?.timestampPlusInterval)
-          ? Math.max(0, Math.floor(globalThis.SimpleCalendar.api.timestampPlusInterval(0, normalizeATInterval(every))))
-          : secondsFromATInterval(every);
+    let incSeconds;
+    if (typeof every === "number") {
+      incSeconds = Math.floor(every);
+    } else {
+      const adapter = getCalendarAdapter();
+      if (hasCalendarSystem()) {
+        incSeconds = Math.max(0, Math.floor(adapter.timestampPlusInterval(0, normalizeATInterval(every))));
+      } else {
+        incSeconds = secondsFromATInterval(every);
+      }
+    }
     const at = (typeof when === "number") ? when : dateToTimestamp(intervalATtoSC(when));
     return ElapsedTime._addEVent(at, true, incSeconds, (...a) => game.abouttime.ElapsedTime.message(...a), ...args);
   }
@@ -191,6 +318,21 @@ export class ElapsedTime {
     while (q.peek() && (q.peek()._time - nowSec) <= EPS) {
       const qe = q.poll(); // remove head
       try {
+        // Precompute next occurrence timestamp (for standardized chat card) before execution.
+        try {
+          const meta = qe?._args?.[0];
+          if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+            meta.__atNextTime = null;
+            if (qe._recurring && Number(qe._increment) > 0) {
+              const iv = Math.floor(Number(qe._increment));
+              const missed = Math.max(1, Math.ceil((nowSec - qe._time + EPS) / iv));
+              meta.__atNextTime = qe._time + missed * iv;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         // ---- Execute the entry's handler (string macro id/name OR function) ----
         if (typeof qe._handler === "string") {
           const macro =
@@ -245,10 +387,36 @@ export class ElapsedTime {
   static _save(force = false) {
     if (!PseudoClock.isMaster) return;
     const now = Date.now();
-    if ((now - ElapsedTime._lastSaveTime > ElapsedTime._saveInterval) || force) {
-      game.settings.set(MODULE_ID, "store", { _eventQueue: ElapsedTime._eventQueue.exportToJSON() });
-      ElapsedTime._lastSaveTime = now;
+    const shouldSave = ((now - ElapsedTime._lastSaveTime > ElapsedTime._saveInterval) || force);
+    if (!shouldSave) {
+      if (ElapsedTime.debug) {
+        try {
+          console.log(`${MODULE_ID} | [ElapsedTime] save skipped (throttled)`, {
+            force: !!force,
+            msSinceLast: now - ElapsedTime._lastSaveTime,
+            intervalMs: ElapsedTime._saveInterval,
+            queueSize: ElapsedTime?._eventQueue?.size
+          });
+        } catch {
+          // ignore
+        }
+      }
+      return;
     }
+
+    if (ElapsedTime.debug) {
+      try {
+        console.log(`${MODULE_ID} | [ElapsedTime] saving store`, {
+          force: !!force,
+          queueSize: ElapsedTime?._eventQueue?.size
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    game.settings.set(MODULE_ID, "store", { _eventQueue: ElapsedTime._eventQueue.exportToJSON() });
+    ElapsedTime._lastSaveTime = now;
   }
 
   static init() {
@@ -276,9 +444,10 @@ export class ElapsedTime {
 
   static showQueue() {
     if (ElapsedTime._eventQueue.size === 0) {
-      console.log("Empty Queue");
+      if (ElapsedTime.debug) console.log("Empty Queue");
       return;
     }
+    if (!ElapsedTime.debug) return;
     for (let i = 0; i < ElapsedTime._eventQueue.size; i++) {
       log(
         `queue [${i}]`,
@@ -350,7 +519,7 @@ export class ElapsedTime {
 
 }
 
-ElapsedTime.debug = true;
+ElapsedTime.debug = false;
 ElapsedTime._saveInterval = 60 * 1000;
 
 async function macroExecute(macro, ...args) {

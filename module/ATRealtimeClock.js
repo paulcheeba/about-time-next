@@ -9,6 +9,7 @@ let _lastReal = 0;
 let _accum = 0;
 let _rate = 1.0;
 let _tickHz = 1;
+let _stoppedDueToError = false;
 
 /** Internal: read current world settings. */
 function _readConfig() {
@@ -46,6 +47,8 @@ export function startRealtime() {
   _readConfig();
   if (_timer) return true;
 
+  _stoppedDueToError = false;
+
   _ownerId = game.user?.id ?? null;
   _lastReal = performance.now();
   _accum = 0;
@@ -67,7 +70,16 @@ export function startRealtime() {
         await game.time.advance(whole);
       }
     } catch (e) {
-      console.warn(`[${MODULE_ID}] realtime tick failed`, e);
+      console.warn(`[${MODULE_ID}] realtime tick failed; stopping realtime`, e);
+      try { stopRealtime(); } catch {}
+      if (!_stoppedDueToError) {
+        _stoppedDueToError = true;
+        try {
+          ui?.notifications?.warn?.(`[${MODULE_ID}] Realtime clock stopped due to an error while advancing world time. Check other calendar modules / console logs.`);
+        } catch {
+          // ignore
+        }
+      }
     }
   }, periodMs);
 

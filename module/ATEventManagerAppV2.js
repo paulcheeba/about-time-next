@@ -1,11 +1,13 @@
 // File: modules/about-time-next/module/ATEventManagerAppV2.js
-// v13.1.3.1 — Add macro datalist + refresh; no behavior changes
-// NOTE: Copy UID action remains defined (harmless), but the button was removed from the template.
+// v13.3.4.0 — Refactored to use CalendarAdapter for timestamp formatting
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api; // v12+
 import { ElapsedTime } from "./ElapsedTime.js";
+import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
+import { PseudoClock } from "./PseudoClock.js";
 import { MODULE_ID } from "./settings.js";
 import { formatEventChatCard } from "./FastPriorityQueue.js";
+import { isTimekeeper } from "./permissions.js";
 // Minimal helper for GM whisper used inside scheduled handlers (no private fields)
 const gmWhisper = (html) => {
   try {
@@ -15,6 +17,15 @@ const gmWhisper = (html) => {
     console.warn("[about-time] gmWhisper failed", e);
     return ChatMessage.create({ content: html });
   }
+};
+
+const emDebugEnabled = () => {
+  try { return !!game.settings.get(MODULE_ID, "debug"); } catch { return false; }
+};
+
+const emDebugLog = (...args) => {
+  if (!emDebugEnabled()) return;
+  try { console.log(`${MODULE_ID} | [EventManager]`, ...args); } catch { /* ignore */ }
 };
 
 export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -61,6 +72,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
       "flush-rem"(ev, el) { return this.onFlushRem(ev); },
       "stop-by-name"(ev)  { return this.onStopByName(ev); },
       "stop-by-uid"(ev)   { return this.onStopByUID(ev); },
+      "row-toggle-pause"(ev, el) { return this.onRowTogglePause(ev, el); },
       "row-stop"(ev, el)  { return this.onRowStop(ev, el); },
       "copy-uid"(ev, el)  { return this.onCopyUID(ev, el); }
     }
@@ -83,6 +95,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
       btn._atnBound = true;
     }
     this.#queueSig = this.#computeQueueSignature();
+    emDebugLog("render()", { queueSigLen: this.#queueSig?.length ?? 0 });
     if (!this.#ticker) this.#startTicker();
     return out;
   }
@@ -94,26 +107,74 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
 
   async _prepareContext() {
     const now = game.time.worldTime;
-    const q = ElapsedTime?._eventQueue;
     const entries = [];
 
-    if (q?.array && Number.isInteger(q.size)) {
-      for (let i = 0; i < q.size; i++) {
-        const e = q.array[i];
+    let stored = null;
+    try {
+      stored = game.settings.get(MODULE_ID, "store") || null;
+    } catch {
+      stored = null;
+    }
+
+    const storedQueue = stored?._eventQueue ?? null;
+    const storedArray = Array.isArray(storedQueue?.array) ? storedQueue.array : null;
+    const storedSize = Number.isInteger(storedQueue?.size) ? storedQueue.size : null;
+
+    const liveQueue = ElapsedTime?._eventQueue;
+    const liveArray = (liveQueue && Array.isArray(liveQueue.array)) ? liveQueue.array : null;
+    const liveSize = (liveQueue && Number.isInteger(liveQueue.size)) ? liveQueue.size : null;
+
+    const srcArray = storedArray ?? liveArray;
+    const srcSize = storedSize ?? liveSize ?? 0;
+
+    emDebugLog("_prepareContext()", {
+      storedSize,
+      liveSize,
+      source: storedArray ? "store" : (liveArray ? "live" : "none"),
+      srcSize
+    });
+
+    let calendarTooltip = "";
+    try {
+      const adapter = CalendarAdapter.getActive();
+      const systemName = CalendarAdapter.getSystemName(adapter?.systemId);
+      calendarTooltip = systemName ? `${systemName} in use` : "";
+    } catch (_) {
+      calendarTooltip = "";
+    }
+
+    if (srcArray && Number.isInteger(srcSize)) {
+      for (let i = 0; i < srcSize; i++) {
+        const e = srcArray[i];
         if (!e) continue;
-        const meta = e?._args?.[0] ?? {};
+        const meta = e?.args?.[0] ?? e?._args?.[0] ?? {};
         const name = String(meta.__atName ?? "");
         const msg  = String(meta.__atMsg  ?? "");
-        const inc  = Number(e?._increment || 0);
-        const time = Number(e._time || 0);
+        const inc  = Number(e?.increment ?? e?._increment ?? 0);
+        const time = Number(e?.time ?? e?._time ?? 0);
+
+        const paused = !!meta?.__atPaused;
+        const pausedRemaining = Math.max(0, Math.floor(Number(meta?.__atPausedRemaining) || 0));
+        const pausedNextTime = Number(meta?.__atPausedNextTime);
+        const displayTime = (paused && Number.isFinite(pausedNextTime)) ? pausedNextTime : time;
+
+        const originalTime = Number(meta?.__atOriginalTime);
+        const startedOnBaseTime = Number.isFinite(originalTime) ? originalTime : displayTime;
+        const originalTxt = this.#stripHtml(this.#fmtAbsoluteTimestamp(startedOnBaseTime));
+        const calTip = String(calendarTooltip || "");
+        const startTooltip = [calTip, originalTxt ? `Started On: ${originalTxt}` : ""].filter(Boolean).join("\n");
+
         entries.push({
-          uid: e._uid,
+          uid: e?.uid ?? e?._uid,
           name,
           msg,
           time,
-          startTxt: this.#fmtTimestamp(time),
-          remainingTxt: this.#fmtDHMS(Math.max(0, Math.floor(time - now))),
-          recurring: !!e?._recurring,
+          startTxt: paused ? this.#fmtAbsoluteTimestamp(displayTime) : this.#fmtTimestamp(time),
+          startTooltip,
+          remainingTxt: paused ? this.#fmtDHMS(pausedRemaining) : this.#fmtDHMS(Math.max(0, Math.floor(time - now))),
+          recurring: !!(e?.recurring ?? e?._recurring),
+          paused,
+          pauseBtnTxt: paused ? "Resume" : "Pause",
           macroName: String(meta.__macroName || ""),
           macroUuid: String(meta.__macroUuid || ""),
           incTxt: inc ? this.#fmtDHMS(inc) : ""
@@ -121,12 +182,12 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
       }
     }
 
-    return { isGM: !!game.user?.isGM, entries };
+    return { isGM: !!game.user?.isGM, canManage: isTimekeeper(game.user), entries, calendarTooltip };
   }
 
   // ---- Actions -------------------------------------------------------------
   async onCreate(event) {
-    if (!game.user?.isGM) return ui.notifications?.warn?.("GM only");
+    if (!isTimekeeper(game.user)) return ui.notifications?.warn?.("Timekeeper only");
     const fd = new FormData(this.form);
     const name      = String(fd.get("eventName") || "").trim();
     const durStr    = String(fd.get("duration")  || "").trim();
@@ -204,7 +265,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   async onStopByName(event) {
-    if (!game.user?.isGM) return;
+    if (!isTimekeeper(game.user)) return;
     const fd = new FormData(this.form);
     const key = String(fd.get("stopKey") || "").trim();
     if (!key) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter an Event Name to stop.</p>`);
@@ -241,7 +302,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   async onStopByUID(event) {
-    if (!game.user?.isGM) return;
+    if (!isTimekeeper(game.user)) return;
     const fd = new FormData(this.form);
     const uid = String(fd.get("stopKey") || "").trim();
     if (!uid) return this.#gmWhisper(`<p>[${MODULE_ID}] Enter a UID to stop.</p>`);
@@ -257,6 +318,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   async onFlush() {
+    if (!isTimekeeper(game.user)) return;
     const AT = game.abouttime ?? game.Gametime;
     const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
     AT.flushQueue?.();
@@ -265,6 +327,7 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   async onFlushRem() {
+    if (!isTimekeeper(game.user)) return;
     const AT = game.abouttime ?? game.Gametime;
     const q = ElapsedTime?._eventQueue; const count = q?.size ?? 0;
     AT.flushQueue?.();
@@ -274,12 +337,43 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   }
 
   async onRowStop(event, el) {
-    if (!game.user?.isGM) return;
+    if (!isTimekeeper(game.user)) return;
     const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
     if (!uid) return;
     const ok = (game.abouttime ?? game.Gametime).clearTimeout(uid);
     if (ok) { await gmWhisper(`<p>[${MODULE_ID}] Stopped event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`); ElapsedTime._save(true); }
     this.render();
+  }
+
+  async onRowTogglePause(event, el) {
+    if (!isTimekeeper(game.user)) return;
+    const uid = el?.dataset?.uid || event?.currentTarget?.dataset?.uid;
+    if (!uid) return;
+
+    // Determine current state from queue entry metadata
+    const q = ElapsedTime?._eventQueue;
+    let paused = false;
+    try {
+      if (q?.array && Number.isInteger(q.size)) {
+        for (let i = 0; i < q.size; i++) {
+          const e = q.array[i];
+          if (e?._uid === uid) {
+            paused = !!(e?._args?.[0]?.__atPaused);
+            break;
+          }
+        }
+      }
+    } catch {
+      paused = false;
+    }
+
+    const res = paused ? ElapsedTime.resumeEvent(uid) : ElapsedTime.pauseEvent(uid);
+    if (!res?.ok) {
+      await gmWhisper(`<p>[${MODULE_ID}] ${paused ? "Resume" : "Pause"} failed for <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    } else {
+      await gmWhisper(`<p>[${MODULE_ID}] ${paused ? "Resumed" : "Paused"} event <code>${foundry.utils.escapeHTML(uid)}</code>.</p>`);
+    }
+    this.render(true);
   }
 
   async onCopyUID(event, el) {
@@ -296,6 +390,25 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
   // ---- Helpers -------------------------------------------------------------
     // Build a lightweight signature of the current queue (order-stable)
   #computeQueueSignature() {
+    // Prefer the persisted queue (authoritative) to avoid stale in-memory views.
+    try {
+      const stored = game.settings.get(MODULE_ID, "store") || null;
+      const sq = stored?._eventQueue ?? null;
+      const arr = Array.isArray(sq?.array) ? sq.array : null;
+      const size = Number.isInteger(sq?.size) ? sq.size : 0;
+      if (arr && Number.isInteger(size)) {
+        let sig = "";
+        for (let i = 0; i < size; i++) {
+          const e = arr[i];
+          if (!e) continue;
+          sig += `${e.uid}:${Number(e.time || 0)}|`;
+        }
+        return sig;
+      }
+    } catch {
+      // ignore
+    }
+
     const q = ElapsedTime?._eventQueue;
     if (!q?.array || !Number.isInteger(q.size)) return "";
     let sig = "";
@@ -335,18 +448,47 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
     return `${String(d).padStart(2, "0")}:${pad(h)}:${pad(m)}:${pad(sec)}`;
   }
 
-  // If Simple Calendar is present, show its formatted date/time.
+  // If a calendar system is present, show its formatted date/time.
   // Otherwise, show a friendly relative start: "in DD:HH:MM:SS".
   #fmtTimestamp(ts) {
-    const api = globalThis.SimpleCalendar?.api;
-    if (api?.timestampToDate && api?.formatDateTime) {
-      const dt = api.timestampToDate(ts);
-      const f = api.formatDateTime(dt) ?? { date: "", time: `t+${ts}` };
-      return `${f.date ? f.date + " " : ""}${f.time}`;
+    try {
+      const adapter = CalendarAdapter.getActive();
+      if (adapter && adapter.systemId !== "none") {
+        const f = adapter.formatDateTime(ts);
+        const date = f?.date || "";
+        const time = f?.time || "";
+        const sep = (date && time) ? ", " : (date ? "" : "");
+        return `${date}${sep}${time}`.trim();
+      }
+    } catch (err) {
+      // Silently fall back to relative time on error
     }
     const now = game.time.worldTime ?? 0;
     const diff = Math.max(0, Math.floor(ts - now));
     return `in ${this.#fmtDHMS(diff)}`;
+  }
+
+  // Always returns a stable representation for an absolute timestamp.
+  #fmtAbsoluteTimestamp(ts) {
+    try {
+      const adapter = CalendarAdapter.getActive();
+      if (adapter && adapter.systemId !== "none") {
+        const f = adapter.formatDateTime(ts);
+        const date = f?.date || "";
+        const time = f?.time || "";
+        const sep = (date && time) ? ", " : (date ? "" : "");
+        return `${date}${sep}${time}`.trim();
+      }
+    } catch (_) {
+      // ignore
+    }
+    return `t+${Math.round(Number(ts) || 0)}s`;
+  }
+
+  #stripHtml(s) {
+    return String(s || "")
+      .replace(/<sup>(.*?)<\/sup>/gi, "$1")
+      .replace(/<[^>]*>/g, "");
   }
 
     #startTicker() {
@@ -360,6 +502,10 @@ export class ATEventManagerAppV2 extends HandlebarsApplicationMixin(ApplicationV
       // If queue changed (event fired/removed/rescheduled), re-render to refresh rows & data-time
       const nextSig = this.#computeQueueSignature();
       if (nextSig !== this.#queueSig) {
+        emDebugLog("queue signature changed", {
+          prevLen: this.#queueSig?.length ?? 0,
+          nextLen: nextSig?.length ?? 0
+        });
         this.#queueSig = nextSig;
         this.render();
       }

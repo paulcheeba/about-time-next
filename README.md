@@ -7,7 +7,7 @@
 # About Time Next
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
-It works with **Simple Calendar** (*see installation note 3*) or falls back to Foundry’s core time system.
+It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Calendar**, or falls back to Foundry's core time system.
 
 ---
 
@@ -21,18 +21,41 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
    ```
 
 2. Enable the module in your world.
-3. (Optional) Install **Simple Calendar** for advanced date formatting.
-*Note - When SC is available for FVTT v13 I will reconfirm the original functionality. If there are only minor hook changes, about-time-v13 MAY already be compatible with the v13 SC, it's unlikely though...*
+3. (Optional) Configure calendar system in settings: Auto-detect (default), D&D 5e Calendar, Simple Calendar, Seasons & Stars, or None.
 
 > Compatibility: Designed for FVTT v13 (min 13, max 13.x).  
-> With SC enabled, About-Time uses SC’s format/interval helpers where available.
-> Works with smalltime and Season and Stars (using foundry's core time system, not Seasons and Stars') but also has it's own Time Management app built in (which can be disabled in settings).
+> **Calendar Support:** D&D 5e v5.2+ native calendar, Seasons & Stars, Simple Calendar, and core time fallback.  
+> Settings dropdown dynamically shows only available calendar systems. Detection display shows all systems with status.
+
+---
+
+## Calendar Integration
+
+About Time Next uses a **calendar adapter system** to integrate with multiple calendar systems. The module automatically detects available calendars and provides formatted time displays.
+
+**Supported Calendars:**
+- **D&D 5e Calendar (v5.2+)**: Native Foundry v13 calendar system with Harptos, Greyhawk, Gregorian, and Khorvaire calendars.
+- **Seasons & Stars**: Full integration with formatted date/time display.
+- **Simple Calendar**: Legacy compatibility layer retained for reference. Full support depends on a FVTT v13 update of the Simple Calendar module. SC integration may soon be removed if confirmed abandoned.
+
+**Auto-Detection (Default):**
+When set to "Auto-detect", the module checks in priority order:
+1. Seasons & Stars (if module active with API)
+2. Simple Calendar (if module active with API)
+3. D&D 5e Calendar (if system v5.2+ with calendar configured)
+4. Falls back to "None" (Foundry core time)
+5. Additional calendars to be added in future updates.
+
+**Calendar Integration Settings:**
+- Dropdown shows **only detected** calendars (plus "Auto-detect" and "None")
+- Detection info panel shows **all calendars** with ✓/✗ status
+- If your selected calendar becomes unavailable, module falls back automatically
 
 ---
 
 ## Quick Start
 
-- **Event Manager (applicationV2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (GM-only).  
+- **Event Manager (applicationV2):** Open from the **Journal/Notes** toolbar sub-button **“Event Manager”** (Timekeeper-only; GMs always allowed).  
   Use it to create one-shots or repeating events, stop items by name/UID, view the queue, or flush all.
 
 - **Mini Time Manager (optional):** Enable in **Configure Settings → About-Time** to show a compact panel with **Play/Pause**, current time, and tiny toggles for realtime behavior (GM sees controls; players see time).
@@ -48,13 +71,14 @@ It works with **Simple Calendar** (*see installation note 3*) or falls back to F
 
 ### Event Manager (ApplicationV2)
 
-<img width="923" height="437" alt="image" src="https://github.com/user-attachments/assets/6e72b4b3-477a-417e-bb5b-789698696a46" />
+<img width="929" height="463" alt="image" src="https://github.com/user-attachments/assets/67abca89-4e33-447b-baf6-1ca11ef4bd3f" />
 
 Opened via the **Journal/Notes** toolbar sub-button (GM-only).
 
 - **Create Event**: One-shot or repeating (DD:HH:MM:SS).  
 - **Stop by Name**: Stops all events matching a given “friendly” name.  
 - **Stop by UID**: Stops a specific event by unique ID.  
+- **Pause/Resume**: Temporarily freeze an event’s countdown and resume later.
 - **Send Queue to Chat**: Posts a GM-whisper summary with name, UID, next fire time.  
 - **Stop all Events**: Flush the queue.  
 - **Stop all + 1h reminder**: Flush and schedule a “Resume in 1h” reminder.
@@ -64,7 +88,7 @@ The Event Manager auto-updates countdowns and refreshes itself if an event fires
 ### Mini Time Manager (optional, client setting)
 Enable **“Enable AT Time Manager”** to show a compact panel:
 
-<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
+<img width="300" height="151" alt="image" src="https://github.com/user-attachments/assets/8e631dd5-a7b5-4037-9bc5-28e7bebf7c7e" />
 
 - **Play/Pause world time** (GM)  
 - Live **clock display** (SC-formatted if SC is present)  
@@ -94,11 +118,17 @@ Examples: `1h30m`, `2d 4h`, `45m10s`, or `5400` (seconds).
   Show the current queue (GM-whisper; includes UID, args, and next fire time).
 
 - `/at clear`  
-  Clear the entire queue.
+  Clear the entire queue. Prompts for confirm/cancel and updates the same chat card.
 
 - `/at stop <uid>`  
-  Stop a specific event by UID.  
+  Stop a specific event by UID. Prompts for confirm/cancel and updates the same chat card.  
   > Tip: In EM V2 you can copy a row’s UID, then run **`/at stop UID**.
+
+- `/at pause <uid>`  
+  Pause a specific event by UID (freezes remaining time).
+
+- `/at resume <uid>`  
+  Resume a paused event by UID.
 
 - `/at in <duration> <message>`  
   Schedule a one-time reminder.  
@@ -134,19 +164,21 @@ Actions (top buttons):
 - **Send Queue to Chat** (GM-whisper)  
 - **Stop all Events** / **Stop all + 1h reminder**
 
-> With **Simple Calendar** installed, About-Time uses SC's formatting/conversion where appropriate. Without SC, it falls back to core Foundry world time.
+> Time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, or Simple Calendar when available). Falls back to Foundry core time if no calendar system is configured.
 
 ### Event Notification Cards
 When events trigger, they display standardized notification cards with detailed information:
 
-<img width="293" height="365" alt="image" src="https://github.com/user-attachments/assets/0bbc2efb-e1a4-408c-9b54-1865c1e4d457" />
+<img width="294" height="451" alt="image" src="https://github.com/user-attachments/assets/d651e84e-f414-47e0-8d83-f0cf2ec37358" />
 
 
 ```
 [about-time-next]
 Event Name: <name or NA>
 Message: <message or NA>
+Started On: <timestamp (when available)>
 Duration: DD:HH:MM:SS (or NA)
+Next Occurrence: <timestamp or —>
 Repeating: Yes/No
 Macro: <macro name or NA>
 Event UID: <unique identifier>
@@ -157,7 +189,7 @@ Event UID: <unique identifier>
 - **Macro Integration**: Events with macros show the event card *and* executes the macro
 - **Sound Support**: `[about-time-next]` prefix ensures notification sounds trigger correctly
 
-_Note: `/at` chat commands currently use legacy format. Standardization planned for future release._
+_Note: `/at in` and `/at every` reminders currently use legacy output formatting. Standardization planned for a future release._
 
 ---
 
@@ -219,6 +251,8 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 ## Settings (high-level)
 
 - **Enable AT Time Manager (client)** — Shows the mini panel for this user.  
+- **Minimum role required to be a timekeeper (world)** — Delegates event queue management to non-GM users (GMs always allowed).  
+- **Time Format (world)** — Choose 12-hour (AM/PM) or 24-hour time display for consistent formatting across the module.  
 - **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
 - **Link Pause / Auto-Pause Combat (client)** — How the mini panel reacts to world/game state.
 
@@ -241,22 +275,22 @@ Event notifications play automatically when scheduled events fire, helping GMs t
   - M4A (.m4a) - AAC audio, good quality
 Best practice: MP3 is the safest choice for maximum browser compatibility across all platforms (which is why we used it for the notification sounds in v13.2.0.0+).
 
-> Where SC is present, date/time formatting in the mini panel and EM uses SC helpers.
+> Date/time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, Simple Calendar when available), otherwise it falls back to Foundry core time.
 
 ---
 
 ## Notes & Limitations
 
 - The module **does not** override combat round/initiative time.  
-- Complex SC calendars (non-365-day years, custom months) are supported via SC’s own conversions, while raw seconds math remains conservative in fallback mode.  
-- Only GMs can create, manage, and view scheduled events.  
+- Complex calendar rules are supported through the active calendar system when present; core-time fallback uses raw seconds math.  
+- Event queue management is **Timekeeper-only** (configurable role threshold; GMs always allowed).  
 - Realtime runner is **single-owner (GM)**; if another GM starts it, ownership is handed off gracefully.
 
 ---
 
 ## Credits
 
-Originally created by **Tim Posney**, updated and maintained for FVTT v13+ by **paulcheeba** with community input and ChatGPT-assisted refactoring.
+About Time was originally created and maintained by the great **Tim Posney**, About time Next is updated and maintained for FVTT v13+ by **paulcheeba** with community input and AI-assisted refactoring.
 
 **Event notification sound effects** by [Notification_Message](https://pixabay.com/users/notification_message-47259947/) from [Pixabay](https://pixabay.com/sound-effects/).
 

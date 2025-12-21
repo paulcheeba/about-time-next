@@ -16,7 +16,7 @@ export const _addEvent = "about-time.addEvent";
 
 let _userId = "";
 
-const log = (...args) => console.log(`${MODULE_ID} |`, ...args);
+const log = (...args) => ElapsedTime?.debug && console.log(`${MODULE_ID} |`, ...args);
 
 export class PseudoClockMessage {
   constructor({ action, userId, newTime = 0 }, ...args) {
@@ -30,8 +30,31 @@ export class PseudoClockMessage {
 }
 
 export class PseudoClock {
+  static _pendingAddEvents = new Map(); // uid -> exported event JSON
+
   static _initialize() {}
   static get isMaster() { return PseudoClock._isMaster; }
+
+  static _drainPendingAddEvents() {
+    if (!PseudoClock.isMaster) return;
+    if (!PseudoClock._pendingAddEvents || PseudoClock._pendingAddEvents.size === 0) return;
+
+    let added = 0;
+    for (const [uid, data] of PseudoClock._pendingAddEvents.entries()) {
+      try {
+        if (!data) continue;
+        ElapsedTime._eventQueue.add(Quentry.createFromJSON(data));
+        added++;
+      } catch (e) {
+        console.warn(`${MODULE_ID} | [PseudoClock] failed to drain pending addEvent`, uid, e);
+      }
+    }
+    PseudoClock._pendingAddEvents.clear();
+    if (added > 0) {
+      log(`[PseudoClock] drained pending addEvent`, { added });
+      ElapsedTime._save(true);
+    }
+  }
 
   static warnNotMaster(operation) {
     ui.notifications.error(`${game.user.name} ${operation} - ${game.i18n.localize("about-time.notMaster")}`);
@@ -43,6 +66,7 @@ export class PseudoClock {
   }
 
   static _displayCurrentTime() {
+    if (!ElapsedTime?.debug) return;
     console.log(`Elapsed time ${game.time.worldTime}`);
   }
   static advanceClock() { console.error(`${MODULE_ID} | advance clock Not supported`); }
@@ -50,6 +74,7 @@ export class PseudoClock {
 
   static demote() {
     PseudoClock._isMaster = false;
+    log(`[PseudoClock] master demoted`, { userId: game.user?.id });
     Hooks.callAll(_acquiredMaster, false);
   }
 
@@ -64,8 +89,10 @@ export class PseudoClock {
     PseudoClock._queryTimeoutId = setTimeout(() => {
       log("Mutineer assuming master timekeeper role");
       PseudoClock._isMaster = true;
+      log(`[PseudoClock] master acquired (mutiny)`, { userId: game.user?.id });
       ElapsedTime._load();
       Hooks.callAll(_acquiredMaster, true);
+      PseudoClock._drainPendingAddEvents();
       const message = new PseudoClockMessage({ action: _masterResponse, userId: _userId });
       PseudoClock._notifyUsers(message);
     }, timeout * 1000);
@@ -81,7 +108,10 @@ export class PseudoClock {
   }
 
   static _processAction(message) {
-    if (message._userId === _userId) return;
+    // Don't double-handle our own broadcasts, except for addEvent.
+    // addEvent can be emitted before a master is elected; if we later become master,
+    // we need a local copy queued so it can be applied.
+    if (message._userId === _userId && message._action !== _addEvent) return;
     switch (message._action) {
       case _eventTrigger:
         Hooks.callAll(_eventTrigger, ...message._args);
@@ -112,9 +142,21 @@ export class PseudoClock {
         break;
 
       case _addEvent:
-        if (!PseudoClock.isMaster) return;
-        ElapsedTime._eventQueue.add(Quentry.createFromJSON(message._args[0]));
-        ElapsedTime._save(true);
+        // If a master exists, apply immediately. Otherwise, queue it for later.
+        {
+          const data = message?._args?.[0];
+          const uid = data?.uid;
+
+          if (!PseudoClock.isMaster) {
+            if (uid) PseudoClock._pendingAddEvents.set(uid, data);
+            log(`[PseudoClock] queued addEvent (no master yet)`, { from: message?._originator, uid });
+            return;
+          }
+
+          log(`[PseudoClock] received addEvent`, { from: message?._originator, uid });
+          ElapsedTime._eventQueue.add(Quentry.createFromJSON(data));
+          ElapsedTime._save(true);
+        }
         break;
     }
   }
@@ -145,6 +187,8 @@ export class PseudoClock {
     PseudoClock._isMaster = false;
     PseudoClock._setupSocket();
 
+    log(`[PseudoClock] init`, { userId: _userId, isGM: !!game.user?.isGM });
+
     const message = new PseudoClockMessage({ action: _queryMaster, userId: _userId });
     PseudoClock._notifyUsers(message);
 
@@ -153,7 +197,9 @@ export class PseudoClock {
       PseudoClock._queryTimeoutId = setTimeout(() => {
         PseudoClock.notifyMutiny();
         PseudoClock._isMaster = true;
+        log(`[PseudoClock] master acquired (GM timeout)`, { userId: _userId });
         Hooks.callAll(_acquiredMaster, true);
+        PseudoClock._drainPendingAddEvents();
       }, timeout * 1000);
     }
   }
