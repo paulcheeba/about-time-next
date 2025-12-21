@@ -71,7 +71,7 @@ When set to "Auto-detect", the module checks in priority order:
 
 ### Event Manager (ApplicationV2)
 
-<img width="923" height="437" alt="image" src="https://github.com/user-attachments/assets/6e72b4b3-477a-417e-bb5b-789698696a46" />
+<img width="929" height="463" alt="image" src="https://github.com/user-attachments/assets/67abca89-4e33-447b-baf6-1ca11ef4bd3f" />
 
 Opened via the **Journal/Notes** toolbar sub-button (GM-only).
 
@@ -88,7 +88,7 @@ The Event Manager auto-updates countdowns and refreshes itself if an event fires
 ### Mini Time Manager (optional, client setting)
 Enable **“Enable AT Time Manager”** to show a compact panel:
 
-<img width="299" height="168" alt="image" src="https://github.com/user-attachments/assets/45bca378-3ae8-4cf2-8504-f79a46755352" />
+<img width="300" height="151" alt="image" src="https://github.com/user-attachments/assets/8e631dd5-a7b5-4037-9bc5-28e7bebf7c7e" />
 
 - **Play/Pause world time** (GM)  
 - Live **clock display** (SC-formatted if SC is present)  
@@ -169,7 +169,7 @@ Actions (top buttons):
 ### Event Notification Cards
 When events trigger, they display standardized notification cards with detailed information:
 
-<img width="293" height="365" alt="image" src="https://github.com/user-attachments/assets/0bbc2efb-e1a4-408c-9b54-1865c1e4d457" />
+<img width="294" height="451" alt="image" src="https://github.com/user-attachments/assets/d651e84e-f414-47e0-8d83-f0cf2ec37358" />
 
 
 ```
