@@ -1,8 +1,8 @@
 {
   "id": "about-time-next",
   "title": "About Time Next (FVTT v13+ Edition)",
-  "description": "Time and event scheduling management utility for Foundry VTT, updated for v13 compatibility.",
-  "version": "13.4.0.1",
+  "description": "<p>Time and event scheduling management utility for Foundry VTT, updated for v13 compatibility.</p>",
+  "version": "13.4.1.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13",
@@ -10,76 +10,93 @@
   },
   "authors": [
     {
-      "name": "tposney"
+      "name": "tposney",
+      "flags": {}
     },
     {
-      "name": "crusherDestroyer666/paulcheeba"
-    },
-    {
-      "name": "chatGPT5-givingCreditWhereCreditIsDue"
+      "name": "crusherDestroyer666/paulcheeba",
+      "flags": {}
     }
   ],
   "esmodules": [
     "about-time.js",
     "module/ATToolbar.js"
   ],
-  "styles": [],
-  "packs": [],
   "languages": [
     {
       "lang": "en",
       "name": "English",
-      "path": "lang/en.json"
+      "path": "lang/en.json",
+      "flags": {}
     },
     {
       "lang": "de",
       "name": "Deutsch (German)",
-      "path": "lang/de.json"
+      "path": "lang/de.json",
+      "flags": {}
     },
     {
       "lang": "ko",
       "name": "Korean",
-      "path": "lang/ko.json"
+      "path": "lang/ko.json",
+      "flags": {}
     },
     {
       "lang": "ja",
       "name": "日本語",
-      "path": "lang/ja.json"
+      "path": "lang/ja.json",
+      "flags": {}
     },
     {
       "lang": "fr",
       "name": "Français",
-      "path": "lang/fr.json"
+      "path": "lang/fr.json",
+      "flags": {}
     },
     {
       "lang": "pt-BR",
       "name": "Português (Brasil)",
-      "path": "lang/pt-BR.json"
+      "path": "lang/pt-BR.json",
+      "flags": {}
     },
     {
       "lang": "es",
       "name": "Español",
-      "path": "lang/es.json"
+      "path": "lang/es.json",
+      "flags": {}
     },
     {
       "lang": "it",
       "name": "Italian",
-      "path": "lang/it.json"
+      "path": "lang/it.json",
+      "flags": {}
     },
     {
       "lang": "cn",
       "name": "中文",
-      "path": "lang/cn.json"
+      "path": "lang/cn.json",
+      "flags": {}
     },
     {
       "lang": "zh-tw",
       "name": "正體中文",
-      "path": "lang/zh-tw.json"
+      "path": "lang/zh-tw.json",
+      "flags": {}
     }
   ],
   "socket": true,
   "bugs": "https://github.com/paulcheeba/about-time-next/issues",
   "url": "https://github.com/paulcheeba/about-time-next",
   "manifest": "https://github.com/paulcheeba/about-time-next/releases/latest/download/module.json",
-  "download": "https://github.com/paulcheeba/about-time-next/releases/latest/download/about-time-next.zip"
+  "download": "https://github.com/paulcheeba/about-time-next/releases/latest/download/about-time-next.zip",
+  "relationships": {
+    "requires": [
+      {
+        "id": "oev-suite-monitor",
+        "type": "module",
+        "compatibility": {}
+      }
+    ]
+  },
+  "flags": {}
 }
