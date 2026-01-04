@@ -171,19 +171,6 @@ When events trigger, they display standardized notification cards with detailed 
 
 <img width="294" height="451" alt="image" src="https://github.com/user-attachments/assets/d651e84e-f414-47e0-8d83-f0cf2ec37358" />
 
-
-```
-[about-time-next]
-Event Name: <name or NA>
-Message: <message or NA>
-Started On: <timestamp (when available)>
-Duration: DD:HH:MM:SS (or NA)
-Next Occurrence: <timestamp or —>
-Repeating: Yes/No
-Macro: <macro name or NA>
-Event UID: <unique identifier>
-```
-
 - **Consistent Format**: All Event Manager events use the same card layout
 - **Persistence**: Format maintained through Foundry reloads
 - **Macro Integration**: Events with macros show the event card *and* executes the macro
@@ -290,6 +277,11 @@ Best practice: MP3 is the safest choice for maximum browser compatibility across
 
 ## Dependencies
 - This module is part of the **OverEngineeredVTT Suite** and Requires the installation of the lightweight OEV Suite Monitor, a master module that tracks OEV module versions for you and lets you know when updates or new modules are available.
+
+## Additional links
+Join our [Discord](https://discord.gg/VNZwZTCB5U) server
+Support me on [Patreon](https://www.patreon.com/cw/u45257624)
+
 
 ## Credits
 
