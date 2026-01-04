@@ -11,7 +11,7 @@ This document tracks future features and enhancements. Items will be worked on o
 ## 📌 Post-Stabilization Backlog (Dec 2025)
 
 Quick list of the next maintenance items after the recent stabilization work.
-See also: `dev-docs/nextSteps.md`.
+See also: `devFolder/nextSteps.md`.
 
 - [ ] Consolidate duplicate `Hooks.once('ready')` init behavior (avoid double side-effects like mini panel auto-open)
 - [ ] Make “running/paused” status calendar-agnostic (avoid touching Simple Calendar APIs unless selected/available)
@@ -159,7 +159,7 @@ Event UID: {uid}
 - `module/ElapsedTime.js` — route calendar calls through abstraction layer
 - `module/ATEventManagerAppV2.js` — add date/time picker UI
 - `templates/ATEventManagerAppV2.hbs` — add calendar picker elements
-- `dev-docs/referenceDocumentation.md` — document SaS integration
+- `devFolder/referenceDocumentation.md` — document SaS integration
 
 **Dependencies:**
 - Seasons and Stars module (optional)

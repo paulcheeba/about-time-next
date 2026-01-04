@@ -44,7 +44,7 @@ This doc captures the *planned* follow-up work for About Time Next after the rec
      - Update docs/macros accordingly.
 
 2. **Docs consistency pass**
-   - Ensure README and dev-docs align on what is “adapter-first” vs “legacy”.
+   - Ensure README and devFolder align on what is “adapter-first” vs “legacy”.
 
 ## Suggested Verification Checklist (Before Each Release)
 

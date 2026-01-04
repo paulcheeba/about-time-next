@@ -87,7 +87,7 @@ Added v13.3.5.0 release notes.
 - Documented dynamic settings UI
 - Listed requirements and backward compatibility
 
-### 7. `dev-docs/DnD5e-Calendar-ref-doc.md` (Previously Created)
+### 7. `devFolder/DnD5e-Calendar-ref-doc.md` (Previously Created)
 Complete API reference documentation (created in earlier step).
 
 ## Key Features

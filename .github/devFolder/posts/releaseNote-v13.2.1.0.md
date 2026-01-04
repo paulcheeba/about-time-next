@@ -115,8 +115,8 @@ const s = Math.floor(seconds % 60);
 - **changelog.md** - Added v13.2.1.0 section with 5 bullet points including UID fix
 - **module.json** - Updated version to 13.2.1.0
 - **README.md** - Added Event Notification Cards section with example format
-- **dev-docs/releaseNote-v13.2.1.0.md** - Created comprehensive release notes
-- **dev-docs/todo.md** - Marked standardization task complete (updated in previous session)
+- **devFolder/releaseNote-v13.2.1.0.md** - Created comprehensive release notes
+- **devFolder/todo.md** - Marked standardization task complete (updated in previous session)
 
 ---
 

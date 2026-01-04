@@ -54,7 +54,7 @@ about-time-next/
 │   └── countDown.html            # (legacy/optional)
 ├── lang/                   # Internationalization (10 languages)
 ├── macros/                 # Dev test macros
-└── dev-docs/              # Assistant memory database (gitignored)
+└── devFolder/              # Assistant memory database
     ├── initialPrompt.md        # Assistant initialization document
     ├── referenceDocumentation.md  # This file (persistent knowledge)
     └── releaseNote-vX.Y.Z.W.md   # Release notes (created at publish time)
@@ -523,12 +523,12 @@ Example: `v13.1.3.2`
 ### Pre-Release Tasks (Assistant Responsibilities)
 When the user declares a version ready for release:
 1. **Update `changelog.md`** — Add entry for the new version with all changes
-2. **Create Release Note** — Generate `dev-docs/releaseNote-v13.2.0.0.md` (example)
+2. **Create Release Note** — Generate `devFolder/releaseNote-v13.2.0.0.md` (example)
    - Format: Markdown suitable for GitHub release notes
    - User will copy contents to paste into GitHub release after publishing
-   - File remains in `dev-docs/` as historical reference
-3. **Update `.gitignore`** — Add any new files in `dev-docs/` to ensure they're not published to release
-   - All `dev-docs/` contents are development-only and must not be in releases
+  - File remains in `devFolder/` as historical reference
+3. **Update `.gitignore`** — Add any new files in `devFolder/` to ensure they're not published to release
+  - All `devFolder/` contents are development-only and must not be in releases
 
 ### Changelog Format
 ```markdown
@@ -727,7 +727,7 @@ When user declares version ready:
      What was broken, how it's fixed.
    ```
 
-2. **Create Release Note** — Generate `dev-docs/releaseNote-vX.Y.Z.W.md`
+2. **Create Release Note** — Generate `devFolder/releaseNote-vX.Y.Z.W.md`
    - User-friendly format for GitHub release notes
    - Include features, fixes, breaking changes, upgrade instructions
    - User copies contents to GitHub release page after publishing
