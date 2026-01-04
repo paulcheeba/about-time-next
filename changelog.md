@@ -1,3 +1,15 @@
+# Changelog (v13.4.1.0)
+
+**Dependencies + Docs**
+
+- **New Required Dependency: OEV Suite Monitor**  
+  About Time Next is now part of the **OverEngineeredVTT Suite** and requires the OEV Suite Monitor module to be installed.
+
+- **README Updates**  
+  Added a Dependencies note plus Discord/Patreon links.
+
+---
+
 # Changelog (v13.4.0.1)
 
 **Minor QoL Fix**

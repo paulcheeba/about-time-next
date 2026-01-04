@@ -1,2 +1,7 @@
 # Development documentation
-dev-docs/
+/.github/devFolder/
+/.github/prompts/
+
+# Root-local scratch folders (optional)
+/devFolder/
+/prompts/
