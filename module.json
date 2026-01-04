@@ -94,6 +94,7 @@
       {
         "id": "oev-suite-monitor",
         "type": "module",
+        "manifest": "https://github.com/paulcheeba/OverEngineeredVTT-Suite-Monitor/releases/latest/download/module.json",
         "compatibility": {}
       }
     ]
