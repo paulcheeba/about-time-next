@@ -39,12 +39,12 @@ About Time Next uses a **calendar adapter system** to integrate with multiple ca
 - **Simple Calendar Reborn**: Full integration with time authority model. Simple Calendar has been reborn as Simple Calendar Reborn (maintained by Arctis Fireblight for Foundry v13+), and we have integrated it with complete time management support.
 
 **Auto-Detection (Default):**
-When set to "Auto-detect", the module checks in priority order:
-1. Seasons & Stars (if module active with API)
-2. Simple Calendar Reborn (if module active with API)
-3. D&D 5e Calendar (if system v5.2+ with calendar configured)
-4. Falls back to "None" (Foundry core time)
-5. Additional calendars to be added in future updates.
+When set to "Auto-detect", the module uses neutral selection logic:
+- **0 calendars available** → Uses "None" (Foundry core time)
+- **1 calendar available** → Auto-selects that calendar (no favoritism)
+- **2+ calendars available** → Uses "None" and shows selection dialog
+
+All supported calendars (D&D 5e, Simple Calendar Reborn, Seasons & Stars) are treated equally. The module never automatically picks one third-party calendar over another.
 
 **Calendar Integration Settings:**
 - Dropdown shows **only detected** calendars (plus "Auto-detect" and "None")
