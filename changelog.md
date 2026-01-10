@@ -2,7 +2,7 @@
 
 **🎉 MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
 
-After years of waiting, **Simple Calendar** has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration to About Time Next with proper time authority delegation.
+**Simple Calendar** has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration to About Time Next with proper time authority delegation.
 
 ---
 
