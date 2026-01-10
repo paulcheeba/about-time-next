@@ -4,12 +4,11 @@
 
 Hey everyone — major update for About Time Next!
 
-After years of waiting, Simple Calendar has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration with proper time authority delegation, plus a completely neutral calendar selection system that treats all calendar modules equally.
+After years of waiting, Simple Calendar has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration with proper time authority delegation, plus a new calendar selection dialog.
 
 ## What you'll notice
 
 - **Simple Calendar Reborn fully integrated** with Time Authority Model B (SCR controls time, ATN enhances with events)
-- **Neutral calendar selection** - no more automatic favoritism; GMs choose from all available options
 - **Calendar selection dialog** with compact UI when multiple calendars are detected
 - Settings UI shows which system manages time (ATN vs SCR) with smart checkbox disabling when needed
 - Time routing through adapter pattern ensures proper delegation to calendar systems
@@ -19,7 +18,9 @@ After years of waiting, Simple Calendar has been forked and updated for Foundry 
 
 - Foundry VTT: v13+
 - System compatibility: Universal
-- Simple Calendar Reborn v2.4.0+ recommended
+- Simple Calendar Reborn
+- Seasons and Stars
+- D&D5e 5.2 calandar
 
 ## Latest Release / Manifest
 

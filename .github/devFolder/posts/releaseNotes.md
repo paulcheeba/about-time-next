@@ -5,7 +5,6 @@ Major update bringing full Simple Calendar Reborn integration and neutral calend
 Added:
 - **Simple Calendar Reborn (SCR) full integration** with Time Authority Model B - SCR controls worldTime, ATN enhances with event scheduling
 - **SCRAdapter class** implementing proper time routing through `SimpleCalendar.api.changeDate()`
-- **Neutral calendar selection** - removed hierarchy, all calendars treated equally
 - **Calendar selection dialog** appears when multiple calendars detected (compact 300px layout)
 - **Time authority tooltips** in settings showing which system manages time (ATN vs SCR)
 - **Smart checkbox disabling** - ATN pause/combat settings disabled when SCR manages them, showing SCR's values
