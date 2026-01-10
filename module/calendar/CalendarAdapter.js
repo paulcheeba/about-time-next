@@ -482,7 +482,7 @@ export class CalendarAdapter {
         
         dlg = new D2({
           window: { 
-            title: "Choose Calendar System",
+            title: "About Time Next: Choose Calendar System",
             minimizable: false,
             resizable: false,
             contentClasses: ["atn-calendar-select"]
