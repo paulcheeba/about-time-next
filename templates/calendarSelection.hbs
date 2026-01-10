@@ -1,0 +1,27 @@
+{{!-- templates/calendarSelection.hbs --}}
+{{!-- v13.5.0.0 — Calendar selection dialog for multiple available calendars --}}
+
+<div style="font-size: 0.9em; line-height: 1.4;">
+  <p style="margin: 0 0 0.75em 0;">Calendar System: <strong>{{selectedName}}</strong></p>
+  <p style="margin: 0 0 0.75em 0;">Multiple calendars available. Choose one:</p>
+
+  <div style="margin: 0.75em 0;">
+    <select name="calendar-choice" style="width: 100%; padding: 6px; font-size: 1em;">
+      <option value="">-- Select Calendar --</option>
+      {{#each options}}
+        <option value="{{this.id}}">{{this.name}}</option>
+      {{/each}}
+    </select>
+  </div>
+
+  <p style="font-size: 0.85em; color: #999; margin: 0.5em 0; font-style: italic;">
+    All systems are equivalent. Choose by preference.
+  </p>
+
+  <hr style="margin: 0.75em 0; border-color: rgba(0,0,0,0.2);"/>
+  
+  <label style="display:flex; gap:6px; align-items:flex-start; margin:0; font-size: 0.85em;">
+    <input type="checkbox" name="atn-suppress" style="margin-top: 2px;"/>
+    <span style="line-height: 1.3;">Don't show again until I change Calendar System</span>
+  </label>
+</div>

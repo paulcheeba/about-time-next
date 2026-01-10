@@ -419,32 +419,11 @@ export class CalendarAdapter {
       .map(id => ({ id, name: CalendarAdapter.getSystemName(id) }))
       .sort((a, b) => a.name.localeCompare(b.name));
     
-    const optionsHTML = options
-      .map(opt => `<option value="${opt.id}">${opt.name}</option>`)
-      .join('');
-    
-    const checkbox = `
-      <hr/>
-      <label style="display:flex; gap:8px; align-items:center; margin-top:6px;">
-        <input type="checkbox" name="atn-suppress" />
-        <span>Don't show this again until I change the Calendar System selection</span>
-      </label>
-    `;
-    
-    const content = `
-      <p>Your Calendar System is set to <strong>${selectedName}</strong>.</p>
-      <p>Multiple calendar systems are available. Please choose one:</p>
-      <div style="margin: 1em 0;">
-        <select name="calendar-choice" style="width: 100%; padding: 4px;">
-          <option value="">-- Select a Calendar System --</option>
-          ${optionsHTML}
-        </select>
-      </div>
-      <p style="font-size: 0.9em; color: #666;">
-        <em>Note: All calendar systems are equivalent. Choose based on your preference.</em>
-      </p>
-      ${checkbox}
-    `;
+    // Render template
+    const content = await renderTemplate(
+      `modules/${MODULE_ID}/templates/calendarSelection.hbs`,
+      { selectedName, options }
+    );
     
     const D2 = foundry?.applications?.api?.DialogV2;
     if (D2) {
@@ -502,7 +481,16 @@ export class CalendarAdapter {
         };
         
         dlg = new D2({
-          window: { title: "Choose Calendar System" },
+          window: { 
+            title: "Choose Calendar System",
+            minimizable: false,
+            resizable: false,
+            contentClasses: ["atn-calendar-select"]
+          },
+          position: {
+            width: 300,
+            height: "auto"
+          },
           content,
           buttons: [
             {
