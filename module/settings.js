@@ -1,5 +1,5 @@
 // module/settings.js
-// v13.3.3.0 — Calendar settings & Foundry v13 UI support complete
+// v13.5.0.0 — Calendar settings with time authority tooltips and detection info
 
 export const MODULE_ID = "about-time-next";
 
@@ -17,7 +17,8 @@ export const registerSettings = function () {
       auto: "Auto-detect",
       none: "None (Foundry Core Time)",
       dnd5e: "D&D 5e Calendar (v5.2+)",
-      "simple-calendar": "Simple Calendar",
+      "simple-calendar-reborn": "Simple Calendar Reborn",
+      "simple-calendar": "Simple Calendar (Legacy)", // Kept for migration compatibility
       "seasons-and-stars": "Seasons & Stars"
     };
     return names[value] || String(value);
@@ -167,7 +168,7 @@ export const registerSettings = function () {
 
   game.settings.register(MODULE_ID, "calendar-system", {
     name: "Calendar System",
-    hint: "Choose which calendar system to use for time formatting and event scheduling. Auto-detect will choose the first available system.",
+    hint: "Choose which calendar system to use for time formatting and event scheduling. ⚙️ Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S.",
     scope: "world",
     config: true,
     type: String,
@@ -175,7 +176,8 @@ export const registerSettings = function () {
       "auto": "Auto-detect",
       "none": "None (Foundry Core Time)",
       "dnd5e": "D&D 5e Calendar (v5.2+)",
-      "simple-calendar": "Simple Calendar",
+      "simple-calendar-reborn": "Simple Calendar Reborn",
+      // "simple-calendar": "Simple Calendar (Legacy)", // ARCHIVED - v13 incompatible
       "seasons-and-stars": "Seasons & Stars"
     },
     default: "auto",
@@ -351,7 +353,7 @@ export const registerSettings = function () {
     if (formGroup.find('.calendar-detection-info').length > 0) return;
 
     // Get detection results
-    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { dnd5e: false, simpleCalendar: false, seasonsStars: false };
+    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { dnd5e: false, simpleCalendarReborn: false, seasonsStars: false };
     
     // DYNAMIC DROPDOWN FILTERING (v13.3.5.0)
     // Remove options for systems that aren't detected (keep "auto" and "none" always)
@@ -365,7 +367,7 @@ export const registerSettings = function () {
       // Remove option if system not detected
       const shouldShow = (
         (optionValue === 'dnd5e' && detected.dnd5e) ||
-        (optionValue === 'simple-calendar' && detected.simpleCalendar) ||
+        (optionValue === 'simple-calendar-reborn' && detected.simpleCalendarReborn) ||
         (optionValue === 'seasons-and-stars' && detected.seasonsStars)
       );
       
@@ -383,19 +385,19 @@ export const registerSettings = function () {
     detectionHTML += '<strong>Detected Calendar Systems:</strong><br>';
     
     if (detected.dnd5e) {
-      detectionHTML += '✓ D&D 5e Calendar (available)<br>';
+      detectionHTML += '✓ D&D 5e Calendar (available) - <em>Uses ATN Time Management</em><br>';
     } else {
       detectionHTML += '✗ D&D 5e Calendar (not detected)<br>';
     }
     
-    if (detected.simpleCalendar) {
-      detectionHTML += '✓ Simple Calendar (available)<br>';
+    if (detected.simpleCalendarReborn) {
+      detectionHTML += '✓ Simple Calendar Reborn (available) - <em>Uses SCR Time Management</em><br>';
     } else {
-      detectionHTML += '✗ Simple Calendar (not detected)<br>';
+      detectionHTML += '✗ Simple Calendar Reborn (not detected)<br>';
     }
     
     if (detected.seasonsStars) {
-      detectionHTML += '✓ Seasons & Stars (available)';
+      detectionHTML += '✓ Seasons & Stars (available) - <em>Uses ATN Time Management</em>';
     } else {
       detectionHTML += '✗ Seasons & Stars (not detected)';
     }

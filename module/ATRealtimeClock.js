@@ -1,5 +1,5 @@
 // module/ATRealtimeClock.js
-// v13.0.6.7 — Real-time worldTime runner (rate/tickHz), GM-only, single-owner via socket hints.
+// v13.5.0.0 — Real-time worldTime runner with adapter-routed time advancement
 
 import { MODULE_ID } from "./settings.js";
 
@@ -67,7 +67,10 @@ export function startRealtime() {
       const whole = Math.floor(_accum);
       if (whole !== 0) {
         _accum -= whole;
-        await game.time.advance(whole);
+        // Route time advancement through calendar adapter
+        // When SCR is active, this delegates to SCR's time control
+        const adapter = game.abouttime.CalendarAdapter.getActive();
+        await adapter.advanceTime(whole);
       }
     } catch (e) {
       console.warn(`[${MODULE_ID}] realtime tick failed; stopping realtime`, e);

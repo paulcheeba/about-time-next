@@ -53,15 +53,21 @@ if (calendarInput) {
     if (!detectionBox && hint) {
       console.log("\n4. Detection box missing - manually adding...");
       
-      const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { simpleCalendar: false, seasonsStars: false };
+      const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { dnd5e: false, simpleCalendarReborn: false, seasonsStars: false };
       
       let detectionHTML = '<div style="margin-top: 0.5em; padding: 0.5em; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 0.9em;">';
       detectionHTML += '<strong>Detected Calendar Modules:</strong><br>';
       
-      if (detected.simpleCalendar) {
-        detectionHTML += '✓ Simple Calendar (available)<br>';
+      if (detected.dnd5e) {
+        detectionHTML += '✓ D&D 5e Calendar (available)<br>';
       } else {
-        detectionHTML += '✗ Simple Calendar (not detected)<br>';
+        detectionHTML += '✗ D&D 5e Calendar (not detected)<br>';
+      }
+      
+      if (detected.simpleCalendarReborn) {
+        detectionHTML += '✓ Simple Calendar Reborn (available)<br>';
+      } else {
+        detectionHTML += '✗ Simple Calendar Reborn (not detected)<br>';
       }
       
       if (detected.seasonsStars) {

@@ -1,5 +1,5 @@
 // module/ATMiniPanel.js
-// v13.3.4.0 — Refactored to use CalendarAdapter for time formatting
+// v13.5.0.0 — Time controls route through CalendarAdapter.advanceTime()
 
 import { MODULE_ID } from "./settings.js";
 import { CalendarAdapter } from "./calendar/CalendarAdapter.js";
@@ -435,7 +435,10 @@ function wireBehavior(ctx) {
       const s = parseDuration(d[id] || "0");
       if (!s) return;
       const sign = id?.startsWith("rwd") ? -1 : +1;
-      await game.time.advance(sign * s);
+      // Route time advancement through calendar adapter
+      // When SCR is active, this delegates to SCR's time control
+      const adapter = game.abouttime.CalendarAdapter.getActive();
+      await adapter.advanceTime(sign * s);
     };
     steps.querySelectorAll(".atmp-btn").forEach((b) => {
       b.addEventListener("click", onStep);
@@ -456,7 +459,10 @@ function wireBehavior(ctx) {
       else if (id === "midnight") targetSOD = 0;
       if (targetSOD == null) return;
       const delta = secondsToNextBoundary(targetSOD);
-      if (delta > 0) await game.time.advance(delta);
+      // Route time advancement through calendar adapter
+      // When SCR is active, this delegates to SCR's time control
+      const adapter = game.abouttime.CalendarAdapter.getActive();
+      if (delta > 0) await adapter.advanceTime(delta);
     };
     tod.querySelectorAll(".atmp-btn").forEach((b) => {
       b.addEventListener("click", onTod);

@@ -1,6 +1,6 @@
 // module/calendar/CalendarAdapter.js
-// v13.3.1.0 — Abstract base class for calendar system adapters
-// Provides factory pattern for detecting and instantiating calendar adapters
+// v13.5.0.0 — Neutral auto-detection: no calendar hierarchy, user choice for multiple options
+// Abstract base class for calendar system adapters with factory pattern
 
 import { MODULE_ID } from "../settings.js";
 
@@ -126,10 +126,15 @@ export class CalendarAdapter {
     // Detect available calendar systems
     const available = CalendarAdapter.detectAvailable();
 
-    // Resolve "auto" preference on first run
+    // Resolve "auto" preference - only auto-select when exactly one calendar available
+    // If multiple calendars available, use "none" and let checkForCalendarChanges() prompt user
     let choice = preference;
     if (choice === "auto") {
-      choice = available[0] || "none";
+      if (available.length === 1) {
+        choice = available[0];
+      } else {
+        choice = "none"; // 0 or 2+ calendars: use core time, prompt user to choose
+      }
     }
 
     // If user chose a system that's not available, fall back to first available
@@ -160,15 +165,30 @@ export class CalendarAdapter {
           }
           break;
         
-        case "simple-calendar":
-          if (window.AboutTimeNext?.adapters?.SimpleCalendarAdapter) {
-            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SimpleCalendarAdapter();
-            if (CalendarAdapter.#debugEnabled()) console.log(`${MODULE_ID} | Loaded calendar adapter: Simple Calendar`);
+        case "simple-calendar-reborn":
+          if (window.AboutTimeNext?.adapters?.SCRAdapter) {
+            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SCRAdapter();
+            if (CalendarAdapter.#debugEnabled()) console.log(`${MODULE_ID} | Loaded calendar adapter: Simple Calendar Reborn`);
           } else {
-            console.warn(`${MODULE_ID} | SimpleCalendarAdapter class not found`);
+            console.warn(`${MODULE_ID} | SCRAdapter class not found`);
             CalendarAdapter.#activeAdapter = null;
           }
           break;
+        
+        // ========================================================================
+        // LEGACY SIMPLE CALENDAR (ARCHIVED - v13 incompatible)
+        // Preserved for potential restoration if SC receives v13 update
+        // ========================================================================
+        // case "simple-calendar":
+        //   if (window.AboutTimeNext?.adapters?.SimpleCalendarAdapter) {
+        //     CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.SimpleCalendarAdapter();
+        //     if (CalendarAdapter.#debugEnabled()) console.log(`${MODULE_ID} | Loaded calendar adapter: Simple Calendar`);
+        //   } else {
+        //     console.warn(`${MODULE_ID} | SimpleCalendarAdapter class not found`);
+        //     CalendarAdapter.#activeAdapter = null;
+        //   }
+        //   break;
+        // ========================================================================
         
         case "seasons-and-stars":
           if (window.AboutTimeNext?.adapters?.SandSAdapter) {
@@ -204,18 +224,28 @@ export class CalendarAdapter {
   static detectAvailable() {
     const available = [];
 
-    // Highest priority: Seasons & Stars and Simple Calendar (treated as top tier)
+    // Highest priority: Seasons & Stars (most specialized)
     const ssMod = game.modules.get("seasons-and-stars");
     if (ssMod?.active && game.seasonsStars?.api?.getCurrentDate) {
       available.push("seasons-and-stars");
     }
 
-    // Simple Calendar (two possible module IDs)
-    const scMod = game.modules.get("foundryvtt-simple-calendar") 
-               ?? game.modules.get("simple-calendar");
-    if (scMod?.active && globalThis.SimpleCalendar?.api) {
-      available.push("simple-calendar");
+    // Simple Calendar Reborn (v13+ compatible fork)
+    const scrMod = game.modules.get("foundryvtt-simple-calendar-reborn");
+    if (scrMod?.active && globalThis.SimpleCalendar?.api) {
+      available.push("simple-calendar-reborn");
     }
+
+    // ========================================================================
+    // LEGACY SIMPLE CALENDAR (ARCHIVED - v13 incompatible)
+    // Preserved for potential restoration if SC receives v13 update
+    // ========================================================================
+    // const scMod = game.modules.get("foundryvtt-simple-calendar") 
+    //            ?? game.modules.get("simple-calendar");
+    // if (scMod?.active && globalThis.SimpleCalendar?.api) {
+    //   available.push("simple-calendar");
+    // }
+    // ========================================================================
 
     // Next priority: D&D 5e Calendar (v5.2.0+) - native system calendar
     const isDnd5e = game.system?.id === "dnd5e";
@@ -238,29 +268,46 @@ export class CalendarAdapter {
 
   /**
    * Get detection results as an object with boolean properties (helper for UI/migration).
-   * @returns {{dnd5e: boolean, simpleCalendar: boolean, seasonsStars: boolean}}
+   * @returns {{dnd5e: boolean, simpleCalendarReborn: boolean, seasonsStars: boolean}}
    */
   static detectAvailableAsObject() {
     const available = CalendarAdapter.detectAvailable();
     return {
       dnd5e: available.includes("dnd5e"),
-      simpleCalendar: available.includes("simple-calendar"),
+      simpleCalendarReborn: available.includes("simple-calendar-reborn"),
+      // simpleCalendar: available.includes("simple-calendar"), // ARCHIVED
       seasonsStars: available.includes("seasons-and-stars")
     };
   }
 
   static #getRecommendation(available) {
-    const topTier = ["seasons-and-stars", "simple-calendar"].filter((id) => available.includes(id));
-    if (topTier.length) {
-      return {
-        recommended: topTier.includes("seasons-and-stars") ? "seasons-and-stars" : "simple-calendar",
-        bestSet: new Set(topTier)
+    // No hierarchy: any supported calendar > none
+    // If multiple calendars available, don't pick one - let user choose
+    
+    if (available.length === 0) {
+      // No calendars available
+      return { 
+        recommended: "none", 
+        bestSet: new Set(["none"]),
+        availableOptions: null
       };
     }
-    if (available.includes("dnd5e")) {
-      return { recommended: "dnd5e", bestSet: new Set(["dnd5e"]) };
+    
+    if (available.length === 1) {
+      // Exactly one calendar available - recommend it
+      return {
+        recommended: available[0],
+        bestSet: new Set(available),
+        availableOptions: null
+      };
     }
-    return { recommended: "none", bestSet: new Set(["none"]) };
+    
+    // Multiple calendars available - no automatic preference
+    return {
+      recommended: null,
+      bestSet: new Set(available),
+      availableOptions: available
+    };
   }
 
   static async #recommendDialog({ title, content, confirmLabel }) {
@@ -358,6 +405,217 @@ export class CalendarAdapter {
   }
 
   /**
+   * Show selection dialog when multiple calendars are available.
+   * Presents all available calendars in alphabetical order with no default selection.
+   * 
+   * @param {string} selected - Currently selected calendar system
+   * @param {string[]} available - Array of available calendar system IDs
+   */
+  static async #showSelectionDialog(selected, available) {
+    const selectedName = CalendarAdapter.getSystemName(selected);
+    
+    // Build option list sorted alphabetically
+    const options = available
+      .map(id => ({ id, name: CalendarAdapter.getSystemName(id) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    const optionsHTML = options
+      .map(opt => `<option value="${opt.id}">${opt.name}</option>`)
+      .join('');
+    
+    const checkbox = `
+      <hr/>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+        <input type="checkbox" name="atn-suppress" />
+        <span>Don't show this again until I change the Calendar System selection</span>
+      </label>
+    `;
+    
+    const content = `
+      <p>Your Calendar System is set to <strong>${selectedName}</strong>.</p>
+      <p>Multiple calendar systems are available. Please choose one:</p>
+      <div style="margin: 1em 0;">
+        <select name="calendar-choice" style="width: 100%; padding: 4px;">
+          <option value="">-- Select a Calendar System --</option>
+          ${optionsHTML}
+        </select>
+      </div>
+      <p style="font-size: 0.9em; color: #666;">
+        <em>Note: All calendar systems are equivalent. Choose based on your preference.</em>
+      </p>
+      ${checkbox}
+    `;
+    
+    const D2 = foundry?.applications?.api?.DialogV2;
+    if (D2) {
+      return new Promise((resolve) => {
+        let dlg;
+        let resolved = false;
+        
+        const readSuppress = () => {
+          try {
+            const root = dlg?.element ?? null;
+            const el = root?.querySelector?.('input[name="atn-suppress"]');
+            return !!el?.checked;
+          } catch {
+            return false;
+          }
+        };
+        
+        const readChoice = () => {
+          try {
+            const root = dlg?.element ?? null;
+            const select = root?.querySelector?.('select[name="calendar-choice"]');
+            return select?.value || null;
+          } catch {
+            return null;
+          }
+        };
+        
+        const finalize = async (confirmed) => {
+          if (resolved) return;
+          resolved = true;
+          
+          const suppress = readSuppress();
+          const choice = readChoice();
+          
+          if (suppress) {
+            try {
+              await game.settings.set(MODULE_ID, "suppress-calendar-recommendation-for", selected);
+            } catch {
+              // ignore
+            }
+          }
+          
+          if (confirmed && choice) {
+            try {
+              await game.settings.set(MODULE_ID, "calendar-system", choice);
+              CalendarAdapter.refresh();
+              ui.notifications.info(`Using ${CalendarAdapter.getSystemName(choice)} calendar data`);
+            } catch (e) {
+              console.error(`${MODULE_ID} | Failed to switch calendar:`, e);
+              ui.notifications.error("Failed to switch calendar system");
+            }
+          }
+          
+          resolve();
+        };
+        
+        dlg = new D2({
+          window: { title: "Choose Calendar System" },
+          content,
+          buttons: [
+            {
+              action: "select",
+              icon: '<i class="fas fa-check"></i>',
+              label: "Select",
+              default: false,
+              callback: async (_ev, _btn, dialog) => {
+                const choice = readChoice();
+                if (!choice) {
+                  ui.notifications.warn("Please select a calendar system");
+                  return;
+                }
+                await finalize(true);
+                try { dialog.close?.(); } catch { /* ignore */ }
+              }
+            },
+            {
+              action: "cancel",
+              icon: '<i class="fas fa-times"></i>',
+              label: "Cancel",
+              default: true,
+              callback: async (_ev, _btn, dialog) => {
+                await finalize(false);
+                try { dialog.close?.(); } catch { /* ignore */ }
+              }
+            }
+          ],
+          submit: async () => {}
+        });
+        
+        const _origClose = dlg.close?.bind(dlg);
+        dlg.close = async (...args) => {
+          try {
+            await finalize(false);
+          } finally {
+            return _origClose?.(...args);
+          }
+        };
+        
+        dlg.render({ force: true });
+      });
+    }
+    
+    // Fallback for pre-v13 API: Dialog (V1)
+    return new Promise((resolve) => {
+      const dlg = new Dialog({
+        title: "Choose Calendar System",
+        content,
+        buttons: {
+          select: {
+            icon: '<i class="fas fa-check"></i>',
+            label: "Select",
+            callback: async (html) => {
+              const select = html?.[0]?.querySelector?.('select[name="calendar-choice"]');
+              const choice = select?.value;
+              
+              if (!choice) {
+                ui.notifications.warn("Please select a calendar system");
+                resolve();
+                return;
+              }
+              
+              const suppressEl = html?.[0]?.querySelector?.('input[name="atn-suppress"]');
+              const suppress = !!suppressEl?.checked;
+              
+              if (suppress) {
+                try {
+                  await game.settings.set(MODULE_ID, "suppress-calendar-recommendation-for", selected);
+                } catch {
+                  // ignore
+                }
+              }
+              
+              try {
+                await game.settings.set(MODULE_ID, "calendar-system", choice);
+                CalendarAdapter.refresh();
+                ui.notifications.info(`Using ${CalendarAdapter.getSystemName(choice)} calendar data`);
+              } catch (e) {
+                console.error(`${MODULE_ID} | Failed to switch calendar:`, e);
+                ui.notifications.error("Failed to switch calendar system");
+              }
+              
+              resolve();
+            }
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: "Cancel",
+            callback: async (html) => {
+              const suppressEl = html?.[0]?.querySelector?.('input[name="atn-suppress"]');
+              const suppress = !!suppressEl?.checked;
+              
+              if (suppress) {
+                try {
+                  await game.settings.set(MODULE_ID, "suppress-calendar-recommendation-for", selected);
+                } catch {
+                  // ignore
+                }
+              }
+              
+              resolve();
+            }
+          }
+        },
+        default: "cancel",
+        close: () => resolve()
+      });
+      dlg.render(true);
+    });
+  }
+
+  /**
    * On-load calendar recommendation.
    * Priority: (S&S or Simple Calendar) > D&D5e v5.2+ > Foundry core time (none).
    *
@@ -385,17 +643,31 @@ export class CalendarAdapter {
 
     if (suppressedFor && suppressedFor === selected) return;
 
-    // Treat S&S and Simple Calendar as equivalent best; never recommend switching between them.
-    const selectedIsTopTier = selected === "seasons-and-stars" || selected === "simple-calendar";
-    const bestHasTopTier = bestSet.has("seasons-and-stars") || bestSet.has("simple-calendar");
-    if (selectedIsTopTier && bestHasTopTier) return;
-
     const selectedAvailable = (selected === "auto" || selected === "none") ? true : available.includes(selected);
-    const selectedIsBest = bestSet.has(selected);
-    const shouldPrompt = selected === "auto" || !selectedAvailable || !selectedIsBest;
+    
+    // Prompt if:
+    // 1. User is on "auto" or "none" and calendars are available
+    // 2. User's selected calendar is no longer available
+    // 3. Multiple calendars are available (recommended is null) - let user know about options
+    const hasCalendarsAvailable = available.length > 0;
+    const multipleCalendarsAvailable = available.length > 1;
+    const userOnDefault = selected === "auto" || selected === "none";
+    
+    const shouldPrompt = 
+      (userOnDefault && hasCalendarsAvailable) ||  // User on auto/none, calendars exist
+      !selectedAvailable ||                         // Selected calendar no longer available
+      (multipleCalendarsAvailable && recommended === null); // Multiple options, let user choose
+    
     if (!shouldPrompt) return;
 
     const selectedName = CalendarAdapter.getSystemName(selected);
+    
+    // If recommended is null, we have multiple equivalent options - show selection dialog
+    if (recommended === null) {
+      await CalendarAdapter.#showSelectionDialog(selected, available);
+      return;
+    }
+    
     const recName = CalendarAdapter.getSystemName(recommended);
 
     const checkbox = `
@@ -456,7 +728,8 @@ export class CalendarAdapter {
     const names = {
       "none": "None (Foundry Core Time)",
       "dnd5e": "D&D 5e Calendar (v5.2+)",
-      "simple-calendar": "Simple Calendar",
+      "simple-calendar-reborn": "Simple Calendar Reborn",
+      "simple-calendar": "Simple Calendar (Legacy)", // Kept for migration compatibility
       "seasons-and-stars": "Seasons & Stars",
       "auto": "Auto-detect"
     };
@@ -587,6 +860,20 @@ export class CalendarAdapter {
    */
   isAvailable() {
     throw new Error("CalendarAdapter.isAvailable() must be implemented by subclass");
+  }
+
+  /**
+   * Advance world time by a number of seconds.
+   * Base implementation uses Foundry's native time advance.
+   * Calendar adapters that manage their own time (like SCR) should override this.
+   * 
+   * @param {number} seconds - Number of seconds to advance (can be negative to go back)
+   * @returns {Promise<boolean>} True if successful
+   */
+  async advanceTime(seconds) {
+    // Default implementation: use Foundry's native time advance
+    // This is appropriate for "Model A" calendars (S&S, D&D5e) where ATN manages time
+    return await game.time.advance(seconds);
   }
 }
 
