@@ -1,4 +1,4 @@
-# Changelog (v13.4.2.0)
+# Changelog (v13.5.0.0)
 
 **🎉 MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
 
@@ -97,6 +97,19 @@ After years of waiting, **Simple Calendar** has been forked and updated for Foun
 
 - **Updated Reference Documentation**  
   `referenceDocumentation.md` now includes calendar system status, adapter architecture, and integration details for all supported calendars.
+
+---
+
+## User Interface Refinements 🎨
+
+- A new calendar scan is run on load and shows a dialog allowing you to pick the calendar you want ATN to use. This may be dismissed until the next load or until a different calendar is selected in the settings page.
+
+---
+
+## Documentation Updates 📚
+
+- **README.md**  
+  Updated all Simple Calendar references to Simple Calendar Reborn with integration notes. Added explanation that Simple Calendar has been reborn and is now fully integrated with ATN.
 
 ---
 
