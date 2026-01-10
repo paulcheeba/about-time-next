@@ -420,7 +420,7 @@ export class CalendarAdapter {
       .sort((a, b) => a.name.localeCompare(b.name));
     
     // Render template
-    const content = await renderTemplate(
+    const content = await foundry.applications.handlebars.renderTemplate(
       `modules/${MODULE_ID}/templates/calendarSelection.hbs`,
       { selectedName, options }
     );
