@@ -248,15 +248,6 @@ Hooks.once('ready', async () => {
   // INITIALIZATION
   // ============================================================================
   
-  try {
-    if (game.settings.get(MODULE_ID, "debug")) {
-      if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
-        console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
-      }
-    }
-  } catch {
-    // ignore
-  }
   PseudoClock.init();
   ElapsedTime.init();
 
