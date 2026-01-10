@@ -1,3 +1,131 @@
+# Changelog (v13.5.0.0)
+
+**🎉 MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
+
+**Simple Calendar** has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration to About Time Next with proper time authority delegation.
+
+---
+
+## Simple Calendar Reborn Support ✅
+
+- **New SCRAdapter Class**  
+  Added `SCRAdapter.js` implementing **Time Authority Model B**: When SCR is active, it becomes the authoritative time controller. ATN routes all time manipulation through SCR's API instead of directly modifying `game.time.worldTime`.
+
+- **Time Routing Through Adapters**  
+  All ATN time controls now use the adapter pattern:
+  - Realtime clock → `adapter.advanceTime(seconds)`
+  - Fast forward/rewind buttons → `adapter.advanceTime(seconds)`  
+  - Time-of-day quick jumps → `adapter.advanceTime(seconds)`
+  
+  When SCR is active, these calls route through `SimpleCalendar.api.changeDate()`. When using Seasons & Stars or D&D5e, they use `game.time.advance()` as before.
+
+- **SCR as Time Authority**  
+  When SCR is enabled, it controls worldTime and ATN enhances it with:
+  - Event scheduling and notifications
+  - Elapsed time tracking
+  - Additional UI controls (mini panel, toolbar)
+  
+  ATN respects SCR's pause/combat settings and bypasses its own hooks to prevent conflicts.
+
+- **0-Based Indexing Support**  
+  SCRAdapter correctly handles Simple Calendar's 0-based month/day indexing (JavaScript Date-style), converting to 1-based display for users while maintaining API compatibility.
+
+---
+
+## Neutral Calendar Selection 🤝
+
+- **No Calendar Hierarchy**  
+  Removed the concept of "top-tier" calendars. All supported calendars (D&D5e, Simple Calendar Reborn, Seasons & Stars) are now treated equally.
+
+- **Ethical Auto-Detection**  
+  - **0 calendars available** → Use "none" (Foundry core time)
+  - **1 calendar available** → Auto-select that calendar (no favoritism)
+  - **2+ calendars available** → Use "none", show selection dialog
+  
+  ATN no longer automatically picks one third-party calendar over another.
+
+- **Selection Dialog for Multiple Calendars**  
+  When multiple calendars are detected, GMs see a dropdown with all available options sorted alphabetically. Users make an explicit choice with a note: "All calendar systems are equivalent. Choose based on your preference."
+
+- **Change Detection**  
+  Dialog appears when new calendar modules are enabled, even if you're already using a different calendar system. Users are always informed of their options.
+
+---
+
+## Settings UI Enhancements 🎨
+
+- **Calendar System Dropdown Tooltip**  
+  Added explanation of time authority: "⚙️ Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S."
+
+- **Detection Display Updates**  
+  Calendar detection info now shows which system manages time:
+  - "✓ D&D 5e Calendar (available) - *Uses ATN Time Management*"
+  - "✓ Simple Calendar Reborn (available) - *Uses SCR Time Management*"
+  - "✓ Seasons & Stars (available) - *Uses ATN Time Management*"
+
+- **Smart Checkbox Disabling**  
+  When SCR is active, ATN's pause/combat settings are disabled with informational boxes showing SCR's equivalent settings:
+  - `rtAutoPauseCombat` → Shows SCR's `combatRunning` value
+  - `rtLinkPause` → Shows SCR's `unifyGameAndClockPause` value
+  
+  Both display: "⚠️ **Managed by SCR:** [setting status]"
+
+---
+
+## Architecture Improvements 🏗️
+
+- **Time Authority Models**  
+  Formalized two patterns:
+  - **Model A** (S&S, D&D5e): ATN controls time, calendar provides display
+  - **Model B** (SCR): Calendar controls time, ATN enhances with events
+
+- **Logic Bypass for SCR**  
+  Added `isSCRActive()` helper in `about-time.js` that skips ATN's pause/combat hooks when SCR is managing behavior, preventing conflicts.
+
+- **Timestamp-Based Events Confirmed**  
+  Events are stored as timestamps (seconds since epoch), making them calendar-agnostic. Switching between calendars preserves all events—only display format changes.
+
+---
+
+## Documentation 📚
+
+- **SCR-ref-Doc.md**  
+  Comprehensive Simple Calendar Reborn API reference with ATN integration patterns, time authority explanation, and 0-based indexing notes.
+
+- **SCR-Integration-Summary.md**  
+  Complete implementation guide covering time routing architecture, settings UI changes, logic bypass, and testing checklist.
+
+- **Updated Reference Documentation**  
+  `referenceDocumentation.md` now includes calendar system status, adapter architecture, and integration details for all supported calendars.
+
+---
+
+## User Interface Refinements 🎨
+
+- A new calendar scan is run on load and shows a dialog allowing you to pick the calendar you want ATN to use. This may be dismissed until the next load or until a different calendar is selected in the settings page.
+
+---
+
+## Documentation Updates 📚
+
+- **README.md**  
+  Updated all Simple Calendar references to Simple Calendar Reborn with integration notes. Added explanation that Simple Calendar has been reborn and is now fully integrated with ATN.
+
+---
+
+## Migration Notes 📝
+
+- **Legacy Simple Calendar**  
+  Simple Calendar v1.x is archived and incompatible with Foundry v13. Users should migrate to Simple Calendar Reborn v2.4.0+.
+
+- **Existing Events**  
+  All existing events continue to work. Event timestamps are calendar-agnostic, so switching between SCR, S&S, and D&D5e preserves event timing.
+
+- **Settings**  
+  First-time users with multiple calendars will see a selection dialog. Existing users keep their current selection unless they enable additional calendar modules.
+
+---
+
 # Changelog (v13.4.1.0)
 
 **Dependencies + Docs**

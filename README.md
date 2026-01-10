@@ -7,7 +7,7 @@
 # About Time Next
 
 **About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
-It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Calendar**, or falls back to Foundry's core time system.
+It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Calendar Reborn**, or falls back to Foundry's core time system.
 
 ---
 
@@ -21,10 +21,10 @@ It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Cale
    ```
 
 2. Enable the module in your world.
-3. (Optional) Configure calendar system in settings: Auto-detect (default), D&D 5e Calendar, Simple Calendar, Seasons & Stars, or None.
+3. (Optional) Configure calendar system in settings: D&D 5e Calendar, Simple Calendar Reborn, Seasons & Stars, or None (default).
 
 > Compatibility: Designed for FVTT v13 (min 13, max 13.x).  
-> **Calendar Support:** D&D 5e v5.2+ native calendar, Seasons & Stars, Simple Calendar, and core time fallback.  
+> **Calendar Support:** D&D 5e v5.2+ native calendar, Seasons & Stars, Simple Calendar Reborn, and core time fallback.  
 > Settings dropdown dynamically shows only available calendar systems. Detection display shows all systems with status.
 
 ---
@@ -36,18 +36,18 @@ About Time Next uses a **calendar adapter system** to integrate with multiple ca
 **Supported Calendars:**
 - **D&D 5e Calendar (v5.2+)**: Native Foundry v13 calendar system with Harptos, Greyhawk, Gregorian, and Khorvaire calendars.
 - **Seasons & Stars**: Full integration with formatted date/time display.
-- **Simple Calendar**: Legacy compatibility layer retained for reference. Full support depends on a FVTT v13 update of the Simple Calendar module. SC integration may soon be removed if confirmed abandoned.
+- **Simple Calendar Reborn**: Full integration with time authority model. Simple Calendar has been reborn as Simple Calendar Reborn (maintained by Arctis Fireblight for Foundry v13+), and we have integrated it with complete time management support.
 
-**Auto-Detection (Default):**
-When set to "Auto-detect", the module checks in priority order:
-1. Seasons & Stars (if module active with API)
-2. Simple Calendar (if module active with API)
-3. D&D 5e Calendar (if system v5.2+ with calendar configured)
-4. Falls back to "None" (Foundry core time)
-5. Additional calendars to be added in future updates.
+**Neutral Calendar Selection:**
+The module uses neutral selection logic with no automatic favoritism:
+- **0 calendars available** → Uses "None" (Foundry core time)
+- **1 calendar available** → Auto-selects that calendar
+- **2+ calendars available** → Uses "None" and shows selection dialog
+
+All supported calendars (D&D 5e, Simple Calendar Reborn, Seasons & Stars) are treated equally. The module never automatically picks one third-party calendar over another.
 
 **Calendar Integration Settings:**
-- Dropdown shows **only detected** calendars (plus "Auto-detect" and "None")
+- Dropdown shows **only detected** calendars (plus "None")
 - Detection info panel shows **all calendars** with ✓/✗ status
 - If your selected calendar becomes unavailable, module falls back automatically
 
@@ -91,7 +91,7 @@ Enable **“Enable AT Time Manager”** to show a compact panel:
 <img width="300" height="151" alt="image" src="https://github.com/user-attachments/assets/8e631dd5-a7b5-4037-9bc5-28e7bebf7c7e" />
 
 - **Play/Pause world time** (GM)  
-- Live **clock display** (SC-formatted if SC is present)  
+- Live **clock display** (calendar-formatted when available)  
 - Small toggles for realtime behavior (GM):  
   - **Link Pause** (pause realtime if the game is paused)  
   - **Auto-Pause on Combat** (pause/resume around combats)  
@@ -164,7 +164,7 @@ Actions (top buttons):
 - **Send Queue to Chat** (GM-whisper)  
 - **Stop all Events** / **Stop all + 1h reminder**
 
-> Time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, or Simple Calendar when available). Falls back to Foundry core time if no calendar system is configured.
+> Time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, or Simple Calendar Reborn when available). Falls back to Foundry core time if no calendar system is configured.
 
 ### Event Notification Cards
 When events trigger, they display standardized notification cards with detailed information:
@@ -262,7 +262,7 @@ Event notifications play automatically when scheduled events fire, helping GMs t
   - M4A (.m4a) - AAC audio, good quality
 Best practice: MP3 is the safest choice for maximum browser compatibility across all platforms (which is why we used it for the notification sounds in v13.2.0.0+).
 
-> Date/time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, Simple Calendar when available), otherwise it falls back to Foundry core time.
+> Date/time formatting uses the active calendar adapter (D&D 5e, Seasons & Stars, Simple Calendar Reborn when available), otherwise it falls back to Foundry core time.
 
 ---
 
@@ -280,7 +280,6 @@ Best practice: MP3 is the safest choice for maximum browser compatibility across
 - This module is part of the **OverEngineeredVTT Suite** and Requires the installation of the lightweight OEV Suite Monitor, a master module that tracks OEV module versions for you and lets you know when updates or new modules are available.
 
 ## Additional links
-
 - Join our [Discord](https://discord.gg/VNZwZTCB5U) server
 - Support me on [Patreon](https://www.patreon.com/cw/u45257624)
 

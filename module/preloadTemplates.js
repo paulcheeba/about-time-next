@@ -1,10 +1,10 @@
-// About Time v13.0.5 — preload templates (kept minimal)
+// About Time v13.5.0.0 — preload templates
 const MODULE_ID = "about-time-next";
 
 export const preloadTemplates = async function () {
-  const raw = [
-    `modules/${MODULE_ID}/templates/countDown.html`
+  const templatePaths = [
+    `modules/${MODULE_ID}/templates/countDown.html`,
+    `modules/${MODULE_ID}/templates/calendarSelection.hbs`
   ];
-  const paths = raw.map(p => foundry?.utils?.getRoute ? foundry.utils.getRoute(p) : p);
   return foundry.applications.handlebars.loadTemplates(templatePaths);
 };

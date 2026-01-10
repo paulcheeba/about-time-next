@@ -1,5 +1,5 @@
 // about-time.js — Entry point
-// v13.4.0.0 — D&D 5e Calendar integration (native calendar support for D&D 5e v5.2+)
+// v13.5.0.0 — Simple Calendar Reborn (SCR) integration + neutral calendar selection
 
 import { registerSettings, MODULE_ID } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -11,7 +11,8 @@ import { DTCalc } from './module/calendar/DTCalc.js';
 // Calendar Adapter System (v13.3.1.0 - Phase 1)
 import { CalendarAdapter } from './module/calendar/CalendarAdapter.js';
 import './module/calendar/Dnd5eAdapter.js'; // Self-registers (v13.3.5.0)
-import './module/calendar/SimpleCalendarAdapter.js'; // Self-registers
+import './module/calendar/SCRAdapter.js'; // Self-registers (v13.4.2.0 - Simple Calendar Reborn)
+// import './module/calendar/SimpleCalendarAdapter.js'; // ARCHIVED - v13 incompatible, preserved for reference
 import './module/calendar/SandSAdapter.js'; // Self-registers
 
 // New (modular, non-destructive)
@@ -192,20 +193,31 @@ Hooks.once('ready', async () => {
         
         let newSystem = "auto"; // Keep auto as default
         
+        // Count how many calendars are available
+        const availableCount = [detected.dnd5e, detected.simpleCalendarReborn, detected.seasonsStars].filter(Boolean).length;
+        
         // If user had explicitly disabled SC, respect that
         if (legacySetting === false) {
           newSystem = "none";
           if (debug) console.log(`${MODULE_ID} | [Migration] User had disabled SC → setting to "none"`);
         }
-        // If user had SC enabled and it's still available, use it explicitly
-        else if (legacySetting === true && detected.simpleCalendar) {
-          newSystem = "simple-calendar";
-          if (debug) console.log(`${MODULE_ID} | [Migration] SC was enabled and is available → setting to "simple-calendar"`);
+        // Only auto-migrate if there's exactly ONE calendar available
+        // If multiple are available, let checkForCalendarChanges() prompt the user
+        else if (legacySetting === true && availableCount === 1) {
+          if (detected.simpleCalendarReborn) {
+            newSystem = "simple-calendar-reborn";
+            if (debug) console.log(`${MODULE_ID} | [Migration] Only SCR available → setting to "simple-calendar-reborn"`);
+          } else if (detected.seasonsStars) {
+            newSystem = "seasons-and-stars";
+            if (debug) console.log(`${MODULE_ID} | [Migration] Only S&S available → setting to "seasons-and-stars"`);
+          } else if (detected.dnd5e) {
+            newSystem = "dnd5e";
+            if (debug) console.log(`${MODULE_ID} | [Migration] Only D&D5e available → setting to "dnd5e"`);
+          }
         }
-        // If SC was enabled but no longer available, check for S&S
-        else if (legacySetting === true && !detected.simpleCalendar && detected.seasonsStars) {
-          newSystem = "seasons-and-stars";
-          if (debug) console.log(`${MODULE_ID} | [Migration] SC unavailable but S&S detected → setting to "seasons-and-stars"`);
+        else if (legacySetting === true && availableCount > 1) {
+          if (debug) console.log(`${MODULE_ID} | [Migration] Multiple calendars available (${availableCount}) → keeping auto to allow user choice`);
+          // Keep auto so checkForCalendarChanges() will prompt
         }
         
         // Save migrated setting
@@ -236,15 +248,6 @@ Hooks.once('ready', async () => {
   // INITIALIZATION
   // ============================================================================
   
-  try {
-    if (game.settings.get(MODULE_ID, "debug")) {
-      if (!game.modules.get("foundryvtt-simple-calendar")?.active) {
-        console.warn(`${MODULE_ID} | Simple Calendar not active (optional).`);
-      }
-    }
-  } catch {
-    // ignore
-  }
   PseudoClock.init();
   ElapsedTime.init();
 
@@ -302,9 +305,23 @@ Hooks.once('ready', () => {
 
 // --- Pause/Combat coupling (merged from 13.0.6.7.4) ---
 Hooks.once('ready', () => {
-  // Keep AT’s internal runner in sync with Foundry’s pause (if linked)
+  // Helper to check if SCR is managing time/pause behavior
+  const isSCRActive = () => {
+    try {
+      const calendarSystem = game.settings.get(MODULE_ID, "calendar-system");
+      return calendarSystem === "simple-calendar-reborn" || 
+             (calendarSystem === "auto" && globalThis.SimpleCalendar?.api);
+    } catch {
+      return false;
+    }
+  };
+
+  // Keep AT's internal runner in sync with Foundry's pause (if linked)
   Hooks.on("pauseGame", (paused) => {
     try {
+      // Skip if SCR is managing pause behavior
+      if (isSCRActive()) return;
+      
       const link = !!getSettingSafe("rtLinkPause", true);
       if (!link) return;
       if (paused) {
@@ -323,6 +340,9 @@ Hooks.once('ready', () => {
   let _rtWasRunning = false;
 
   async function handleCombatStart() {
+    // Skip if SCR is managing combat pause behavior
+    if (isSCRActive()) return;
+    
     // Only act when the first combat appears (collection 0 -> 1)
     const count = (game.combats?.size ?? 0);
     if (count !== 1) return;
@@ -342,6 +362,8 @@ Hooks.once('ready', () => {
   }
 
   async function handleCombatEnd() {
+    // Skip if SCR is managing combat pause behavior
+    if (isSCRActive()) return;
     // Only act when we just removed the last combat (collection 1 -> 0)
     const count = (game.combats?.size ?? 0);
     if (count !== 0) return;
