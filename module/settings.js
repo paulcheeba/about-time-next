@@ -14,7 +14,6 @@ export const registerSettings = function () {
 
   const calendarLabelFor = (value) => {
     const names = {
-      auto: "Auto-detect",
       none: "None (Foundry Core Time)",
       dnd5e: "D&D 5e Calendar (v5.2+)",
       "simple-calendar-reborn": "Simple Calendar Reborn",
@@ -173,14 +172,13 @@ export const registerSettings = function () {
     config: true,
     type: String,
     choices: {
-      "auto": "Auto-detect",
       "none": "None (Foundry Core Time)",
       "dnd5e": "D&D 5e Calendar (v5.2+)",
       "simple-calendar-reborn": "Simple Calendar Reborn",
       // "simple-calendar": "Simple Calendar (Legacy)", // ARCHIVED - v13 incompatible
       "seasons-and-stars": "Seasons & Stars"
     },
-    default: "auto",
+    default: "none",
     requiresReload: false,
     onChange: value => {
       // Always-on basic status (users can confirm what they selected).

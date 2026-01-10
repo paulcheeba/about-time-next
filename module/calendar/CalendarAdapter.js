@@ -108,34 +108,36 @@ export class CalendarAdapter {
 
 
     // Get user's calendar system preference
-    let preference = "auto";
+    let preference = "none"; // Default to none (neutral selection)
     try {
-      preference = game.settings.get(MODULE_ID, "calendar-system") || "auto";
+      preference = game.settings.get(MODULE_ID, "calendar-system") || "none";
+      
+      // Migrate legacy "auto" to "none" (auto-detect removed in v13.5.0.0)
+      if (preference === "auto") {
+        preference = "none";
+        try {
+          game.settings.set(MODULE_ID, "calendar-system", "none");
+        } catch {
+          // Ignore migration error
+        }
+      }
     } catch (e) {
       // Setting doesn't exist yet (during migration/first run)
       // Fall back to legacy setting
       try {
         const legacyUseSC = game.settings.get(MODULE_ID, "use-simple-calendar");
         if (legacyUseSC === false) preference = "none";
-        // If true, let auto-detection handle it
+        // If true, let neutral selection handle it
       } catch {
-        // No settings at all, use auto
+        // No settings at all, use none
       }
     }
 
     // Detect available calendar systems
     const available = CalendarAdapter.detectAvailable();
 
-    // Resolve "auto" preference - only auto-select when exactly one calendar available
-    // If multiple calendars available, use "none" and let checkForCalendarChanges() prompt user
+    // Use preference directly (neutral selection via checkForCalendarChanges dialog)
     let choice = preference;
-    if (choice === "auto") {
-      if (available.length === 1) {
-        choice = available[0];
-      } else {
-        choice = "none"; // 0 or 2+ calendars: use core time, prompt user to choose
-      }
-    }
 
     // If user chose a system that's not available, fall back to first available
     if (choice !== "none" && !available.includes(choice)) {
@@ -475,6 +477,9 @@ export class CalendarAdapter {
               console.error(`${MODULE_ID} | Failed to switch calendar:`, e);
               ui.notifications.error("Failed to switch calendar system");
             }
+          } else if (!confirmed && (selected === "none" || selected === "auto") && available.length > 0) {
+            // Only show notification when canceling if user is on "none" and other options exist
+            ui.notifications.info("Calendar system remains set to None");
           }
           
           resolve();
