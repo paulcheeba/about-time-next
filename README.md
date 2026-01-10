@@ -276,10 +276,11 @@ Best practice: MP3 is the safest choice for maximum browser compatibility across
 ---
 
 ## Dependencies
+
 - This module is part of the **OverEngineeredVTT Suite** and Requires the installation of the lightweight OEV Suite Monitor, a master module that tracks OEV module versions for you and lets you know when updates or new modules are available.
 
 ## Additional links
-- Join our [Discord](https://discord.gg/VNZwZTCB5U) server.
+- Join our [Discord](https://discord.gg/VNZwZTCB5U) server
 - Support me on [Patreon](https://www.patreon.com/cw/u45257624)
 
 
