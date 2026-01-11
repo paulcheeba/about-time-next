@@ -2,6 +2,9 @@
 /.github/devFolder/
 /.github/prompts/
 
+# Exception: track release notes source for the release workflow
+!/.github/devFolder/posts/releaseNotes.md
+
 # Root-local scratch folders (optional)
 /devFolder/
 /prompts/

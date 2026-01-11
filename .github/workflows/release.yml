@@ -25,11 +25,7 @@ on:
         type: choice
         options:
           - auto
-          - custom
-      custom_release_notes:
-        description: "Custom release note (optional; used only when Release notes=custom). Use \\n for new lines."
-        required: false
-        type: string
+          - releaseNotes.md (fallback to auto)
 
 permissions:
   contents: write
@@ -95,7 +91,7 @@ jobs:
           esac
 
           case "${{ inputs.release_notes_mode }}" in
-            "auto"|"custom")
+            "auto"|"releaseNotes.md (fallback to auto)")
               echo "release_notes_mode=${{ inputs.release_notes_mode }}" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -169,33 +165,45 @@ jobs:
           test -f "${{ steps.pkg.outputs.zip_name }}" || (echo "ZIP missing: ${{ steps.pkg.outputs.zip_name }}"; exit 1)
           test -f module.json || (echo "module.json missing"; exit 1)
 
-      - name: Build custom release notes (if selected)
-        if: ${{ steps.flags.outputs.release_notes_mode == 'custom' }}
-        env:
-          CUSTOM_NOTES: ${{ inputs.custom_release_notes }}
+      - name: Build release notes from releaseNotes.md (fallback to auto)
+        id: file_notes
+        if: ${{ steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${CUSTOM_NOTES}" ]; then
-            echo "Release notes mode is 'custom' but no custom_release_notes was provided." >&2
-            exit 1
+
+          NOTES_FILE=".github/devFolder/posts/releaseNotes.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Release notes file not found: $NOTES_FILE. Will fall back to auto." >&2
+            exit 0
           fi
 
-          # Expand literal '\n' sequences into actual newlines to compensate for the
-          # workflow_dispatch UI being effectively single-line.
-          NOTES_EXPANDED=$(printf '%b' "${CUSTOM_NOTES}")
+          # Extract the newest/top entry: from start of file until the first '---' separator line.
+          awk '
+            /^[[:space:]]*---[[:space:]]*$/ { exit }
+            { print }
+          ' "$NOTES_FILE" > release_body_file.md
 
-          MANIFEST_URL="${{ steps.pkg.outputs.manifest_url }}"
+          if [ ! -s release_body_file.md ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Release notes file exists but the extracted top entry was empty. Will fall back to auto." >&2
+            exit 0
+          fi
 
           {
-            printf "%s\n" "$NOTES_EXPANDED"
-            printf "\n### Manifest URL\n\n"
-            printf "```txt\n%s\n```\n" "$MANIFEST_URL"
-          } > release_body.md
+            echo
+            echo "### Pinned URLs"
+            echo
+            echo "\`Manifest\`: ${{ steps.pkg.outputs.manifest_url }}"
+            echo "\`Download\`: ${{ steps.pkg.outputs.download_url }}"
+          } >> release_body_file.md
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
 
       - name: Generate auto release notes (and append tagged URLs)
         id: auto_notes
-        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' }}
+        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' || (steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found != 'true') }}
         uses: actions/github-script@v7
         env:
           TAG: ${{ steps.pkg.outputs.tag }}
@@ -223,7 +231,7 @@ jobs:
             fs.writeFileSync('release_body_auto.md', appended, 'utf8');
 
       - name: Create/Update GitHub Release (Auto notes) & Upload Assets
-        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' }}
+        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' || (steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found != 'true') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.pkg.outputs.tag }}
@@ -239,8 +247,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create/Update GitHub Release (Custom notes) & Upload Assets
-        if: ${{ steps.flags.outputs.release_notes_mode == 'custom' }}
+      - name: Create/Update GitHub Release (releaseNotes.md) & Upload Assets
+        if: ${{ steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.pkg.outputs.tag }}
@@ -249,26 +257,12 @@ jobs:
           prerelease: ${{ steps.flags.outputs.prerelease }}
           make_latest: ${{ steps.flags.outputs.make_latest }}
           generate_release_notes: false
-          body_path: release_body.md
+          body_path: release_body_file.md
           files: |
             ${{ steps.pkg.outputs.zip_name }}
             module.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve release page URL
-        id: release
-        if: ${{ success() }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const tag = `${{ steps.pkg.outputs.tag }}`;
-            const { data: rel } = await github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag
-            });
-            core.setOutput('html_url', rel.html_url);
 
       - name: Write workflow summary
         shell: bash
@@ -278,7 +272,7 @@ jobs:
           VERSION="${{ inputs.version }}"
           MANIFEST_URL="${{ steps.pkg.outputs.manifest_url }}"
           DOWNLOAD_URL="${{ steps.pkg.outputs.download_url }}"
-          RELEASE_URL="${{ steps.release.outputs.html_url }}"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.pkg.outputs.tag }}"
 
           {
             echo "## Release Summary"
@@ -289,25 +283,16 @@ jobs:
             echo "- Draft?: ${{ inputs.draft }}"
             echo "- Manifest URL: ${MANIFEST_URL}"
             echo "- Download URL: ${DOWNLOAD_URL}"
-            if [ -n "${RELEASE_URL}" ]; then
-              echo "- Release Page: ${RELEASE_URL}"
-            else
-              echo "- Release Page: (not available)"
-            fi
+            echo "- Release Page: ${RELEASE_URL}"
             echo "- Release Note Type: ${{ steps.flags.outputs.release_notes_mode }}"
             echo
             echo "### Release Note"
 
-            if [ "${{ steps.flags.outputs.release_notes_mode }}" = "custom" ]; then
-              if [ -f release_body.md ]; then
-                echo
-                echo '```md'
-                cat release_body.md
-                echo '```'
-              else
-                echo
-                echo "(Custom notes selected, but release_body.md was not found.)"
-              fi
+            if [ "${{ steps.flags.outputs.release_notes_mode }}" = "releaseNotes.md (fallback to auto)" ] && [ "${{ steps.file_notes.outputs.found || '' }}" = "true" ]; then
+              echo
+              echo '```md'
+              cat release_body_file.md
+              echo '```'
             else
               echo
               echo "(Auto-generated by GitHub Releases; see the release page body.)"
