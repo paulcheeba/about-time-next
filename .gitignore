@@ -1,10 +1,10 @@
-# Development documentation
-/.github/devFolder/
+# Git-only ignores (module dev workflow)
 /.github/prompts/
 
-# Exception: track release notes source for the release workflow
-!/.github/devFolder/posts/releaseNotes.md
+/.github/devFolder/about-time-nextPostTemplates/
+/.github/devFolder/console-logs/
+/.github/devFolder/foundryvtt-simple-calendar-reborn/
+/.github/devFolder/referenceDocs/
 
-# Root-local scratch folders (optional)
-/devFolder/
-/prompts/
+/.github/devFolder/posts/discordReleasePosts.md
+/.github/devFolder/posts/patreonPosts.md
