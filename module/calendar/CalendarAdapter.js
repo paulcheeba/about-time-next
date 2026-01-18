@@ -202,6 +202,16 @@ export class CalendarAdapter {
           }
           break;
         
+        case "wgtgm-mini-calendar":
+          if (window.AboutTimeNext?.adapters?.MCAdapter) {
+            CalendarAdapter.#activeAdapter = new window.AboutTimeNext.adapters.MCAdapter();
+            if (CalendarAdapter.#debugEnabled()) console.log(`${MODULE_ID} | Loaded calendar adapter: Mini Calendar`);
+          } else {
+            console.warn(`${MODULE_ID} | MCAdapter class not found`);
+            CalendarAdapter.#activeAdapter = null;
+          }
+          break;
+        
         default:
           console.warn(`${MODULE_ID} | Unknown calendar system: ${choice}`);
           CalendarAdapter.#activeAdapter = null;
@@ -249,6 +259,12 @@ export class CalendarAdapter {
     // }
     // ========================================================================
 
+    // Mini Calendar (v13.6.0.0) - calendar configuration provider
+    const mcMod = game.modules.get("wgtgm-mini-calendar");
+    if (mcMod?.active && game.modules.get("wgtgm-mini-calendar")?.api && game.time?.calendar) {
+      available.push("wgtgm-mini-calendar");
+    }
+
     // Next priority: D&D 5e Calendar (v5.2.0+) - native system calendar
     const isDnd5e = game.system?.id === "dnd5e";
     if (isDnd5e) {
@@ -278,7 +294,8 @@ export class CalendarAdapter {
       dnd5e: available.includes("dnd5e"),
       simpleCalendarReborn: available.includes("simple-calendar-reborn"),
       // simpleCalendar: available.includes("simple-calendar"), // ARCHIVED
-      seasonsStars: available.includes("seasons-and-stars")
+      seasonsStars: available.includes("seasons-and-stars"),
+      miniCalendar: available.includes("wgtgm-mini-calendar")
     };
   }
 
@@ -724,6 +741,7 @@ export class CalendarAdapter {
       "simple-calendar-reborn": "Simple Calendar Reborn",
       "simple-calendar": "Simple Calendar (Legacy)", // Kept for migration compatibility
       "seasons-and-stars": "Seasons & Stars",
+      "wgtgm-mini-calendar": "Mini Calendar",
       "auto": "Auto-detect"
     };
     return names[systemId] || systemId;

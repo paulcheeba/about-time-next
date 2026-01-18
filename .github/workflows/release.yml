@@ -1,28 +1,31 @@
-name: Publish Release (About Time)
+name: Publish Pre/Release (Module-Agnostic 2.0)
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Module version (e.g. 13.0.5)"
+        description: "Module version (e.g. 13.0.0.0)"
         required: true
         type: string
-      prerelease:
-        description: "Mark as pre-release?"
-        required: false
-        default: false
-        type: boolean
+      release_type:
+        description: "Mark release as"
+        required: true
+        type: choice
+        options:
+          - pre-release
+          - release (latest)
       draft:
         description: "Create as draft?"
         required: false
         default: false
         type: boolean
-      make_latest:
-        description: "Make this the 'latest' release? (true | false | legacy)"
-        required: false
-        default: "true"
+      release_notes_mode:
+        description: "Release notes"
+        required: true
         type: choice
-        options: [ "true", "false", "legacy" ]
+        options:
+          - auto
+          - releaseNotes.md (fallback to auto)
 
 permissions:
   contents: write
@@ -50,6 +53,53 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq zip
 
+      - name: Compute package names & URLs
+        id: pkg
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_FULL="${GITHUB_REPOSITORY}"          # owner/repo
+          REPO_NAME="${REPO_FULL##*/}"              # repo
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
+          ZIPNAME="${REPO_NAME}.zip"
+
+          echo "repo_name=${REPO_NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "zip_name=${ZIPNAME}" >> "$GITHUB_OUTPUT"
+          echo "manifest_url=https://github.com/${REPO_FULL}/releases/download/${TAG}/module.json" >> "$GITHUB_OUTPUT"
+          echo "download_url=https://github.com/${REPO_FULL}/releases/download/${TAG}/${ZIPNAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute release flags
+        id: flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.release_type }}" in
+            "pre-release")
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "make_latest=false" >> "$GITHUB_OUTPUT"
+              ;;
+            "release (latest)")
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+              echo "make_latest=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown release_type: ${{ inputs.release_type }}" >&2
+              exit 1
+              ;;
+          esac
+
+          case "${{ inputs.release_notes_mode }}" in
+            "auto"|"releaseNotes.md (fallback to auto)")
+              echo "release_notes_mode=${{ inputs.release_notes_mode }}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown release_notes_mode: ${{ inputs.release_notes_mode }}" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Validate module.json presence
         run: |
           test -f module.json || (echo "module.json not found at repo root." && exit 1)
@@ -58,11 +108,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REPO="${GITHUB_REPOSITORY}"
           VERSION="${{ inputs.version }}"
 
-          MANIFEST_URL="https://github.com/${REPO}/releases/latest/download/module.json"
-          DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/about-time-next.zip"
+          MANIFEST_URL="${{ steps.pkg.outputs.manifest_url }}"
+          DOWNLOAD_URL="${{ steps.pkg.outputs.download_url }}"
 
           cp module.json module.json.bak
 
@@ -98,7 +147,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIPNAME="about-time-next.zip"
+          ZIPNAME="${{ steps.pkg.outputs.zip_name }}"
           rm -f "$ZIPNAME"
           # Create a clean ZIP with module files at the root.
           zip -r "$ZIPNAME" . \
@@ -113,20 +162,139 @@ jobs:
 
       - name: Verify release assets exist
         run: |
-          test -f about-time-next.zip || (echo "about-time-next.zip missing"; exit 1)
+          test -f "${{ steps.pkg.outputs.zip_name }}" || (echo "ZIP missing: ${{ steps.pkg.outputs.zip_name }}"; exit 1)
           test -f module.json || (echo "module.json missing"; exit 1)
 
-      - name: Create/Update GitHub Release & Upload Assets
+      - name: Build release notes from releaseNotes.md (fallback to auto)
+        id: file_notes
+        if: ${{ steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NOTES_FILE=".github/devFolder/posts/releaseNotes.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Release notes file not found: $NOTES_FILE. Will fall back to auto." >&2
+            exit 0
+          fi
+
+          # Extract the newest/top entry: from start of file until the first '---' separator line.
+          awk '
+            /^[[:space:]]*---[[:space:]]*$/ { exit }
+            { print }
+          ' "$NOTES_FILE" > release_body_file.md
+
+          if [ ! -s release_body_file.md ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Release notes file exists but the extracted top entry was empty. Will fall back to auto." >&2
+            exit 0
+          fi
+
+          {
+            echo
+            echo "### Pinned URLs"
+            echo
+            echo "\`Manifest\`: ${{ steps.pkg.outputs.manifest_url }}"
+            echo "\`Download\`: ${{ steps.pkg.outputs.download_url }}"
+          } >> release_body_file.md
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      - name: Generate auto release notes (and append tagged URLs)
+        id: auto_notes
+        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' || (steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found != 'true') }}
+        uses: actions/github-script@v7
+        env:
+          TAG: ${{ steps.pkg.outputs.tag }}
+          MANIFEST_URL: ${{ steps.pkg.outputs.manifest_url }}
+          DOWNLOAD_URL: ${{ steps.pkg.outputs.download_url }}
+        with:
+          script: |
+            const tag = process.env.TAG;
+            const manifestUrl = process.env.MANIFEST_URL;
+            const downloadUrl = process.env.DOWNLOAD_URL;
+
+            // Uses GitHub's release notes generator so you still get the normal
+            // auto-generated content, but we can append the pinned URLs.
+            const resp = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+            });
+
+            const generated = resp?.data?.body ?? '';
+            const appended = `${generated}\n\n### Pinned URLs\n\n\`Manifest\`: ${manifestUrl}\n\`Download\`: ${downloadUrl}\n`;
+
+            const fs = require('fs');
+            fs.writeFileSync('release_body_auto.md', appended, 'utf8');
+
+      - name: Create/Update GitHub Release (Auto notes) & Upload Assets
+        if: ${{ steps.flags.outputs.release_notes_mode == 'auto' || (steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found != 'true') }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: v${{ inputs.version }}
+          tag_name: ${{ steps.pkg.outputs.tag }}
+          name: ${{ steps.pkg.outputs.tag }}
           draft: ${{ inputs.draft }}
-          prerelease: ${{ inputs.prerelease }}
-          make_latest: ${{ inputs.make_latest }}
-          generate_release_notes: true
+          prerelease: ${{ steps.flags.outputs.prerelease }}
+          make_latest: ${{ steps.flags.outputs.make_latest }}
+          generate_release_notes: false
+          body_path: release_body_auto.md
           files: |
-            about-time-next.zip
+            ${{ steps.pkg.outputs.zip_name }}
             module.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create/Update GitHub Release (releaseNotes.md) & Upload Assets
+        if: ${{ steps.flags.outputs.release_notes_mode == 'releaseNotes.md (fallback to auto)' && steps.file_notes.outputs.found == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pkg.outputs.tag }}
+          name: ${{ steps.pkg.outputs.tag }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ steps.flags.outputs.prerelease }}
+          make_latest: ${{ steps.flags.outputs.make_latest }}
+          generate_release_notes: false
+          body_path: release_body_file.md
+          files: |
+            ${{ steps.pkg.outputs.zip_name }}
+            module.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write workflow summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ inputs.version }}"
+          MANIFEST_URL="${{ steps.pkg.outputs.manifest_url }}"
+          DOWNLOAD_URL="${{ steps.pkg.outputs.download_url }}"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.pkg.outputs.tag }}"
+
+          {
+            echo "## Release Summary"
+            echo
+            echo "- Repository: ${{ steps.pkg.outputs.repo_name }}"
+            echo "- Version: ${VERSION}"
+            echo "- Release Type: ${{ inputs.release_type }}"
+            echo "- Draft?: ${{ inputs.draft }}"
+            echo "- Manifest URL: ${MANIFEST_URL}"
+            echo "- Download URL: ${DOWNLOAD_URL}"
+            echo "- Release Page: ${RELEASE_URL}"
+            echo "- Release Note Type: ${{ steps.flags.outputs.release_notes_mode }}"
+            echo
+            echo "### Release Note"
+
+            if [ "${{ steps.flags.outputs.release_notes_mode }}" = "releaseNotes.md (fallback to auto)" ] && [ "${{ steps.file_notes.outputs.found || '' }}" = "true" ]; then
+              echo
+              echo '```md'
+              cat release_body_file.md
+              echo '```'
+            else
+              echo
+              echo "(Auto-generated by GitHub Releases; see the release page body.)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

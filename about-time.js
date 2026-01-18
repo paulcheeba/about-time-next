@@ -14,6 +14,7 @@ import './module/calendar/Dnd5eAdapter.js'; // Self-registers (v13.3.5.0)
 import './module/calendar/SCRAdapter.js'; // Self-registers (v13.4.2.0 - Simple Calendar Reborn)
 // import './module/calendar/SimpleCalendarAdapter.js'; // ARCHIVED - v13 incompatible, preserved for reference
 import './module/calendar/SandSAdapter.js'; // Self-registers
+import './module/calendar/MCAdapter.js'; // Self-registers (v13.6.0.0 - Mini Calendar)
 
 // New (modular, non-destructive)
 import { registerMiniSettings } from './module/ATMiniSettings.js';

@@ -1,7 +1,13 @@
-# Development documentation
-/.github/devFolder/
+# Git-only ignores (module dev workflow)
 /.github/prompts/
 
-# Root-local scratch folders (optional)
-/devFolder/
-/prompts/
+/.github/devFolder/about-time-nextPostTemplates/
+/.github/devFolder/console-logs/
+/.github/devFolder/foundryvtt-simple-calendar-reborn
+/.github/devFolder/wgtgm-mini-calendar
+/.github/devFolder/referenceDocs/
+
+/.github/devFolder/posts/discordReleasePosts.md
+/.github/devFolder/posts/patreonPosts.md
+
+/tools

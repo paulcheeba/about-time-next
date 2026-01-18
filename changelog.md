@@ -1,3 +1,69 @@
+# Changelog (v13.6.0.0)
+
+**Mini Calendar Integration**
+
+Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next, providing ATN users with another calendar system choice.
+
+---
+
+## Mini Calendar Support ✅
+
+- **New MCAdapter Class**  
+  Added `MCAdapter.js` implementing **Time Authority Model A** (ATN-managed): Mini Calendar acts as a calendar configuration provider, modifying Foundry's `CONFIG.time.worldCalendarConfig` and `CONFIG.time.worldCalendarClass`. ATN reads time via `game.time.worldTime` and converts using `game.time.calendar.timeToComponents()`.
+
+- **Calendar Configuration Integration**  
+  Mini Calendar uses Foundry's core calendar API with custom calendar classes supporting:
+  - Custom calendar presets (Gregorian, custom-built calendars)
+  - Intercalary days with special handling (`dayOfWeek: -1`)
+  - Flexible leap year rules including special Gregorian preset logic
+  - 0-based month/day indexing (JavaScript Date-style)
+  
+  The adapter transparently converts between Mini Calendar's 0-based indexing and ATN's 1-based display format.
+
+- **Time Routing Pattern**  
+  Mini Calendar follows the S&S/D&D5e integration pattern:
+  - Read time: `game.time.worldTime` + `game.time.calendar.timeToComponents()`
+  - Write time: `game.time.advance()` (base CalendarAdapter implementation)
+  - Format time: Ordinal suffixes (1st, 2nd, 3rd) with intercalary day detection
+  
+  Unlike Simple Calendar Reborn (which controls worldTime), Mini Calendar delegates time authority to ATN.
+
+- **Time Runner Awareness**  
+  Mini Calendar includes its own optional time runner (play/stop + timeMultiplier). The adapter monitors this state via `getClockStatus()` and logs warnings when both ATN and MC runners are active simultaneously, helping users avoid time-advancement conflicts.
+
+- **Detection & Settings**  
+  - Added Mini Calendar to calendar system detection: checks for `wgtgm-mini-calendar` module, API presence, and configured calendar
+  - Added "Mini Calendar" choice to Calendar System dropdown
+  - Settings UI shows "✓ Mini Calendar (available) - *Uses ATN Time Management*" when detected
+  - Dynamic dropdown filtering removes unavailable calendar options
+
+---
+
+## Architecture Improvements 🏗️
+
+- **Consistent Adapter Pattern**  
+  All adapters now follow the same self-registration pattern via `window.AboutTimeNext.adapters`, with Mini Calendar joining D&D5e, Seasons & Stars, and Simple Calendar Reborn.
+
+- **Comprehensive Logging**  
+  MCAdapter includes debug-gated console logging throughout:
+  - Initialization and availability checks
+  - Date/time formatting operations with component details
+  - Interval calculations with method tracing
+  - Intercalary day detection
+  - Time runner conflict warnings
+
+- **Fallback Safety**  
+  Robust error handling with graceful degradation when Mini Calendar's calendar API is unavailable, using conservative time estimates for interval calculations.
+
+---
+
+## Bug Fixes 🐛
+
+- **SCR Event Durations**  
+  Fixed a Simple Calendar Reborn integration edge case where `timestampPlusInterval(0, { seconds: N })` could return `0`, causing newly created one-time and repeating events to show `00:00:00:00` remaining and trigger immediately. The adapter now tolerates both singular and plural interval key shapes and falls back to conservative math if needed.
+
+---
+
 # Changelog (v13.5.0.0)
 
 **🎉 MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
