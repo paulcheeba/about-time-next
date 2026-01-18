@@ -25,6 +25,10 @@ import { MODULE_ID } from "../settings.js";
  * - Both modules trying to control time simultaneously will cause conflicts
  */
 export class SCRAdapter extends CalendarAdapter {
+  // Some SCR builds expect plural interval keys (seconds) while others accept singular (second).
+  // Cache which style works at runtime to keep doIn/doEvery duration math correct.
+  #intervalKeyMode = null; // "singular" | "plural" | null
+
   constructor() {
     super();
 
@@ -181,6 +185,42 @@ export class SCRAdapter extends CalendarAdapter {
 
     try {
       const normalized = this.normalizeInterval(interval);
+      const hasUnits = normalized && Object.keys(normalized).length > 0;
+
+      const toPlural = (singular) => {
+        const out = {};
+        for (const [k, v] of Object.entries(singular || {})) {
+          const num = Number(v) || 0;
+          if (!num) continue;
+          switch (k) {
+            case "year": out.years = (out.years || 0) + num; break;
+            case "month": out.months = (out.months || 0) + num; break;
+            case "day": out.days = (out.days || 0) + num; break;
+            case "hour": out.hours = (out.hours || 0) + num; break;
+            case "minute": out.minutes = (out.minutes || 0) + num; break;
+            case "second": out.seconds = (out.seconds || 0) + num; break;
+            default: out[k] = (out[k] || 0) + num; break;
+          }
+        }
+        return out;
+      };
+
+      const normalizedPlural = toPlural(normalized);
+
+      const pickPrimary = () => {
+        if (this.#intervalKeyMode === "plural") return { mode: "plural", obj: normalizedPlural };
+        // default to singular if unknown
+        return { mode: "singular", obj: normalized };
+      };
+
+      const pickSecondary = (primaryMode) => {
+        return primaryMode === "plural"
+          ? { mode: "singular", obj: normalized }
+          : { mode: "plural", obj: normalizedPlural };
+      };
+
+      const primary = pickPrimary();
+      const secondary = pickSecondary(primary.mode);
       
       try {
         if (game.settings.get(MODULE_ID, "debug")) {
@@ -193,7 +233,29 @@ export class SCRAdapter extends CalendarAdapter {
         // ignore
       }
       
-      const result = api.timestampPlusInterval(timestamp, normalized);
+      let result = api.timestampPlusInterval(timestamp, primary.obj);
+
+      // Some SCR versions ignore singular keys (second/minute/etc). If the API returns
+      // an unchanged timestamp even though the interval is non-empty, try alternate keys.
+      if (hasUnits && typeof result === "number" && result === timestamp) {
+        const alt = api.timestampPlusInterval(timestamp, secondary.obj);
+        if (typeof alt === "number" && alt !== timestamp) {
+          result = alt;
+          this.#intervalKeyMode = secondary.mode;
+          try {
+            if (game.settings.get(MODULE_ID, "debug")) {
+              console.log(`${MODULE_ID} | [SCRAdapter] timestampPlusInterval: switched interval key mode to ${secondary.mode}`);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      // Last resort: if SCR still returns an unchanged timestamp, fall back to math.
+      if (hasUnits && typeof result === "number" && result === timestamp) {
+        result = this.#fallbackIntervalAdd(timestamp, normalized);
+      }
       
       try {
         if (game.settings.get(MODULE_ID, "debug")) {
@@ -494,21 +556,25 @@ export class SCRAdapter extends CalendarAdapter {
   async advanceTime(seconds) {
     const api = this.#getAPI();
     if (!api?.changeDate) {
-      console.warn(`${this.MODULE_ID} | SCR changeDate API not available, falling back to game.time.advance`);
+      console.warn(`${MODULE_ID} | [SCRAdapter] changeDate API not available, falling back to game.time.advance`);
       return await game.time.advance(seconds);
     }
 
     try {
       // Route time control through SCR's API
       const success = api.changeDate({ seconds: seconds });
-      
-      if (this.debug) {
-        console.log(`${this.MODULE_ID} | [SCRAdapter] Advanced time by ${seconds}s via SCR API`);
+
+      try {
+        if (game.settings.get(MODULE_ID, "debug")) {
+          console.log(`${MODULE_ID} | [SCRAdapter] Advanced time by ${seconds}s via SCR API`);
+        }
+      } catch {
+        // ignore
       }
       
       return success;
     } catch (error) {
-      console.error(`${this.MODULE_ID} | [SCRAdapter] Failed to advance time via SCR:`, error);
+      console.error(`${MODULE_ID} | [SCRAdapter] Failed to advance time via SCR:`, error);
       // Fallback to native time advance if SCR fails
       return await game.time.advance(seconds);
     }

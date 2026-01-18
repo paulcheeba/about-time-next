@@ -167,7 +167,7 @@ export const registerSettings = function () {
 
   game.settings.register(MODULE_ID, "calendar-system", {
     name: "Calendar System",
-    hint: "Choose which calendar system to use for time formatting and event scheduling. ⚙️ Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S.",
+    hint: "Choose which calendar system to use for time formatting and event scheduling. ⚙️ Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S/MC.",
     scope: "world",
     config: true,
     type: String,
@@ -176,7 +176,8 @@ export const registerSettings = function () {
       "dnd5e": "D&D 5e Calendar (v5.2+)",
       "simple-calendar-reborn": "Simple Calendar Reborn",
       // "simple-calendar": "Simple Calendar (Legacy)", // ARCHIVED - v13 incompatible
-      "seasons-and-stars": "Seasons & Stars"
+      "seasons-and-stars": "Seasons & Stars",
+      "wgtgm-mini-calendar": "Mini Calendar"
     },
     default: "none",
     requiresReload: false,
@@ -351,7 +352,12 @@ export const registerSettings = function () {
     if (formGroup.find('.calendar-detection-info').length > 0) return;
 
     // Get detection results
-    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { dnd5e: false, simpleCalendarReborn: false, seasonsStars: false };
+    const detected = window.AboutTimeNext?.CalendarAdapter?.detectAvailableAsObject() || { 
+      dnd5e: false, 
+      simpleCalendarReborn: false, 
+      seasonsStars: false,
+      miniCalendar: false
+    };
     
     // DYNAMIC DROPDOWN FILTERING (v13.3.5.0)
     // Remove options for systems that aren't detected (keep "auto" and "none" always)
@@ -366,7 +372,8 @@ export const registerSettings = function () {
       const shouldShow = (
         (optionValue === 'dnd5e' && detected.dnd5e) ||
         (optionValue === 'simple-calendar-reborn' && detected.simpleCalendarReborn) ||
-        (optionValue === 'seasons-and-stars' && detected.seasonsStars)
+        (optionValue === 'seasons-and-stars' && detected.seasonsStars) ||
+        (optionValue === 'wgtgm-mini-calendar' && detected.miniCalendar)
       );
       
       if (!shouldShow) {
@@ -395,9 +402,15 @@ export const registerSettings = function () {
     }
     
     if (detected.seasonsStars) {
-      detectionHTML += '✓ Seasons & Stars (available) - <em>Uses ATN Time Management</em>';
+      detectionHTML += '✓ Seasons & Stars (available) - <em>Uses ATN Time Management</em><br>';
     } else {
-      detectionHTML += '✗ Seasons & Stars (not detected)';
+      detectionHTML += '✗ Seasons & Stars (not detected)<br>';
+    }
+    
+    if (detected.miniCalendar) {
+      detectionHTML += '✓ Mini Calendar (available) - <em>Uses ATN Time Management</em>';
+    } else {
+      detectionHTML += '✗ Mini Calendar (not detected)';
     }
     
     detectionHTML += '</div>';
