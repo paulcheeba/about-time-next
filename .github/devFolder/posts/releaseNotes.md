@@ -1,3 +1,32 @@
+# About Time Next v13.6.0.0 (2026-01-18)
+
+This release introduces Mini Calendar integration and resolves a critical Simple Calendar Reborn event duration bug.
+
+Added:
+- **Mini Calendar (wgtgm-mini-calendar) full integration** with Time Authority Model A (ATN-managed time)
+- **MCAdapter class** implementing calendar configuration via Foundry's core calendar API
+- **Intercalary day support** with special handling for dayOfWeek: -1 and transparent 0-based to 1-based indexing conversion
+- **Time runner awareness** monitoring Mini Calendar's optional time runner and logging conflict warnings when both ATN and MC runners are active
+- **Detection and settings integration** with dynamic dropdown filtering and availability status display
+- **Comprehensive debug logging** throughout MCAdapter for initialization, formatting, interval calculations, and conflict detection
+
+Fixed:
+- **SCR event duration calculation bug** where `timestampPlusInterval(0, { seconds: N })` could return 0, causing events to trigger immediately with 00:00:00:00 remaining time. Adapter now handles both singular and plural interval key formats with fallback to conservative math.
+
+Breaking Changes:
+- None
+
+Manifest URL:
+- https://github.com/paulcheeba/about-time-next/releases/download/v13.6.0.0/module.json
+
+Patreon:
+- OverEngineeredVTT - https://www.patreon.com/cw/u45257624
+
+Discord:
+- OverEngineeredVTT - About Time Next - https://discord.com/channels/1038881475732451368/1454747384692215840
+
+---
+
 # About Time Next v13.5.0.0 (2026-01-10)
 
 Major update bringing full Simple Calendar Reborn integration and neutral calendar selection system.
