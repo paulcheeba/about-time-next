@@ -1,3 +1,23 @@
+# Changelog (v14.0.0.0)
+
+**Foundry VTT v14 Compatibility & Policy Compliance**
+
+First release with compatibility for Foundry VTT v14. This release also removes all non-English language support in compliance with the Foundry VTT AI Policy.
+
+---
+
+## FVTT v14 Compatibility
+
+- First release supporting Foundry VTT v14.
+
+---
+
+## Language Support Changes
+
+- English-only localisation: All non-English language files (cn, de, es, fr, it, ja, ko, pt-BR, zh-tw) have been removed. Foundry VTT's AI content policy prohibits AI-generated translations, and no human-verified translations are currently available. The module now ships with English only (lang/en.json). Community-contributed translations are welcome via pull request.
+
+---
+
 # Changelog (v13.6.0.0)
 
 **Mini Calendar Integration**
@@ -6,7 +26,7 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Mini Calendar Support ✅
+## Mini Calendar Support
 
 - **New MCAdapter Class**  
   Added `MCAdapter.js` implementing **Time Authority Model A** (ATN-managed): Mini Calendar acts as a calendar configuration provider, modifying Foundry's `CONFIG.time.worldCalendarConfig` and `CONFIG.time.worldCalendarClass`. ATN reads time via `game.time.worldTime` and converts using `game.time.calendar.timeToComponents()`.
@@ -39,7 +59,7 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Architecture Improvements 🏗️
+## Architecture Improvements
 
 - **Consistent Adapter Pattern**  
   All adapters now follow the same self-registration pattern via `window.AboutTimeNext.adapters`, with Mini Calendar joining D&D5e, Seasons & Stars, and Simple Calendar Reborn.
@@ -57,7 +77,7 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Bug Fixes 🐛
+## Bug Fixes
 
 - **SCR Event Durations**  
   Fixed a Simple Calendar Reborn integration edge case where `timestampPlusInterval(0, { seconds: N })` could return `0`, causing newly created one-time and repeating events to show `00:00:00:00` remaining and trigger immediately. The adapter now tolerates both singular and plural interval key shapes and falls back to conservative math if needed.
@@ -66,13 +86,13 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 # Changelog (v13.5.0.0)
 
-**🎉 MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
+**MAJOR UPDATE: Simple Calendar Reborn Integration + Neutral Calendar Selection**
 
 **Simple Calendar** has been forked and updated for Foundry v13+ as **Simple Calendar Reborn** by Arctis Fireblight. This release brings full SCR integration to About Time Next with proper time authority delegation.
 
 ---
 
-## Simple Calendar Reborn Support ✅
+## Simple Calendar Reborn Support
 
 - **New SCRAdapter Class**  
   Added `SCRAdapter.js` implementing **Time Authority Model B**: When SCR is active, it becomes the authoritative time controller. ATN routes all time manipulation through SCR's API instead of directly modifying `game.time.worldTime`.
@@ -98,7 +118,7 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Neutral Calendar Selection 🤝
+## Neutral Calendar Selection
 
 - **No Calendar Hierarchy**  
   Removed the concept of "top-tier" calendars. All supported calendars (D&D5e, Simple Calendar Reborn, Seasons & Stars) are now treated equally.
@@ -118,10 +138,10 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Settings UI Enhancements 🎨
+## Settings UI Enhancements
 
 - **Calendar System Dropdown Tooltip**  
-  Added explanation of time authority: "⚙️ Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S."
+  Added explanation of time authority: "Time Authority: SCR controls worldTime when active; ATN manages worldTime for D&D5e/S&S."
 
 - **Detection Display Updates**  
   Calendar detection info now shows which system manages time:
@@ -134,11 +154,11 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
   - `rtAutoPauseCombat` → Shows SCR's `combatRunning` value
   - `rtLinkPause` → Shows SCR's `unifyGameAndClockPause` value
   
-  Both display: "⚠️ **Managed by SCR:** [setting status]"
+  Both display: "Managed by SCR: [setting status]"
 
 ---
 
-## Architecture Improvements 🏗️
+## Architecture Improvements
 
 - **Time Authority Models**  
   Formalized two patterns:
@@ -153,7 +173,7 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## Documentation 📚
+## Documentation
 
 - **SCR-ref-Doc.md**  
   Comprehensive Simple Calendar Reborn API reference with ATN integration patterns, time authority explanation, and 0-based indexing notes.
@@ -166,20 +186,20 @@ Mini Calendar (wgtgm-mini-calendar) is now fully integrated with About Time Next
 
 ---
 
-## User Interface Refinements 🎨
+## User Interface Refinements
 
 - A new calendar scan is run on load and shows a dialog allowing you to pick the calendar you want ATN to use. This may be dismissed until the next load or until a different calendar is selected in the settings page.
 
 ---
 
-## Documentation Updates 📚
+## Documentation Updates
 
 - **README.md**  
   Updated all Simple Calendar references to Simple Calendar Reborn with integration notes. Added explanation that Simple Calendar has been reborn and is now fully integrated with ATN.
 
 ---
 
-## Migration Notes 📝
+## Migration Notes
 
 - **Legacy Simple Calendar**  
   Simple Calendar v1.x is archived and incompatible with Foundry v13. Users should migrate to Simple Calendar Reborn v2.4.0+.
