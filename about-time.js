@@ -52,6 +52,17 @@ try { import('./module/ATToolbar.js'); } catch (e) { /* optional */ }
 // Legacy helper, used by macros
 export function DTNow() { return game.time.worldTime; }
 
+Hooks.once('window-controls-next.ready', () => {
+  console.log('[ATN] window-controls-next.ready fired');
+  const WCN = game.modules.get('window-controls-next')?.api;
+  if (WCN) {
+    WCN.registerApp('ATEventManagerAppV2');
+    console.log('[ATN] registerApp called');
+  } else {
+    console.warn('[ATN] WindowControls not found');
+  }
+});
+
 Hooks.once('init', () => {
   registerSettings();
   registerMiniSettings(); // <- new mini settings

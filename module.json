@@ -1,12 +1,12 @@
 {
   "id": "about-time-next",
-  "title": "About Time Next (FVTT v13+ Edition)",
-  "description": "<p>Time and event scheduling management utility for Foundry VTT, updated for v13 compatibility.</p>",
-  "version": "13.4.1.0",
+  "title": "About Time Next (FVTT v14+ Edition)",
+  "description": "<p>Time and event scheduling management utility for Foundry VTT, updated for v14 compatibility.</p>",
+  "version": "14.0.0.0",
   "compatibility": {
     "minimum": "13",
-    "verified": "13",
-    "maximum": "13.999"
+    "verified": "14",
+    "maximum": "14"
   },
   "authors": [
     {
@@ -27,60 +27,6 @@
       "lang": "en",
       "name": "English",
       "path": "lang/en.json",
-      "flags": {}
-    },
-    {
-      "lang": "de",
-      "name": "Deutsch (German)",
-      "path": "lang/de.json",
-      "flags": {}
-    },
-    {
-      "lang": "ko",
-      "name": "Korean",
-      "path": "lang/ko.json",
-      "flags": {}
-    },
-    {
-      "lang": "ja",
-      "name": "日本語",
-      "path": "lang/ja.json",
-      "flags": {}
-    },
-    {
-      "lang": "fr",
-      "name": "Français",
-      "path": "lang/fr.json",
-      "flags": {}
-    },
-    {
-      "lang": "pt-BR",
-      "name": "Português (Brasil)",
-      "path": "lang/pt-BR.json",
-      "flags": {}
-    },
-    {
-      "lang": "es",
-      "name": "Español",
-      "path": "lang/es.json",
-      "flags": {}
-    },
-    {
-      "lang": "it",
-      "name": "Italian",
-      "path": "lang/it.json",
-      "flags": {}
-    },
-    {
-      "lang": "cn",
-      "name": "中文",
-      "path": "lang/cn.json",
-      "flags": {}
-    },
-    {
-      "lang": "zh-tw",
-      "name": "正體中文",
-      "path": "lang/zh-tw.json",
       "flags": {}
     }
   ],

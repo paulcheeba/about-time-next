@@ -6,7 +6,7 @@
 
 # About Time Next
 
-**About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13+. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
+**About Time Next** is a timekeeping and event scheduling utility for Foundry VTT v13, v14. It is a spiritual successor to about-time by Tim Posney and is built on top of the original code in an attempt to keep legacy functions. 
 It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Calendar Reborn**, **Mini Calendar**, or falls back to Foundry's core time system.
 
 ---
@@ -23,7 +23,7 @@ It supports **D&D 5e v5.2+ native calendar**, **Seasons & Stars**, **Simple Cale
 2. Enable the module in your world.
 3. (Optional) Configure calendar system in settings: D&D 5e Calendar, Simple Calendar Reborn, Seasons & Stars, Mini Calendar, or None (default).
 
-> Compatibility: Designed for FVTT v13 (min 13, max 13.x).  
+> Compatibility: Designed for FVTT v13, verified v14.  
 > **Calendar Support:** D&D 5e v5.2+ native calendar, Seasons & Stars, Simple Calendar Reborn, Mini Calendar, and core time fallback.  
 > Settings dropdown dynamically shows only available calendar systems. Detection display shows all systems with status.
 
@@ -244,7 +244,7 @@ game.abouttime.notifyIn({ seconds: 30 }, "myCustomEvent", "arg1", "arg2");
 - **Realtime Rate / Tick Hz (world)** — Controls the realtime runner (GM-only; safe ranges enforced).  
 - **Link Pause / Auto-Pause Combat (client)** — How the mini panel reacts to world/game state.
 
-### Event Notification Sounds (client, v13.2.0.0)
+### Event Notification Sounds (client)
 
 Configure audible alerts when events trigger (GM-only feature):
 
