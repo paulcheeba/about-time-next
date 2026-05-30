@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Publish to OEV — GitHub Actions workflow
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# SETUP (one-time, per module):
+#   1. Generate an API key in your OEV Creator Dashboard → API Keys tab.
+#   2. Copy your module's UUID from the same page.
+#   3. Add both as GitHub repository secrets:
+#        OEV_API_KEY    →  your API key
+#        OEV_PRODUCT_ID →  your module UUID
+#
+# NOTE: Releases submitted via this workflow are placed in a pending/inactive
+# state until an OEV admin reviews and activates them. You will receive an
+# email notification once your release is live in the store.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Publish to OEV
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.2.3)'
+        type: string
+        required: true
+      changelog:
+        description: 'Release notes (leave blank to use latest commit message)'
+        type: string
+        required: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build zip
+        run: zip -r module.zip . -x "*.git*"
+      - name: Publish to OEV
+        env:
+          OEV_API_KEY: ${{ secrets.OEV_API_KEY }}
+          OEV_PRODUCT_ID: ${{ secrets.OEV_PRODUCT_ID }}
+          OEV_VERSION: ${{ inputs.version || github.ref_name }}
+          OEV_CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          CHANGELOG="${OEV_CHANGELOG:-$(git log -1 --pretty=%B)}"
+          curl --fail-with-body -X POST https://oevtt.com/api/creator/releases \
+            -H "Authorization: Bearer $OEV_API_KEY" \
+            -F "zip=@module.zip" \
+            -F "product_id=$OEV_PRODUCT_ID" \
+            -F "changelog=$CHANGELOG" \
+            -F "version=$OEV_VERSION"
