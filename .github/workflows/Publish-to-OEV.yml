@@ -9,9 +9,21 @@
 #        OEV_API_KEY    →  your API key
 #        OEV_PRODUCT_ID →  your module UUID
 #
-# NOTE: Releases submitted via this workflow are placed in a pending/inactive
-# state until an OEV admin reviews and activates them. You will receive an
-# email notification once your release is live in the store.
+# RELEASE NOTES (per-version, shown in Discord announcements and your dashboard):
+#   • Best option:   write a GitHub Release for the tag in the GitHub UI.
+#                    This workflow will automatically pull the release body.
+#   • Manual option: fill in the "release_notes" input on workflow_dispatch.
+#   • Fallback:      if neither is present, the last commit message is used.
+#
+# NOTE: The full CHANGELOG.md bundled inside your zip is stored separately
+#       as the project changelog and is not the same as release notes.
+#
+# NOTE: FVTT compatibility range is read automatically from your module.json
+#       compatibility block — no need to specify it here.
+#
+# NOTE: Releases submitted via this workflow start inactive until an OEV admin
+#       reviews and activates them. You will receive an email once your release
+#       is live in the store.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: Publish to OEV
@@ -22,32 +34,114 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v1.2.3)'
-        type: string
-        required: true
-      changelog:
-        description: 'Release notes (leave blank to use latest commit message)'
+        description: 'Version tag (e.g. v1.2.3 — defaults to the triggering tag)'
         type: string
         required: false
+      release_notes:
+        description: 'Per-version release notes (leave blank to auto-pull from GitHub Releases)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # ── Resolve version ──────────────────────────────────────────────────
+      - name: Resolve version
+        id: version
+        run: |
+          RAW="${{ inputs.version || github.ref_name }}"
+          # Strip leading 'v' so the version stored in OEV matches module.json
+          VERSION="${RAW#v}"
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # ── Resolve release notes ─────────────────────────────────────────────
+      # Priority: manual input → GitHub Release body → last commit message
+      - name: Resolve release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.version || github.ref_name }}
+        run: |
+          if [ -n "${{ inputs.release_notes }}" ]; then
+            printf '%s' "${{ inputs.release_notes }}" > release_notes.txt
+            echo "source=manual input" >> "$GITHUB_OUTPUT"
+          else
+            GH_BODY=$(gh release view "$TAG" --json body -q .body 2>/dev/null || true)
+            if [ -n "$GH_BODY" ]; then
+              printf '%s' "$GH_BODY" > release_notes.txt
+              echo "source=GitHub Release body" >> "$GITHUB_OUTPUT"
+            else
+              git log -1 --pretty=%B > release_notes.txt
+              echo "source=last commit message (fallback)" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      # ── Build zip ─────────────────────────────────────────────────────────
       - name: Build zip
-        run: zip -r module.zip . -x "*.git*"
+        run: zip -r module.zip . -x "*.git*" -x ".github/*"
+
+      # ── Publish to OEV ────────────────────────────────────────────────────
       - name: Publish to OEV
+        id: publish
         env:
           OEV_API_KEY: ${{ secrets.OEV_API_KEY }}
           OEV_PRODUCT_ID: ${{ secrets.OEV_PRODUCT_ID }}
-          OEV_VERSION: ${{ inputs.version || github.ref_name }}
-          OEV_CHANGELOG: ${{ inputs.changelog }}
+          VERSION: ${{ steps.version.outputs.value }}
         run: |
-          CHANGELOG="${OEV_CHANGELOG:-$(git log -1 --pretty=%B)}"
-          curl --fail-with-body -X POST https://oevtt.com/api/creator/releases \
+          RESPONSE=$(curl --silent --show-error --write-out "\n%{http_code}" \
+            -X POST https://oevtt.com/api/creator/releases \
             -H "Authorization: Bearer $OEV_API_KEY" \
             -F "zip=@module.zip" \
             -F "product_id=$OEV_PRODUCT_ID" \
-            -F "changelog=$CHANGELOG" \
-            -F "version=$OEV_VERSION"
+            -F "release_notes=<release_notes.txt" \
+            -F "version=$VERSION")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "http_code=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          echo "body=$BODY"           >> "$GITHUB_OUTPUT"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::OEV publish failed (HTTP $HTTP_CODE): $BODY"
+            exit 1
+          fi
+
+      # ── Job summary ───────────────────────────────────────────────────────
+      - name: Write job summary (success)
+        if: success()
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          NOTES_SOURCE: ${{ steps.notes.outputs.source }}
+        run: |
+          echo "## ✅ Published to OEV" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Version** | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Product ID** | \`${{ secrets.OEV_PRODUCT_ID }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Release notes** | $NOTES_SOURCE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Status** | Pending admin review — you'll receive an email when it goes live |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write job summary (failure)
+        if: failure()
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          HTTP_CODE: ${{ steps.publish.outputs.http_code }}
+          BODY: ${{ steps.publish.outputs.body }}
+        run: |
+          echo "## ❌ Publish Failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Version** | \`$VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **HTTP status** | \`$HTTP_CODE\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **API response** | $BODY |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Check your \`OEV_API_KEY\` and \`OEV_PRODUCT_ID\` secrets and ensure the version is higher than the current latest release."
